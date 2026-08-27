@@ -1,0 +1,70 @@
+import type {
+  Campus,
+  Career,
+  Gender,
+  Major,
+  MentoringArea,
+  TimeSlot,
+} from "@/shared/constants/domain";
+import type { PersonaType } from "@/shared/constants/persona";
+
+/** DB의 Users + Mentee_Profiles를 조인한 형태 */
+export interface Mentee {
+  id: string;
+  /** 신청 완료 시 발급되는 참여코드. 문의·조회의 기준이 된다. */
+  participationCode: string;
+  name: string;
+  gender: Gender;
+  contact: string;
+  /** 어느 고등학교에서 왔는지 */
+  highSchool?: string;
+  /** 이 서비스를 소개해 준 사람 */
+  referrer?: string;
+  /** 프로필 사진 (data URL). 없으면 페르소나 이모지로 대체한다. */
+  photoUrl?: string;
+  availableTimes: TimeSlot[];
+  /** 1~3지망. 인덱스 0이 1지망. */
+  targetCampus: Campus[];
+  /** 최대 3개. 하나만 골라도 된다. */
+  desiredAreas: MentoringArea[];
+  personaType: PersonaType;
+  targetMajors: Major[];
+  targetCareers: Career[];
+}
+
+/** DB의 Users + Mentor_Profiles를 조인한 형태 */
+export interface Mentor {
+  id: string;
+  participationCode: string;
+  name: string;
+  gender: Gender;
+  contact: string;
+  highSchool?: string;
+  referrer?: string;
+  photoUrl?: string;
+  availableTimes: TimeSlot[];
+  currentCampus: Campus;
+  /** 입학 연도. 화면에는 뒤 두 자리를 따 '24학번'으로 보여준다. */
+  admissionYear: number;
+  mentoringArea: MentoringArea[];
+  personaType: PersonaType;
+  currentMajors: Major[];
+  careerPaths: Career[];
+}
+
+/** 점수의 근거. UI에서 "왜 이 멘토인지" 보여주고, 가중치 튜닝 시 디버깅에 쓴다. */
+export interface ScoreBreakdown {
+  campus: number;
+  areaAndPersona: number;
+  majorAndCareer: number;
+  basics: number;
+}
+
+export interface MatchResult {
+  mentor: Mentor;
+  /** 0 ~ 100 적합도 */
+  score: number;
+  breakdown: ScoreBreakdown;
+  /** 프로필 카드에 노출할 해시태그 */
+  hashtags: string[];
+}

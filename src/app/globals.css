@@ -1,0 +1,59 @@
+@import "tailwindcss";
+
+/* 토스 스타일의 구조 + 레퍼런스의 바이올렛 액센트. Tailwind v4는 CSS에서 테마를 정의한다. */
+@theme {
+  /* 레퍼런스 이미지의 보라 계열. 액센트는 이 세 단계만 쓴다. */
+  --color-brand: #6c5ce7;
+  --color-brand-dark: #5546c9;
+  /* 선택된 항목 배경, 화면 배경 등 아주 옅은 라벤더 */
+  --color-brand-soft: #eeebff;
+
+  /* 이름 강조용. 바이올렛 위에 바이올렛을 겹치면 묻히므로 보색 쪽 라임을 쓴다. */
+  --color-accent-lime: #d4f34a;
+  /* 그라디언트 이름의 반대쪽 끝 색 */
+  --color-accent-pink: #ff6b9d;
+
+  /* 페르소나별 카드 헤더 그라디언트 (레퍼런스 프로필 카드의 상단 밴드) */
+  --color-persona-david: #f2705f;
+  --color-persona-solomon: #6c5ce7;
+  --color-persona-esther: #f0a04b;
+  --color-persona-noah: #38b48b;
+
+  --color-gray-50: #f9fafb;
+  --color-gray-100: #f2f4f6;
+  --color-gray-200: #e5e8eb;
+  --color-gray-300: #d1d6db;
+  --color-gray-400: #b0b8c1;
+  --color-gray-500: #8b95a1;
+  --color-gray-600: #6b7684;
+  --color-gray-700: #4e5968;
+  --color-gray-800: #333d4b;
+  --color-gray-900: #191f28;
+
+  --color-red-500: #f04452;
+  --color-green-500: #15c47e;
+
+  --font-sans: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont,
+    system-ui, "Apple SD Gothic Neo", sans-serif;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background-color: var(--color-gray-100);
+  color: var(--color-gray-900);
+  font-family: var(--font-sans);
+  /* 한글 자간을 살짝 좁혀야 토스 특유의 단단한 인상이 난다. */
+  letter-spacing: -0.01em;
+  /* 한글은 어절 단위로 끊어야 한다. 기본값이면 "표로 봅/니다"처럼 낱글자가 넘어간다. */
+  word-break: keep-all;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* 모바일에서 버튼 탭할 때 뜨는 회색 하이라이트 제거 */
+button {
+  -webkit-tap-highlight-color: transparent;
+}
