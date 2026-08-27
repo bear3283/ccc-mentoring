@@ -5,7 +5,6 @@ import { DataTable, type TableColumn } from "@/features/admin/components/DataTab
 import { downloadCsv, type CsvColumn } from "@/features/admin/lib/csv";
 import { matchMentors } from "@/features/matching/lib/score";
 import type { Mentee, Mentor } from "@/features/matching/model/types";
-import { formatParticipationCode } from "@/features/onboarding/lib/participationCode";
 import { formatTimeSlotShort } from "@/shared/constants/domain";
 import { PERSONAS } from "@/shared/constants/persona";
 import { MOCK_MENTEES, MOCK_MENTORS } from "@/shared/lib/mock/generate";
@@ -32,7 +31,7 @@ interface MatchRow {
 }
 
 const menteeColumns: TableColumn<Mentee>[] = [
-  { key: "code", header: "참여코드", value: (r) => formatParticipationCode(r.participationCode), width: "110px" },
+  { key: "code", header: "참여코드", value: (r) => r.participationCode, width: "110px" },
   { key: "name", header: "이름", value: (r) => r.name, width: "80px" },
   { key: "gender", header: "성별", value: (r) => (r.gender === "MALE" ? "남" : "여"), align: "center", width: "60px" },
   { key: "campus1", header: "1지망", value: (r) => r.targetCampus[0] },
@@ -49,7 +48,7 @@ const menteeColumns: TableColumn<Mentee>[] = [
 ];
 
 const mentorColumns: TableColumn<Mentor>[] = [
-  { key: "code", header: "참여코드", value: (r) => formatParticipationCode(r.participationCode), width: "110px" },
+  { key: "code", header: "참여코드", value: (r) => r.participationCode, width: "110px" },
   { key: "name", header: "이름", value: (r) => r.name, width: "80px" },
   { key: "gender", header: "성별", value: (r) => (r.gender === "MALE" ? "남" : "여"), align: "center", width: "60px" },
   { key: "campus", header: "캠퍼스", value: (r) => r.currentCampus },
@@ -114,7 +113,7 @@ export default function AdminPage() {
         matchMentors(mentee, MOCK_MENTORS, 3).map((result, i) => ({
           id: `${mentee.id}-${result.mentor.id}`,
           rank: i + 1,
-          menteeCode: formatParticipationCode(mentee.participationCode),
+          menteeCode: mentee.participationCode,
           menteeName: mentee.name,
           menteeCampus: mentee.targetCampus[0],
           menteeArea: mentee.desiredAreas.join(", "),
@@ -202,7 +201,7 @@ export default function AdminPage() {
           rows={MOCK_MENTEES}
           columns={menteeColumns}
           rowKey={(r) => r.id}
-          searchable={(r) => `${formatParticipationCode(r.participationCode)} ${r.name} ${r.targetCampus.join(" ")} ${r.targetMajors.join(" ")} ${r.desiredAreas.join(" ")}`}
+          searchable={(r) => `${r.participationCode} ${r.name} ${r.targetCampus.join(" ")} ${r.targetMajors.join(" ")} ${r.desiredAreas.join(" ")}`}
         />
       )}
 
@@ -211,7 +210,7 @@ export default function AdminPage() {
           rows={MOCK_MENTORS}
           columns={mentorColumns}
           rowKey={(r) => r.id}
-          searchable={(r) => `${formatParticipationCode(r.participationCode)} ${r.name} ${r.currentCampus} ${r.currentMajors.join(" ")} ${r.mentoringArea.join(" ")}`}
+          searchable={(r) => `${r.participationCode} ${r.name} ${r.currentCampus} ${r.currentMajors.join(" ")} ${r.mentoringArea.join(" ")}`}
         />
       )}
 

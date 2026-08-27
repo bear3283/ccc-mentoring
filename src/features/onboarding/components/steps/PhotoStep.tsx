@@ -2,8 +2,8 @@
 
 import { animate } from "animejs";
 import { useEffect, useRef, useState } from "react";
-import { PERSONAS } from "@/shared/constants/persona";
 import { DURATION, REVEAL_EASE, TAP_SPRING } from "@/shared/lib/anime";
+import { nameInitials } from "@/shared/lib/nameInitials";
 import { StepLayout } from "../StepLayout";
 import type { StepProps } from "../../model/types";
 
@@ -51,10 +51,13 @@ export function PhotoStep({ role, draft, onNext, onChange }: StepProps) {
   const [photoUrl, setPhotoUrl] = useState<string | undefined>(draft.photoUrl);
   const [error, setError] = useState<string>();
 
-  const inputRef = useRef<HTMLInputElement>(null);
+  // 앨범과 카메라는 input 을 따로 둔다.
+  // 하나에 capture 속성을 켰다 껐다 하면 기기에 따라 반영이 늦다.
+  const pickRef = useRef<HTMLInputElement>(null);
+  const captureRef = useRef<HTMLInputElement>(null);
   const previewRef = useRef<HTMLDivElement>(null);
 
-  const persona = draft.personaType ? PERSONAS[draft.personaType] : undefined;
+  const initials = nameInitials(draft.name);
 
 
   // 고르는 즉시 draft에 반영한다. 뒤로 갔다 돌아와도 선택이 남아 있어야 한다.
@@ -99,20 +102,22 @@ export function PhotoStep({ role, draft, onNext, onChange }: StepProps) {
               className="size-[140px] rounded-full object-cover"
             />
           ) : (
-            <div className="flex size-[140px] items-center justify-center rounded-full bg-gray-50 text-[52px]">
-              <span aria-hidden>{persona?.emoji ?? "🙂"}</span>
+            // 사진이 없으면 이름 글자를 보여준다. 이모지로 대체하지 않는다.
+            <div className="flex size-[140px] items-center justify-center rounded-full bg-gray-100">
+              <span className="text-[44px] font-bold text-gray-400">{initials}</span>
             </div>
           )}
         </div>
 
-        {!photoUrl && persona && (
+        {!photoUrl && (
           <p className="mt-3 text-center text-[13px] text-gray-400">
-            사진이 없으면 {persona.name} 이모지로 보여요.
+            올리지 않으면 이름만 보여요.
           </p>
         )}
 
+        {/* 앨범에서 고르기 */}
         <input
-          ref={inputRef}
+          ref={pickRef}
           type="file"
           accept={ACCEPTED}
           className="hidden"
@@ -122,28 +127,40 @@ export function PhotoStep({ role, draft, onNext, onChange }: StepProps) {
             e.target.value = "";
           }}
         />
+        {/* 바로 찍기. capture="user" 가 모바일에서 카메라를 연다. */}
+        <input
+          ref={captureRef}
+          type="file"
+          accept={ACCEPTED}
+          capture="user"
+          className="hidden"
+          onChange={(e) => {
+            void handleFile(e.target.files?.[0]);
+            e.target.value = "";
+          }}
+        />
 
-        <div className="mt-6 flex w-full flex-col gap-2">
-          <button
-            type="button"
-            onClick={(e) => {
-              inputRef.current?.click();
-              animate(e.currentTarget, {
-                scale: [0.98, 1],
-                duration: DURATION.fade,
-                ease: REVEAL_EASE,
-              });
-            }}
-            className="h-[52px] w-full rounded-2xl bg-brand-soft text-[16px] font-bold text-brand"
-          >
-            {photoUrl ? "다른 사진 고르기" : "사진 고르기"}
-          </button>
+        <div className="mt-6 w-full">
+          <div className="grid grid-cols-2 gap-2">
+            <PhotoActionButton
+              onClick={() => pickRef.current?.click()}
+              emoji="🖼️"
+              label={photoUrl ? "다시 고르기" : "고르기"}
+              description="앨범에서"
+            />
+            <PhotoActionButton
+              onClick={() => captureRef.current?.click()}
+              emoji="📷"
+              label={photoUrl ? "다시 찍기" : "찍기"}
+              description="카메라로"
+            />
+          </div>
 
           {photoUrl && (
             <button
               type="button"
               onClick={() => setPhotoUrl(undefined)}
-              className="h-[52px] w-full rounded-2xl bg-gray-50 text-[16px] font-semibold text-gray-600"
+              className="mt-2 h-[48px] w-full rounded-2xl bg-gray-50 text-[15px] font-semibold text-gray-600"
             >
               사진 지우기
             </button>
@@ -153,5 +170,39 @@ export function PhotoStep({ role, draft, onNext, onChange }: StepProps) {
         {error && <p className="mt-3 text-[13px] text-red-500">{error}</p>}
       </div>
     </StepLayout>
+  );
+}
+
+/** 고르기 / 찍기 두 갈래를 같은 크기로 나란히 보여준다. */
+function PhotoActionButton({
+  onClick,
+  emoji,
+  label,
+  description,
+}: {
+  onClick: () => void;
+  emoji: string;
+  label: string;
+  description: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        onClick();
+        animate(e.currentTarget, {
+          scale: [0.97, 1],
+          duration: DURATION.fade,
+          ease: REVEAL_EASE,
+        });
+      }}
+      className="flex flex-col items-center gap-1 rounded-2xl bg-brand-soft py-4"
+    >
+      <span className="text-[24px]" aria-hidden>
+        {emoji}
+      </span>
+      <span className="text-[16px] font-bold text-brand">{label}</span>
+      <span className="text-[12px] text-gray-500">{description}</span>
+    </button>
   );
 }

@@ -4,6 +4,7 @@ import { Name } from "@/components/ui/Name";
 import { formatTimeSlotShort } from "@/shared/constants/domain";
 import { PERSONAS } from "@/shared/constants/persona";
 import { cn } from "@/shared/lib/cn";
+import { nameInitials } from "@/shared/lib/nameInitials";
 import type { MatchResult } from "../model/types";
 
 interface MentorCardProps {
@@ -49,7 +50,11 @@ export function MentorCard({ result, onMatch }: MentorCardProps) {
                 className="size-full object-cover"
               />
             ) : (
-              <span aria-hidden>{persona.emoji}</span>
+              // 사진이 없으면 이름 글자로 채운다.
+              // 페르소나 이모지를 쓰면 "사진 없는 사람"이 아니라 "그 성향인 사람"처럼 읽힌다.
+              <span className="text-[26px] font-bold text-gray-400">
+                {nameInitials(mentor.name)}
+              </span>
             )}
           </div>
         </div>

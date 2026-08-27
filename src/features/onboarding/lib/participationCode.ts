@@ -12,9 +12,6 @@
 const ALPHABET = "23456789ABCDEFGHJKMNPQRSTUVWXYZ";
 const CODE_LENGTH = 6;
 
-/** 표시용 구분자 위치. 6자를 3-3으로 끊으면 한 번에 읽힌다. */
-const GROUP_SIZE = 3;
-
 /**
  * 암호학적 난수로 코드를 만든다.
  * Math.random을 쓰면 같은 밀리초에 제출한 두 사람이 같은 코드를 받을 수 있다.
@@ -32,13 +29,11 @@ export function generateParticipationCode(): string {
   return code;
 }
 
-/** "K7M2X9" -> "K7M-2X9" */
-export function formatParticipationCode(code: string): string {
-  if (code.length !== CODE_LENGTH) return code;
-  return `${code.slice(0, GROUP_SIZE)}-${code.slice(GROUP_SIZE)}`;
-}
-
-/** 사용자가 입력한 코드를 비교 가능한 형태로 정규화한다. */
+/**
+ * 사용자가 입력한 코드를 비교 가능한 형태로 정규화한다.
+ * 표시할 때는 구분 기호 없이 6자를 그대로 쓰지만,
+ * 붙여넣기로 하이픈이 섞여 들어와도 통과시켜야 한다.
+ */
 export function normalizeParticipationCode(input: string): string {
   return input.replace(/[^0-9A-Za-z]/g, "").toUpperCase();
 }

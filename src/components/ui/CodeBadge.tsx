@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { formatParticipationCode } from "@/features/onboarding/lib/participationCode";
 import { cn } from "@/shared/lib/cn";
 import { pressFeedback, Toast } from "./Toast";
 
@@ -38,9 +37,8 @@ export function CodeBadge({ code, size = "large" }: CodeBadgeProps) {
 
   const handleCopy = async (e: React.MouseEvent<HTMLButtonElement>) => {
     pressFeedback(e.currentTarget);
-    const formatted = formatParticipationCode(code);
     try {
-      await navigator.clipboard.writeText(formatted);
+      await navigator.clipboard.writeText(code);
       showToast("참여코드를 복사했어요");
     } catch {
       // 클립보드가 막힌 환경(비 HTTPS 등)에서는 화면의 코드를 보고 적으면 된다.
@@ -55,7 +53,7 @@ export function CodeBadge({ code, size = "large" }: CodeBadgeProps) {
       <button
         type="button"
         onClick={handleCopy}
-        aria-label={`참여코드 ${formatParticipationCode(code)} 복사하기`}
+        aria-label={`참여코드 ${code.split("").join(" ")} 복사하기`}
         className={cn(
           "w-full rounded-3xl bg-brand-soft transition-colors duration-150 active:bg-brand/15",
           isLarge ? "px-6 py-7" : "px-4 py-3",
@@ -64,8 +62,8 @@ export function CodeBadge({ code, size = "large" }: CodeBadgeProps) {
         {isLarge ? (
           <>
             <span className="block text-[13px] font-semibold text-brand">나의 참여코드</span>
-            <span className="mt-2 block font-mono text-[34px] leading-none font-bold tracking-[0.08em] text-gray-900">
-              {formatParticipationCode(code)}
+            <span className="mt-2 block font-mono text-[34px] leading-none font-bold tracking-[0.2em] text-gray-900">
+              {code}
             </span>
             <span className="mt-3 block text-[13px] font-semibold text-brand">
               눌러서 복사하기
@@ -75,8 +73,8 @@ export function CodeBadge({ code, size = "large" }: CodeBadgeProps) {
           <span className="flex items-center justify-between">
             <span className="text-[13px] font-semibold text-brand">참여코드</span>
             <span className="flex items-center gap-2">
-              <span className="font-mono text-[16px] font-bold tracking-[0.06em] text-gray-900">
-                {formatParticipationCode(code)}
+              <span className="font-mono text-[16px] font-bold tracking-[0.14em] text-gray-900">
+                {code}
               </span>
               <span className="text-[12px] font-semibold text-brand">복사</span>
             </span>
