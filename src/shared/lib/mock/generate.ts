@@ -8,6 +8,7 @@ import {
   type Campus,
   type TimeSlot,
 } from "@/shared/constants/domain";
+import { MBTI_TYPES } from "@/shared/constants/mbti";
 import { PERSONA_TYPES } from "@/shared/constants/persona";
 import type { Mentee, Mentor } from "@/features/matching/model/types";
 
@@ -88,6 +89,11 @@ function makeCode(random: Random): string {
   return code;
 }
 
+/** 자기 유형을 모르는 사람도 있으므로 20%는 비워 둔다. */
+function makeMbti(random: Random) {
+  return random() < 0.2 ? undefined : pick(random, MBTI_TYPES);
+}
+
 const CURRENT_YEAR = 2026;
 
 export function generateMentors(count = 50, seed = 20260827): Mentor[] {
@@ -109,6 +115,7 @@ export function generateMentors(count = 50, seed = 20260827): Mentor[] {
       // 멘토는 여러 영역을 도울 수 있다.
       mentoringArea: pickMany(random, MENTORING_AREAS, 1 + Math.floor(random() * 3)),
       personaType: pick(random, PERSONA_TYPES),
+      mbti: makeMbti(random),
       // 복수전공·부전공이 흔해 최대 2개까지 잡는다.
       currentMajors: pickMany(random, MAJORS, 1 + Math.floor(random() * 2)),
       careerPaths: pickMany(random, CAREERS, 1 + Math.floor(random() * 2)),
@@ -132,6 +139,7 @@ export function generateMentees(count = 50, seed = 19970416): Mentee[] {
     // 최대 3개. 하나만 고르는 사람도 많다.
     desiredAreas: pickMany(random, MENTORING_AREAS, 1 + Math.floor(random() * 3)),
     personaType: pick(random, PERSONA_TYPES),
+    mbti: makeMbti(random),
     targetMajors: pickMany(random, MAJORS, 1 + Math.floor(random() * 3)),
     targetCareers: pickMany(random, CAREERS, 1 + Math.floor(random() * 3)),
     highSchool: `${pick(random, HIGH_SCHOOL_PREFIX)}고등학교`,

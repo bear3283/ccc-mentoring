@@ -1,4 +1,5 @@
-import { getPersonaAffinity, PERSONAS } from "@/shared/constants/persona";
+import { getPersonaAffinity } from "@/shared/constants/persona";
+import { buildHashtags } from "./hashtags";
 import type { MatchResult, Mentee, Mentor, ScoreBreakdown } from "../model/types";
 
 /**
@@ -22,13 +23,15 @@ export const WEIGHT_TOTAL = Object.values(WEIGHTS).reduce((sum, w) => sum + w, 0
  *   믿고 점수를 주면 표기 차이("한빛고" vs "한빛고등학교")나 오타만으로 순위가
  *   흔들린다. 수집해서 운영자 표에 보여 주기만 하고 매칭에는 쓰지 않는다.
  * referrer: 추천인도 같은 이유로 참고용이다.
+ * mbti: 아이스브레이킹으로 받는다. 성향은 이미 성경 인물이 2순위(30%)를 맡고 있어
+ *   MBTI까지 점수에 넣으면 배분을 다시 나눠야 한다. 지금은 카드와 표에만 보여준다.
  *
  * 나중에 반영하려면:
  *   1) WEIGHTS에 항목을 추가하고 다른 항목을 그만큼 줄여 합계 100을 유지한다.
  *   2) scoreXxx 순수 함수를 하나 만들어 calculateBreakdown에 더한다.
  *   3) ScoreBreakdown 타입에 같은 키를 넣어야 점수 근거가 화면에 드러난다.
  */
-export const UNSCORED_FIELDS = ["highSchool", "referrer"] as const;
+export const UNSCORED_FIELDS = ["highSchool", "referrer", "mbti"] as const;
 
 /** 2순위 30% 안에서 영역과 성향이 나눠 갖는 비율. */
 const AREA_RATIO = 0.6;
@@ -121,25 +124,6 @@ export function passesRequiredFilters(mentee: Mentee, mentor: Mentor): boolean {
   if (!mentee.targetCampus.includes(mentor.currentCampus)) return false;
 
   return true;
-}
-
-/** 프로필 카드에 노출할 해시태그를 멘토 속성에서 만든다. */
-export function buildHashtags(mentor: Mentor, mentee: Mentee): string[] {
-  const tags = [PERSONAS[mentor.personaType].hashtag];
-
-  if (mentor.mentoringArea.includes("학점관리")) tags.push("#A+폭격기");
-  if (mentor.mentoringArea.includes("탐방")) tags.push("#탐방러");
-  if (mentor.mentoringArea.includes("교환학생")) tags.push("#교환학생경험");
-
-  // 겹치는 학과·진로가 있으면 그것을 태그로 세운다. 멘티가 자기 관심사를 카드에서 바로 본다.
-  const sharedMajor = mentor.currentMajors.find((m) => mentee.targetMajors.includes(m));
-  if (sharedMajor) tags.push(`#${sharedMajor}선배`);
-
-  const sharedCareer = mentor.careerPaths.find((c) => mentee.targetCareers.includes(c));
-  if (sharedCareer) tags.push(`#${sharedCareer}루트`);
-
-  // 카드가 지저분해지지 않도록 최대 4개까지만 보여준다.
-  return tags.slice(0, 4);
 }
 
 export function calculateBreakdown(mentee: Mentee, mentor: Mentor): ScoreBreakdown {

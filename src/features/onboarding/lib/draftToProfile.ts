@@ -44,6 +44,7 @@ export function draftToMentee(
     targetCampus: draft.targetCampus,
     desiredAreas: draft.desiredAreas,
     personaType: draft.personaType,
+    mbti: draft.mbti,
     targetMajors: draft.targetMajors,
     targetCareers: draft.targetCareers,
   };
@@ -82,6 +83,7 @@ export function draftToMentor(
     admissionYear: draft.admissionYear,
     mentoringArea: draft.mentoringArea,
     personaType: draft.personaType,
+    mbti: draft.mbti,
     currentMajors: draft.currentMajors,
     careerPaths: draft.careerPaths,
   };

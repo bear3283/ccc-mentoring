@@ -6,6 +6,7 @@ import type {
   MentoringArea,
   TimeSlot,
 } from "@/shared/constants/domain";
+import type { MbtiType } from "@/shared/constants/mbti";
 import type { PersonaType } from "@/shared/constants/persona";
 
 /** DB의 Users + Mentee_Profiles를 조인한 형태 */
@@ -28,6 +29,8 @@ export interface Mentee {
   /** 최대 3개. 하나만 골라도 된다. */
   desiredAreas: MentoringArea[];
   personaType: PersonaType;
+  /** 아이스브레이킹으로 받은 값. 매칭 점수에는 쓰지 않는다. */
+  mbti?: MbtiType;
   targetMajors: Major[];
   targetCareers: Career[];
 }
@@ -48,6 +51,7 @@ export interface Mentor {
   admissionYear: number;
   mentoringArea: MentoringArea[];
   personaType: PersonaType;
+  mbti?: MbtiType;
   currentMajors: Major[];
   careerPaths: Career[];
 }

@@ -5,7 +5,6 @@
  * 실행: npx tsx scripts/verify-matching.ts
  */
 import {
-  buildHashtags,
   calculateBreakdown,
   matchMentors,
   passesRequiredFilters,
@@ -15,6 +14,8 @@ import {
 } from "../src/features/matching/lib/score";
 import { MOCK_MENTEES, MOCK_MENTORS } from "../src/shared/lib/mock/generate";
 import { readFileSync } from "node:fs";
+import { buildHashtags } from "../src/features/matching/lib/hashtags";
+import { MBTI_TYPES } from "../src/shared/constants/mbti";
 import { PERSONAS } from "../src/shared/constants/persona";
 import { formatTimeSlotShort } from "../src/shared/constants/domain";
 
@@ -97,6 +98,18 @@ check(
 check(
   "참여코드에 혼동 문자(0,O,1,I,L) 없음",
   allCodes.every((c) => !/[01OIL]/.test(c)),
+);
+
+const everyone = [...MOCK_MENTORS, ...MOCK_MENTEES];
+const withMbti = everyone.filter((p) => p.mbti);
+check(
+  "MBTI는 16개 정식 유형만 사용",
+  withMbti.every((p) => (MBTI_TYPES as readonly string[]).includes(p.mbti!)),
+  `입력 ${withMbti.length}명 / 미입력 ${everyone.length - withMbti.length}명`,
+);
+check(
+  "MBTI 미입력자가 있어도 매칭에 지장 없음",
+  everyone.some((p) => !p.mbti),
 );
 
 // ---------------------------------------------------------------- 점수 범위

@@ -8,6 +8,7 @@ import { OnboardingFunnel, type StepRegistry } from "./OnboardingFunnel";
 import { AreaStep } from "./steps/AreaStep";
 import { CampusStep } from "./steps/CampusStep";
 import { MajorStep } from "./steps/MajorStep";
+import { MbtiStep } from "./steps/MbtiStep";
 import { PersonaStep } from "./steps/PersonaStep";
 import { PhotoStep } from "./steps/PhotoStep";
 import { ProfileStep } from "./steps/ProfileStep";
@@ -20,6 +21,7 @@ import { STEPS_BY_ROLE, type OnboardingDraft, type OnboardingStep } from "../mod
  */
 const REGISTRY: StepRegistry = {
   persona: PersonaStep,
+  mbti: MbtiStep,
   // 캠퍼스는 역할에 따라 3지망 선택 / 단일 선택으로 갈린다.
   targetCampus: CampusStep,
   currentCampus: CampusStep,

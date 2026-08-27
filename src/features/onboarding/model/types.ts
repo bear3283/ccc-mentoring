@@ -1,4 +1,5 @@
 import type { Campus, Career, Gender, Major, MentoringArea, TimeSlot } from "@/shared/constants/domain";
+import type { MbtiType } from "@/shared/constants/mbti";
 import type { PersonaType } from "@/shared/constants/persona";
 import type { Role } from "@/shared/constants/role";
 
@@ -8,6 +9,7 @@ import type { Role } from "@/shared/constants/role";
  */
 export const MENTEE_STEPS = [
   "persona",
+  "mbti",
   "targetCampus",
   "desiredArea",
   "targetMajor",
@@ -18,6 +20,7 @@ export const MENTEE_STEPS = [
 
 export const MENTOR_STEPS = [
   "persona",
+  "mbti",
   "currentCampus",
   "mentoringArea",
   "currentMajor",
@@ -39,6 +42,8 @@ export const STEPS_BY_ROLE = {
 export interface OnboardingDraft {
   // 공통
   personaType?: PersonaType;
+  /** 아이스브레이킹용. 모르면 비워둘 수 있다. */
+  mbti?: MbtiType;
   name?: string;
   gender?: Gender;
   contact?: string;
