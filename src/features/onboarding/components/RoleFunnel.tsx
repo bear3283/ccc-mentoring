@@ -1,9 +1,9 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 import type { Role } from "@/shared/constants/role";
 import { saveDraft } from "../lib/draftStore";
-import { generateParticipationCode } from "../lib/participationCode";
 import { OnboardingFunnel, type StepRegistry } from "./OnboardingFunnel";
 import { AreaStep } from "./steps/AreaStep";
 import { CampusStep } from "./steps/CampusStep";
@@ -41,27 +41,62 @@ interface RoleFunnelProps {
 
 export function RoleFunnel({ role }: RoleFunnelProps) {
   const router = useRouter();
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string>();
 
   // 역할별 전체 스텝 중 실제로 구현된 것만 추린다.
   const activeSteps = STEPS_BY_ROLE[role].filter(
     (step): step is OnboardingStep => step in REGISTRY,
   );
 
-  const handleComplete = (draft: OnboardingDraft) => {
-    // 제출 시점에 참여코드를 발급하고 draft와 함께 보관한다.
-    // Supabase를 붙이면 이 두 줄이 서버 저장 호출로 바뀐다.
-    const participationCode = generateParticipationCode();
-    saveDraft(role, draft, participationCode);
+  const handleComplete = async (draft: OnboardingDraft) => {
+    if (submitting) return;
+    setSubmitting(true);
+    setError(undefined);
 
-    router.push("/onboarding/complete");
+    try {
+      // 참여코드는 서버가 발급한다. 브라우저가 정한 코드를 그대로 쓰면
+      // 원하는 코드를 골라 넣거나 남의 코드와 충돌시키는 요청을 만들 수 있다.
+      const res = await fetch("/api/signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ role, draft }),
+      });
+
+      const body = (await res.json()) as { participationCode?: string; error?: string };
+
+      if (!res.ok || !body.participationCode) {
+        setError(body.error ?? "저장하지 못했어요. 잠시 후 다시 시도해주세요.");
+        setSubmitting(false);
+        return;
+      }
+
+      // 완료 화면과 결과 화면이 읽을 수 있게 이 브라우저에도 남긴다.
+      saveDraft(role, draft, body.participationCode);
+      router.push("/onboarding/complete");
+    } catch {
+      setError("연결에 실패했어요. 인터넷 상태를 확인해주세요.");
+      setSubmitting(false);
+    }
   };
 
   return (
-    <OnboardingFunnel
-      role={role}
-      steps={activeSteps}
-      registry={REGISTRY}
-      onComplete={handleComplete}
-    />
+    <>
+      <OnboardingFunnel
+        role={role}
+        steps={activeSteps}
+        registry={REGISTRY}
+        onComplete={handleComplete}
+      />
+
+      {/* 제출 실패는 마지막 스텝 위에 덮어 보여준다. 화면을 벗어나면 다시 채워야 한다. */}
+      {error && (
+        <div className="fixed inset-x-0 bottom-[max(90px,env(safe-area-inset-bottom))] z-50 flex justify-center px-5">
+          <p className="w-full max-w-[390px] rounded-2xl bg-red-500 px-5 py-4 text-center text-[14px] font-semibold text-white shadow-lg">
+            {error}
+          </p>
+        </div>
+      )}
+    </>
   );
 }

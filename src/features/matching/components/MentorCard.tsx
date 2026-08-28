@@ -5,11 +5,11 @@ import { formatTimeSlotShort } from "@/shared/constants/domain";
 import { PERSONAS } from "@/shared/constants/persona";
 import { cn } from "@/shared/lib/cn";
 import { nameInitials } from "@/shared/lib/nameInitials";
-import type { MatchResult } from "../model/types";
+import type { PublicMatchResult } from "../model/types";
 
 interface MentorCardProps {
-  result: MatchResult;
-  onMatch: (result: MatchResult) => void;
+  result: PublicMatchResult;
+  onMatch: (result: PublicMatchResult) => void;
 }
 
 /**
@@ -105,6 +105,14 @@ export function MentorCard({ result, onMatch }: MentorCardProps) {
             </dd>
           </div>
         </dl>
+
+        {/* 가린 번호를 미리 보여줘 "누구인지"는 알되 바로 연락은 못 하게 한다.
+            전체 번호는 매칭을 요청하고 상대가 수락한 뒤에 공개된다. */}
+        <p className="mt-4 text-[13px] text-gray-400">
+          연락처 <span className="font-mono tracking-wide">{mentor.maskedContact}</span>
+          <br />
+          매칭을 요청하면 전체 번호를 알려드려요.
+        </p>
 
         <button
           type="button"

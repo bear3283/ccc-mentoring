@@ -72,3 +72,30 @@ export interface MatchResult {
   /** 프로필 카드에 노출할 해시태그 */
   hashtags: string[];
 }
+
+/**
+ * 매칭 API가 브라우저로 돌려주는 형태.
+ * Mentor 전체가 아니라 카드에 필요한 항목만 담고,
+ * 연락처는 가린 값만 넣는다.
+ */
+export interface PublicMentor {
+  id: string;
+  name: string;
+  currentCampus: Campus;
+  currentMajors: Major[];
+  admissionYear: number;
+  careerPaths: Career[];
+  mentoringArea: MentoringArea[];
+  personaType: PersonaType;
+  mbti?: MbtiType;
+  photoUrl?: string;
+  availableTimes: TimeSlot[];
+  /** 010-****-5678. 전체 번호는 매칭 요청 후에 공개한다. */
+  maskedContact: string;
+}
+
+export interface PublicMatchResult {
+  score: number;
+  hashtags: string[];
+  mentor: PublicMentor;
+}

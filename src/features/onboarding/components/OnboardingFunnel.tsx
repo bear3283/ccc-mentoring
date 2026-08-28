@@ -19,7 +19,7 @@ interface OnboardingFunnelProps {
   role: Extract<Role, "MENTEE" | "MENTOR">;
   steps: readonly OnboardingStep[];
   registry: StepRegistry;
-  onComplete: (draft: OnboardingDraft) => void;
+  onComplete: (draft: OnboardingDraft) => void | Promise<void>;
 }
 
 export function OnboardingFunnel({ role, steps, registry, onComplete }: OnboardingFunnelProps) {
@@ -58,7 +58,7 @@ export function OnboardingFunnel({ role, steps, registry, onComplete }: Onboardi
 
   const handleNext = (patch: Partial<OnboardingDraft>) => {
     if (isLast) {
-      onComplete({ ...draft, ...patch });
+      void onComplete({ ...draft, ...patch });
       return;
     }
     next(patch);

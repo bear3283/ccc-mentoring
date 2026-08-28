@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { CodeBadge } from "@/components/ui/CodeBadge";
 import { Name } from "@/components/ui/Name";
-import { findByNameAndPhone, type RosterEntry } from "@/features/lookup/lib/roster";
+type RosterEntry = { code: string; name: string; role: "MENTEE" | "MENTOR" };
 
 const ROLE_LABEL = { MENTEE: "멘티", MENTOR: "멘토" } as const;
 
@@ -25,10 +25,38 @@ export default function LookupPage() {
 
   const canSubmit = name.trim().length >= 2 && phone.replace(/\D/g, "").length >= 10;
 
-  const handleSubmit = () => {
-    if (!canSubmit) return;
-    const entry = findByNameAndPhone(name, phone);
-    setResult(entry ? { kind: "found", entry } : { kind: "notFound" });
+  const [busy, setBusy] = useState(false);
+
+  const handleSubmit = async () => {
+    if (!canSubmit || busy) return;
+    setBusy(true);
+    try {
+      const res = await fetch("/api/lookup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, contact: phone }),
+      });
+      const body = (await res.json()) as {
+        found?: boolean;
+        participationCode?: string;
+        name?: string;
+        role?: "MENTEE" | "MENTOR";
+        error?: string;
+      };
+
+      if (res.ok && body.found && body.participationCode && body.role) {
+        setResult({
+          kind: "found",
+          entry: { code: body.participationCode, name: body.name ?? name, role: body.role },
+        });
+      } else {
+        setResult({ kind: "notFound" });
+      }
+    } catch {
+      setResult({ kind: "notFound" });
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -95,7 +123,7 @@ export default function LookupPage() {
                 setPhone(formatPhone(e.target.value));
                 setResult({ kind: "idle" });
               }}
-              onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
+              onKeyDown={(e) => e.key === "Enter" && void handleSubmit()}
               placeholder="010-1234-5678"
               autoComplete="tel"
               className="h-[52px] w-full rounded-2xl bg-gray-50 px-4 text-[16px] font-medium text-gray-900 outline-none placeholder:text-gray-300 focus:bg-brand-soft"
@@ -116,11 +144,11 @@ export default function LookupPage() {
 
           <button
             type="button"
-            onClick={handleSubmit}
-            disabled={!canSubmit}
+            onClick={() => void handleSubmit()}
+            disabled={!canSubmit || busy}
             className="mt-5 h-[54px] w-full rounded-2xl bg-brand text-[17px] font-bold text-white disabled:bg-gray-100 disabled:text-gray-300"
           >
-            {canSubmit ? "코드 찾기" : "이름과 연락처를 입력해주세요"}
+            {busy ? "찾는 중…" : canSubmit ? "코드 찾기" : "이름과 연락처를 입력해주세요"}
           </button>
 
           <p className="mt-6 text-center text-[13px] text-gray-400">
