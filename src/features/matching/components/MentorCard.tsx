@@ -10,6 +10,9 @@ import type { PublicMatchResult } from "../model/types";
 interface MentorCardProps {
   result: PublicMatchResult;
   onMatch: (result: PublicMatchResult) => void;
+  /** 매칭을 요청해 공개된 전체 연락처. 없으면 가린 번호만 보인다. */
+  revealedContact?: string;
+  busy?: boolean;
 }
 
 /**
@@ -18,7 +21,7 @@ interface MentorCardProps {
  *   컬러 그라디언트 헤더 밴드 -> 밴드에 걸친 원형 아바타 -> 이름 -> 소속 -> 태그 행 -> 설명 -> CTA
  * 리스트가 아니라 카드인 이유: 멘토 한 명에 집중해서 보고 결정하게 만들기 위함.
  */
-export function MentorCard({ result, onMatch }: MentorCardProps) {
+export function MentorCard({ result, onMatch, revealedContact, busy }: MentorCardProps) {
   const { mentor, score, hashtags } = result;
   const persona = PERSONAS[mentor.personaType];
   const [from, to] = persona.gradient;
@@ -106,21 +109,39 @@ export function MentorCard({ result, onMatch }: MentorCardProps) {
           </div>
         </dl>
 
-        {/* 가린 번호를 미리 보여줘 "누구인지"는 알되 바로 연락은 못 하게 한다.
-            전체 번호는 매칭을 요청하고 상대가 수락한 뒤에 공개된다. */}
-        <p className="mt-4 text-[13px] text-gray-400">
-          연락처 <span className="font-mono tracking-wide">{mentor.maskedContact}</span>
-          <br />
-          매칭을 요청하면 전체 번호를 알려드려요.
-        </p>
+        {revealedContact ? (
+          // 요청이 기록된 뒤에만 전체 번호가 내려온다.
+          <div className="mt-4 rounded-2xl bg-brand-soft px-4 py-4">
+            <p className="text-[13px] font-semibold text-brand">연락처</p>
+            <a
+              href={`tel:${revealedContact.replace(/-/g, "")}`}
+              className="mt-1 block font-mono text-[20px] font-bold tracking-wide text-gray-900"
+            >
+              {revealedContact}
+            </a>
+            <p className="mt-2 text-[12px] leading-relaxed text-gray-500">
+              먼저 인사를 건네보세요. 연락처는 이 화면에서만 보여요.
+            </p>
+          </div>
+        ) : (
+          <>
+            {/* 가린 번호를 미리 보여줘 "누구인지"는 알되 바로 연락은 못 하게 한다. */}
+            <p className="mt-4 text-[13px] text-gray-400">
+              연락처 <span className="font-mono tracking-wide">{mentor.maskedContact}</span>
+              <br />
+              매칭을 요청하면 전체 번호를 알려드려요.
+            </p>
 
-        <button
-          type="button"
-          onClick={() => onMatch(result)}
-          className="mt-5 h-[52px] w-full rounded-2xl bg-brand text-[16px] font-bold text-white transition-colors duration-150 active:bg-brand-dark"
-        >
-          매칭하기
-        </button>
+            <button
+              type="button"
+              onClick={() => onMatch(result)}
+              disabled={busy}
+              className="mt-5 h-[52px] w-full rounded-2xl bg-brand text-[16px] font-bold text-white transition-colors duration-150 active:bg-brand-dark disabled:bg-gray-100 disabled:text-gray-300"
+            >
+              {busy ? "요청 중…" : "매칭하기"}
+            </button>
+          </>
+        )}
       </div>
     </article>
   );

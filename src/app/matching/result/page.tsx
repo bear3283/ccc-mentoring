@@ -76,9 +76,31 @@ export default function MatchingResultPage() {
     replayKey: state.kind === "ready" ? state.mentee.participationCode : "none",
   });
 
-  const handleMatch = (result: PublicMatchResult) => {
-    // 실제로는 연락처 공개 동의를 받고 Matchings 상태를 REQUESTED 로 바꾼다.
-    console.log("[matching] request", result.mentor.id);
+  // 요청해서 공개된 연락처. 멘토 id -> 전체 번호
+  const [revealed, setRevealed] = useState<Record<string, string>>({});
+  const [requesting, setRequesting] = useState<string>();
+
+  const handleMatch = async (result: PublicMatchResult) => {
+    if (state.kind !== "ready" || requesting) return;
+    setRequesting(result.mentor.id);
+    try {
+      const res = await fetch("/api/match/request", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          participationCode: state.mentee.participationCode,
+          mentorId: result.mentor.id,
+        }),
+      });
+      const body = (await res.json()) as { contact?: string; error?: string };
+      if (res.ok && body.contact) {
+        setRevealed((prev) => ({ ...prev, [result.mentor.id]: body.contact! }));
+      }
+    } catch {
+      // 실패하면 카드는 그대로 두고 다시 누를 수 있게 한다.
+    } finally {
+      setRequesting(undefined);
+    }
   };
 
   if (state.kind === "loading") {
@@ -142,7 +164,13 @@ export default function MatchingResultPage() {
           </p>
         ) : (
           results.map((result) => (
-            <MentorCard key={result.mentor.id} result={result} onMatch={handleMatch} />
+            <MentorCard
+              key={result.mentor.id}
+              result={result}
+              onMatch={handleMatch}
+              revealedContact={revealed[result.mentor.id]}
+              busy={requesting === result.mentor.id}
+            />
           ))
         )}
       </div>

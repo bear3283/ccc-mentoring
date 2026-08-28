@@ -264,3 +264,143 @@ export async function saveMatchings(
     { onConflict: "mentee_id,mentor_id" },
   );
 }
+
+/** 운영자 표에 쓰는 멘티 전체. */
+export async function listMentees(): Promise<Mentee[]> {
+  const supabase = getSupabase();
+  if (!supabase) return MOCK_MENTEES;
+
+  const { data, error } = await supabase
+    .from("users")
+    .select("*, mentee_profiles!inner(*)")
+    .eq("role", "MENTEE")
+    .order("created_at", { ascending: false });
+
+  if (error || !data) return [];
+
+  return data.map((row) => {
+    const { mentee_profiles, ...user } = row as UserRow & { mentee_profiles: MenteeRow };
+    return toMentee(user, mentee_profiles);
+  });
+}
+
+/** 운영자 표에 쓰는 매칭 결과 한 행. */
+export interface MatchingRow {
+  menteeCode: string;
+  menteeName: string;
+  menteeCampus: string;
+  mentorCode: string;
+  mentorName: string;
+  mentorCampus: string;
+  mentorContact: string;
+  score: number;
+  rank: number;
+  status: string;
+  breakdown: {
+    campus: number;
+    areaAndPersona: number;
+    majorAndCareer: number;
+    basics: number;
+  };
+}
+
+/**
+ * 저장된 매칭 결과를 멘티·멘토 이름과 함께 가져온다.
+ * 매칭은 멘티가 결과 화면을 열 때 계산되어 쌓이므로,
+ * 아직 결과를 안 본 멘티는 여기 나오지 않는다.
+ */
+export async function listMatchings(): Promise<MatchingRow[]> {
+  const supabase = getSupabase();
+  if (!supabase) return [];
+
+  const { data, error } = await supabase
+    .from("matchings")
+    .select(
+      `score, rank, status, breakdown,
+       mentee:mentee_id (participation_code, name, mentee_profiles(target_campus)),
+       mentor:mentor_id (participation_code, name, contact, mentor_profiles(current_campus))`,
+    )
+    .order("rank", { ascending: true });
+
+  if (error || !data) return [];
+
+  return (data as unknown[]).map((raw) => {
+    const row = raw as {
+      score: number;
+      rank: number;
+      status: string;
+      breakdown: MatchingRow["breakdown"];
+      mentee: {
+        participation_code: string;
+        name: string;
+        mentee_profiles: { target_campus: string[] } | null;
+      };
+      mentor: {
+        participation_code: string;
+        name: string;
+        contact: string;
+        mentor_profiles: { current_campus: string } | null;
+      };
+    };
+
+    return {
+      menteeCode: row.mentee.participation_code,
+      menteeName: row.mentee.name,
+      menteeCampus: row.mentee.mentee_profiles?.target_campus?.[0] ?? "-",
+      mentorCode: row.mentor.participation_code,
+      mentorName: row.mentor.name,
+      mentorCampus: row.mentor.mentor_profiles?.current_campus ?? "-",
+      mentorContact: row.mentor.contact,
+      score: row.score,
+      rank: row.rank,
+      status: row.status,
+      breakdown: row.breakdown,
+    };
+  });
+}
+
+/**
+ * 멘티가 특정 멘토에게 매칭을 요청한다.
+ * 요청이 기록된 뒤에야 멘토의 전체 연락처를 돌려준다.
+ */
+export async function requestMatch(
+  participationCode: string,
+  mentorId: string,
+): Promise<{ ok: boolean; contact?: string; mentorName?: string; error?: string }> {
+  const supabase = getSupabase();
+  if (!supabase) return { ok: false, error: "서버가 연결되지 않았어요." };
+
+  // 코드의 주인만 요청할 수 있다. mentee_id 를 요청 본문에서 받으면
+  // 남의 매칭에 임의로 요청을 넣을 수 있다.
+  const { data: mentee } = await supabase
+    .from("users")
+    .select("id")
+    .eq("participation_code", participationCode)
+    .eq("role", "MENTEE")
+    .maybeSingle();
+
+  if (!mentee) return { ok: false, error: "신청 내역을 찾지 못했어요." };
+
+  // 이미 계산되어 저장된 매칭에만 요청할 수 있다.
+  // 그래야 아무 멘토 id나 넣어 연락처를 캐낼 수 없다.
+  const { data: matching } = await supabase
+    .from("matchings")
+    .select("id")
+    .eq("mentee_id", mentee.id)
+    .eq("mentor_id", mentorId)
+    .maybeSingle();
+
+  if (!matching) return { ok: false, error: "매칭된 멘토가 아니에요." };
+
+  await supabase.from("matchings").update({ status: "REQUESTED" }).eq("id", matching.id);
+
+  const { data: mentor } = await supabase
+    .from("users")
+    .select("name, contact")
+    .eq("id", mentorId)
+    .maybeSingle();
+
+  if (!mentor) return { ok: false, error: "멘토 정보를 찾지 못했어요." };
+
+  return { ok: true, contact: mentor.contact as string, mentorName: mentor.name as string };
+}
