@@ -7,8 +7,14 @@ import type { MatchResult, Mentee, Mentor, ScoreBreakdown } from "../model/types
  * 운영하면서 반드시 조정하게 되므로 한곳에 모아 두고, 점수 계산은 순수 함수로 유지한다.
  */
 export const WEIGHTS = {
+  /** 1순위. 지망 순위까지 반영한다. */
   campus: 50,
-  areaAndPersona: 30,
+  /** 무엇을 도와주길 원하는가. 성향보다 실질적인 신호다. */
+  area: 15,
+  /** MBTI 4축 x 2.5점. 축 하나가 맞을 때마다 2.5점. */
+  mbti: 10,
+  /** 성경 인물 성향. MBTI와 역할이 겹치므로 보조 지표로 둔다. */
+  persona: 5,
   majorAndCareer: 15,
   basics: 5,
 } as const;
@@ -23,26 +29,20 @@ export const WEIGHT_TOTAL = Object.values(WEIGHTS).reduce((sum, w) => sum + w, 0
  *   믿고 점수를 주면 표기 차이("한빛고" vs "한빛고등학교")나 오타만으로 순위가
  *   흔들린다. 수집해서 운영자 표에 보여 주기만 하고 매칭에는 쓰지 않는다.
  * referrer: 추천인도 같은 이유로 참고용이다.
- * mbti: 아이스브레이킹으로 받는다. 성향은 이미 성경 인물이 2순위(30%)를 맡고 있어
- *   MBTI까지 점수에 넣으면 배분을 다시 나눠야 한다. 지금은 카드와 표에만 보여준다.
  *
  * 나중에 반영하려면:
  *   1) WEIGHTS에 항목을 추가하고 다른 항목을 그만큼 줄여 합계 100을 유지한다.
  *   2) scoreXxx 순수 함수를 하나 만들어 calculateBreakdown에 더한다.
  *   3) ScoreBreakdown 타입에 같은 키를 넣어야 점수 근거가 화면에 드러난다.
  */
-export const UNSCORED_FIELDS = ["highSchool", "referrer", "mbti"] as const;
+export const UNSCORED_FIELDS = ["highSchool", "referrer"] as const;
 
-/** 2순위 30% 안에서 영역과 성향이 나눠 갖는 비율. */
-const AREA_RATIO = 0.6;
-const PERSONA_RATIO = 0.4;
-
-/** 3순위 15% 안에서 학과와 진로가 나눠 갖는 비율. */
+/** 학과·진로 15점 안에서 둘이 나눠 갖는 비율. */
 const MAJOR_RATIO = 0.6;
 const CAREER_RATIO = 0.4;
 
 /**
- * 1순위 (50%): 지망 캠퍼스 일치.
+ * 지망 캠퍼스 (50점).
  * 1지망 100%, 2지망 80%, 3지망 60%. 지망 순서를 반영해야
  * 1지망이 맞는 멘토가 3지망만 맞는 멘토보다 확실히 위로 온다.
  */
@@ -55,24 +55,52 @@ export function scoreCampus(mentee: Mentee, mentor: Mentor): number {
 }
 
 /**
- * 2순위 (30%): 원하는 영역 + 성경 인물 성향.
+ * 원하는 영역 (15점).
  * 멘티가 여러 영역을 고를 수 있으므로 "몇 개나 겹치는가"의 비율로 계산한다.
  * 3개 중 3개가 맞는 멘토가 1개만 맞는 멘토보다 위로 와야 한다.
  */
-export function scoreAreaAndPersona(mentee: Mentee, mentor: Mentor): number {
+export function scoreArea(mentee: Mentee, mentor: Mentor): number {
+  if (mentee.desiredAreas.length === 0) return 0;
   const matched = mentee.desiredAreas.filter((a) => mentor.mentoringArea.includes(a));
-  const areaRatio =
-    mentee.desiredAreas.length === 0 ? 0 : matched.length / mentee.desiredAreas.length;
-  const areaScore = WEIGHTS.areaAndPersona * AREA_RATIO * areaRatio;
-
-  const affinity = getPersonaAffinity(mentee.personaType, mentor.personaType);
-  const personaScore = WEIGHTS.areaAndPersona * PERSONA_RATIO * affinity;
-
-  return areaScore + personaScore;
+  return WEIGHTS.area * (matched.length / mentee.desiredAreas.length);
 }
 
 /**
- * 3순위 (15%): 학과 / 진로 일치.
+ * 성경 인물 성향 (5점).
+ * 완전 불일치에도 0을 주지 않는다. 캠퍼스가 잘 맞는 멘토가
+ * 성향 하나 때문에 후보에서 밀리면 안 된다.
+ */
+export function scorePersona(mentee: Mentee, mentor: Mentor): number {
+  return WEIGHTS.persona * getPersonaAffinity(mentee.personaType, mentor.personaType);
+}
+
+/** MBTI 4축. 축 하나당 배점. */
+const MBTI_AXIS_COUNT = 4;
+const POINTS_PER_AXIS = WEIGHTS.mbti / MBTI_AXIS_COUNT;
+
+/**
+ * MBTI (10점 = 4축 x 2.5점).
+ * 같은 글자면 2.5점, 다르면 0점.
+ *
+ * 한쪽이라도 MBTI를 안 적었으면 축마다 절반(1.25점)을 준다.
+ * MBTI는 건너뛸 수 있는 항목이라 0점을 주면 안 적은 사람이
+ * 모든 멘토에게서 10점을 통째로 잃는다. 무작위 조합의 기대값이
+ * 축당 절반이므로, 절반을 주면 유불리 없이 중립이 된다.
+ */
+export function scoreMbti(mentee: Mentee, mentor: Mentor): number {
+  if (!mentee.mbti || !mentor.mbti) {
+    return WEIGHTS.mbti / 2;
+  }
+
+  let score = 0;
+  for (let axis = 0; axis < MBTI_AXIS_COUNT; axis++) {
+    if (mentee.mbti[axis] === mentor.mbti[axis]) score += POINTS_PER_AXIS;
+  }
+  return score;
+}
+
+/**
+ * 학과 / 진로 (15점).
  * 양쪽 다 최대 3개까지 고를 수 있으므로 교집합이 하나라도 있으면 인정한다.
  * 겹치는 개수가 많을수록 점수가 오르되, 하나만 겹쳐도 절반은 준다.
  */
@@ -93,7 +121,7 @@ export function scoreMajorAndCareer(mentee: Mentee, mentor: Mentor): number {
 }
 
 /**
- * 4순위 (5%): 시간대가 얼마나 넉넉히 겹치는지 + 동성 여부.
+ * 기본 (5점): 시간대가 얼마나 넉넉히 겹치는지 + 동성 여부.
  * 시간대 겹침 자체는 아래 필수 필터에서 이미 걸러지므로,
  * 여기서는 "겹치는 슬롯이 많을수록 만나기 쉽다"를 점수화한다.
  */
@@ -129,10 +157,17 @@ export function passesRequiredFilters(mentee: Mentee, mentor: Mentor): boolean {
 export function calculateBreakdown(mentee: Mentee, mentor: Mentor): ScoreBreakdown {
   return {
     campus: scoreCampus(mentee, mentor),
-    areaAndPersona: scoreAreaAndPersona(mentee, mentor),
+    area: scoreArea(mentee, mentor),
+    mbti: scoreMbti(mentee, mentor),
+    persona: scorePersona(mentee, mentor),
     majorAndCareer: scoreMajorAndCareer(mentee, mentor),
     basics: scoreBasics(mentee, mentor),
   };
+}
+
+/** 항목 점수를 모두 더한다. 항목이 늘어도 여기만 고치면 된다. */
+export function totalScore(breakdown: ScoreBreakdown): number {
+  return Object.values(breakdown).reduce((sum, value) => sum + value, 0);
 }
 
 /**
@@ -144,15 +179,10 @@ export function matchMentors(mentee: Mentee, mentors: Mentor[], limit = 5): Matc
     .filter((mentor) => passesRequiredFilters(mentee, mentor))
     .map((mentor) => {
       const breakdown = calculateBreakdown(mentee, mentor);
-      const total =
-        breakdown.campus +
-        breakdown.areaAndPersona +
-        breakdown.majorAndCareer +
-        breakdown.basics;
 
       return {
         mentor,
-        score: Math.round(total),
+        score: Math.round(totalScore(breakdown)),
         breakdown,
         hashtags: buildHashtags(mentor, mentee),
       };

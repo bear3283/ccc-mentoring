@@ -1,6 +1,6 @@
 import "server-only";
 
-import type { Mentee, Mentor } from "@/features/matching/model/types";
+import type { Mentee, Mentor, ScoreBreakdown } from "@/features/matching/model/types";
 import type { OnboardingDraft } from "@/features/onboarding/model/types";
 import type { Role } from "@/shared/constants/role";
 import type { Campus, Career, Gender, Major, MentoringArea, TimeSlot } from "@/shared/constants/domain";
@@ -296,12 +296,7 @@ export interface MatchingRow {
   score: number;
   rank: number;
   status: string;
-  breakdown: {
-    campus: number;
-    areaAndPersona: number;
-    majorAndCareer: number;
-    basics: number;
-  };
+  breakdown: ScoreBreakdown;
 }
 
 /**

@@ -6,6 +6,7 @@
  */
 import {
   calculateBreakdown,
+  totalScore,
   matchMentors,
   passesRequiredFilters,
   UNSCORED_FIELDS,
@@ -16,6 +17,7 @@ import { MOCK_MENTEES, MOCK_MENTORS } from "../src/shared/lib/mock/generate";
 import { readFileSync } from "node:fs";
 import { buildHashtags } from "../src/features/matching/lib/hashtags";
 import { MBTI_TYPES } from "../src/shared/constants/mbti";
+import { scoreMbti } from "../src/features/matching/lib/score";
 import { PERSONAS } from "../src/shared/constants/persona";
 import { formatTimeSlotShort } from "../src/shared/constants/domain";
 
@@ -37,14 +39,22 @@ console.log("\n[0] 가중치 규약");
 check(
   "가중치 합계 100",
   WEIGHT_TOTAL === 100,
-  `50/30/15/5 = ${WEIGHT_TOTAL}`,
+  `${Object.values(WEIGHTS).join(" + ")} = ${WEIGHT_TOTAL}`,
 );
 check(
-  "1순위(캠퍼스)가 가장 무거움",
-  WEIGHTS.campus > WEIGHTS.areaAndPersona &&
-    WEIGHTS.areaAndPersona > WEIGHTS.majorAndCareer &&
-    WEIGHTS.majorAndCareer > WEIGHTS.basics,
-  `${WEIGHTS.campus} > ${WEIGHTS.areaAndPersona} > ${WEIGHTS.majorAndCareer} > ${WEIGHTS.basics}`,
+  "캠퍼스가 가장 무거움",
+  Object.entries(WEIGHTS).every(([k, v]) => k === "campus" || v < WEIGHTS.campus),
+  `캠퍼스 ${WEIGHTS.campus} / 영역 ${WEIGHTS.area} / MBTI ${WEIGHTS.mbti} / 성경인물 ${WEIGHTS.persona} / 학과·진로 ${WEIGHTS.majorAndCareer} / 기본 ${WEIGHTS.basics}`,
+);
+check(
+  "MBTI 4축이 각각 2.5점",
+  WEIGHTS.mbti / 4 === 2.5,
+  `${WEIGHTS.mbti} / 4 = ${WEIGHTS.mbti / 4}점`,
+);
+check(
+  "성경 인물이 MBTI보다 가벼움",
+  WEIGHTS.persona < WEIGHTS.mbti,
+  `성경인물 ${WEIGHTS.persona} < MBTI ${WEIGHTS.mbti}`,
 );
 
 // 고등학교/추천인이 점수에 새어 들어가지 않았는지 소스에서 직접 확인한다.
@@ -128,7 +138,7 @@ for (const mentee of MOCK_MENTEES) {
     passedFilter++;
 
     const b = calculateBreakdown(mentee, mentor);
-    const total = b.campus + b.areaAndPersona + b.majorAndCareer + b.basics;
+    const total = totalScore(b);
 
     if (total < minScore) minScore = total;
     if (total > maxScore) maxScore = total;
@@ -146,6 +156,31 @@ for (const mentee of MOCK_MENTEES) {
 console.log(`  전체 조합: ${totalPairs} / 필수 필터 통과: ${passedFilter}`);
 check("총점이 0~100 범위 내", minScore >= 0 && maxScore <= 100,
   `min=${minScore.toFixed(1)} max=${maxScore.toFixed(1)} avg=${(sumScore / passedFilter).toFixed(1)}`);
+
+// ---------------------------------------------------------------- MBTI 배점
+console.log("\n[2-1] MBTI 배점");
+
+{
+  const mentee = MOCK_MENTEES.find((m) => m.mbti)!;
+  const sameMbti = { ...mentee, mbti: mentee.mbti };
+  const oppositeLetters = mentee.mbti!.split("").map((c) =>
+    ({ E: "I", I: "E", S: "N", N: "S", T: "F", F: "T", J: "P", P: "J" })[c],
+  ).join("");
+
+  const mentorBase = MOCK_MENTORS[0];
+  const full = scoreMbti(mentee, { ...mentorBase, mbti: sameMbti.mbti });
+  const none = scoreMbti(mentee, { ...mentorBase, mbti: oppositeLetters as typeof mentee.mbti });
+  const unknown = scoreMbti(mentee, { ...mentorBase, mbti: undefined });
+
+  check("4축 모두 일치 = 10점", full === 10, `${full}점`);
+  check("4축 모두 불일치 = 0점", none === 0, `${none}점`);
+  check("미입력 시 중립(5점) - 건너뛴 사람이 불이익 없음", unknown === 5, `${unknown}점`);
+
+  // 미입력자는 모든 멘토에게 같은 점수를 받으므로 순위가 왜곡되지 않아야 한다.
+  const noMbtiMentee = { ...mentee, mbti: undefined };
+  const spread = new Set(MOCK_MENTORS.map((m) => scoreMbti(noMbtiMentee, m)));
+  check("미입력자는 모든 멘토에게 동일 점수 - 순위 왜곡 없음", spread.size === 1);
+}
 
 // ---------------------------------------------------------------- 필수 필터
 console.log("\n[3] 필수 필터 동작");
@@ -265,8 +300,8 @@ for (const mentee of MOCK_MENTEES.slice(0, 3)) {
       `    ${r.score}%  ${r.mentor.name}(${r.mentor.currentCampus}) ${r.hashtags.join(" ")}`,
     );
     console.log(
-      `           캠퍼스 ${b.campus.toFixed(1)} / 영역·성향 ${b.areaAndPersona.toFixed(1)} / ` +
-        `학과·진로 ${b.majorAndCareer.toFixed(1)} / 기본 ${b.basics.toFixed(1)}`,
+      `           캠퍼스 ${b.campus.toFixed(1)} / 영역 ${b.area.toFixed(1)} / MBTI ${b.mbti.toFixed(1)} / ` +
+        `성경인물 ${b.persona.toFixed(1)} / 학과·진로 ${b.majorAndCareer.toFixed(1)} / 기본 ${b.basics.toFixed(1)}`,
     );
   }
 }

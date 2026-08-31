@@ -23,6 +23,8 @@ export interface MatchRow {
   score: number;
   campusScore: number;
   areaScore: number;
+  mbtiScore: number;
+  personaScore: number;
   majorScore: number;
   basicScore: number;
   contact: string;
@@ -110,7 +112,9 @@ const matchColumns: TableColumn<MatchRow>[] = [
     ),
   },
   { key: "campusScore", header: "캠퍼스(50)", value: (r) => r.campusScore, align: "right" },
-  { key: "areaScore", header: "영역·성향(30)", value: (r) => r.areaScore, align: "right" },
+  { key: "areaScore", header: "영역(15)", value: (r) => r.areaScore, align: "right" },
+  { key: "mbtiScore", header: "MBTI(10)", value: (r) => r.mbtiScore, align: "right" },
+  { key: "personaScore", header: "성경인물(5)", value: (r) => r.personaScore, align: "right" },
   { key: "majorScore", header: "학과·진로(15)", value: (r) => r.majorScore, align: "right" },
   { key: "basicScore", header: "기본(5)", value: (r) => r.basicScore, align: "right" },
   { key: "contact", header: "멘토 연락처", value: (r) => r.contact },

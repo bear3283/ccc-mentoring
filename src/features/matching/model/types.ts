@@ -59,7 +59,9 @@ export interface Mentor {
 /** 점수의 근거. UI에서 "왜 이 멘토인지" 보여주고, 가중치 튜닝 시 디버깅에 쓴다. */
 export interface ScoreBreakdown {
   campus: number;
-  areaAndPersona: number;
+  area: number;
+  mbti: number;
+  persona: number;
   majorAndCareer: number;
   basics: number;
 }
