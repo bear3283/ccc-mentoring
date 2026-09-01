@@ -5,6 +5,7 @@ import { DataTable, type TableColumn } from "./DataTable";
 import { downloadCsv, type CsvColumn } from "../lib/csv";
 import type { Mentee, Mentor } from "@/features/matching/model/types";
 import { formatTimeSlotShort } from "@/shared/constants/domain";
+import { WEIGHTS } from "@/features/matching/lib/score";
 import { PERSONAS } from "@/shared/constants/persona";
 import { cn } from "@/shared/lib/cn";
 
@@ -111,12 +112,14 @@ const matchColumns: TableColumn<MatchRow>[] = [
       </span>
     ),
   },
-  { key: "campusScore", header: "캠퍼스(50)", value: (r) => r.campusScore, align: "right" },
-  { key: "areaScore", header: "영역(15)", value: (r) => r.areaScore, align: "right" },
-  { key: "mbtiScore", header: "MBTI(10)", value: (r) => r.mbtiScore, align: "right" },
-  { key: "personaScore", header: "성경인물(5)", value: (r) => r.personaScore, align: "right" },
-  { key: "majorScore", header: "학과·진로(15)", value: (r) => r.majorScore, align: "right" },
-  { key: "basicScore", header: "기본(5)", value: (r) => r.basicScore, align: "right" },
+  // 헤더의 배점은 WEIGHTS 에서 뽑는다. 숫자를 적어 두면 가중치를 바꿨을 때
+  // 헤더만 옛 값으로 남아 표를 읽는 사람이 잘못 이해한다.
+  { key: "campusScore", header: `캠퍼스(${WEIGHTS.campus})`, value: (r) => r.campusScore, align: "right" },
+  { key: "areaScore", header: `영역(${WEIGHTS.area})`, value: (r) => r.areaScore, align: "right" },
+  { key: "mbtiScore", header: `MBTI(${WEIGHTS.mbti})`, value: (r) => r.mbtiScore, align: "right" },
+  { key: "personaScore", header: `성경인물(${WEIGHTS.persona})`, value: (r) => r.personaScore, align: "right" },
+  { key: "majorScore", header: `학과·진로(${WEIGHTS.majorAndCareer})`, value: (r) => r.majorScore, align: "right" },
+  { key: "basicScore", header: `기본(${WEIGHTS.basics})`, value: (r) => r.basicScore, align: "right" },
   { key: "contact", header: "멘토 연락처", value: (r) => r.contact },
 ];
 
