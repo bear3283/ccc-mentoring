@@ -122,6 +122,8 @@ export async function saveSignup(
       referrer: draft.referrer ?? null,
       photo_url: draft.photoUrl ?? null,
       available_times: draft.availableTimes,
+      consented_at: draft.consentedAt,
+      consent_version: draft.consentVersion,
     })
     .select("id")
     .single();

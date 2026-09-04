@@ -4,6 +4,15 @@
 
 ---
 
+## 문서
+
+| 문서 | 내용 |
+| --- | --- |
+| [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) | 배포 계획 · 오픈 순서 · 검증 일정 |
+| [docs/REHEARSAL.md](docs/REHEARSAL.md) | 예비 배포와 검증 절차 (운영진용) |
+
+---
+
 ## 목차
 
 1. [빠르게 실행하기](#빠르게-실행하기)
@@ -31,7 +40,8 @@ npm run dev        # http://localhost:3000
 | `npm run build` | 프로덕션 빌드 |
 | `npm start` | 빌드된 결과 실행 |
 | `npm run typecheck` | 타입 검사 |
-| `npx tsx scripts/verify-matching.ts` | 매칭 알고리즘 검증 (멘토 50 × 멘티 50 = 2,500조합) |
+| `npm run verify` | 매칭 알고리즘 검증 (멘토 50 × 멘티 50 = 2,500조합) |
+| `npm run reset-data` | 신청 데이터 삭제 (`-- --yes` 를 붙여야 실제 실행) |
 
 > **주의** — 개발 서버가 떠 있는 상태에서 `npm run build`를 돌리면 `.next`를 덮어써서
 > 청크가 깨지고 화면이 반응하지 않습니다. 빌드 전에 개발 서버를 먼저 종료하세요.
@@ -190,7 +200,7 @@ npm run dev        # http://localhost:3000
 ### 검증
 
 ```bash
-npx tsx scripts/verify-matching.ts
+npm run verify
 ```
 
 멘토 50명 × 멘티 50명 = 2,500조합을 전수 검사합니다. 가중치 합계, 미반영 항목이

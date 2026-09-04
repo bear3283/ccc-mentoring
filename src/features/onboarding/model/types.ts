@@ -13,6 +13,7 @@ export const MENTEE_STEPS = [
   "targetCampus",
   "desiredArea",
   "targetMajor",
+  "consent",
   "profile",
   "schedule",
   "photo",
@@ -24,6 +25,7 @@ export const MENTOR_STEPS = [
   "currentCampus",
   "mentoringArea",
   "currentMajor",
+  "consent",
   "profile",
   "schedule",
   "photo",
@@ -53,6 +55,10 @@ export interface OnboardingDraft {
   referrer?: string;
   /** 프로필 사진 (data URL) */
   photoUrl?: string;
+  /** 개인정보 동의 시각 (ISO). 없으면 서버가 신청을 거부한다. */
+  consentedAt?: string;
+  /** 동의한 문구의 버전. 문구가 바뀌어도 무엇에 동의했는지 남는다. */
+  consentVersion?: string;
   availableTimes: TimeSlot[];
 
   // 멘티 전용

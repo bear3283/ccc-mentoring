@@ -139,3 +139,23 @@ alter table public.matchings enable row level security;
 -- ─────────────────────────────────────────────────────────────
 -- select role, count(*) from public.users group by role;
 -- select count(*) from public.matchings;
+
+-- ─────────────────────────────────────────────────────────────
+-- 개인정보 동의 기록  (2026-09-03 추가)
+--
+-- 언제, 어떤 문구에 동의했는지 남긴다. 문구를 고치면 버전이 올라가므로
+-- 나중에 "이 사람이 무엇에 동의했는지"를 되짚을 수 있다.
+--
+-- 기존 테이블에 추가하는 것이라 이 블록만 다시 실행해도 안전하다.
+-- ─────────────────────────────────────────────────────────────
+alter table public.users
+  add column if not exists consented_at timestamptz,
+  add column if not exists consent_version text;
+
+-- 앞으로 들어오는 행은 동의 없이 저장될 수 없다.
+-- 기존 행이 있으면 not null 을 걸 수 없으므로 체크 제약으로 처리한다.
+do $$ begin
+  alter table public.users
+    add constraint users_consent_required
+    check (consented_at is not null and consent_version is not null);
+exception when duplicate_object then null; end $$;

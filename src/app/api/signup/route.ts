@@ -3,6 +3,7 @@ import { saveSignup } from "@/features/signup/lib/repository";
 import type { OnboardingDraft } from "@/features/onboarding/model/types";
 import { generateParticipationCode } from "@/features/onboarding/lib/participationCode";
 import { clientKey, rateLimit, tooManyRequestsMessage } from "@/shared/lib/security/rateLimit";
+import { CONSENT_VERSION } from "@/shared/constants/privacy";
 import { isSupabaseConfigured } from "@/shared/lib/supabase/server";
 
 /**
@@ -90,6 +91,14 @@ function validateDraft(role: "MENTEE" | "MENTOR", draft: OnboardingDraft): strin
     return "연락처 형식을 확인해주세요.";
   }
   if (!draft.personaType) return "성향을 골라주세요.";
+
+  // 동의는 브라우저에서 체크박스를 지나쳐도 서버가 다시 막는다.
+  if (!draft.consentedAt || !draft.consentVersion) {
+    return "개인정보 동의가 필요해요.";
+  }
+  if (draft.consentVersion !== CONSENT_VERSION) {
+    return "동의 문구가 변경되었어요. 화면을 새로고침한 뒤 다시 시도해주세요.";
+  }
   if (draft.availableTimes.length === 0) return "가능한 시간을 골라주세요.";
 
   if (role === "MENTEE") {
