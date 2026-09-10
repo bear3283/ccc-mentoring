@@ -121,6 +121,13 @@ async function main() {
   await cleanup();
 
   console.log("\n[1] 신청 저장");
+  // 짧은 간격으로 다시 돌리면 속도 제한에 걸린다. 원인을 헷갈리지 않게 먼저 알린다.
+  const probe = await post("/api/signup", { role: "MENTEE", draft: { name: "x" } });
+  if (probe.status === 429) {
+    console.error("\n속도 제한에 걸렸습니다. 직전 검증에서 소모한 몫이 남아 있습니다.");
+    console.error("서버를 다시 시작하면 초기화됩니다 (제한은 메모리에만 기록됩니다).");
+    process.exit(1);
+  }
   const m1 = await post("/api/signup", { role: "MENTOR", draft: mentor(1) });
   check("멘토 신청", m1.status === 200 && typeof m1.json.participationCode === "string",
     String(m1.json.participationCode ?? m1.json.error));
@@ -172,8 +179,12 @@ async function main() {
     "연락처가 마스킹됨",
     results.every((r) => String(r.mentor.maskedContact).includes("****")),
   );
-  const badCode = await post("/api/match", { participationCode: "XXXXXX" });
-  check("잘못된 참여코드 거부", badCode.status === 400);
+  // 형식이 틀린 것과, 형식은 맞지만 없는 것을 구분해서 응답해야 한다.
+  // XXXXXX 는 허용 문자로만 되어 있어 형식상 유효하다 -> 404 가 맞다.
+  const malformed = await post("/api/match", { participationCode: "0OIL11" });
+  check("형식이 틀린 참여코드 거부 (400)", malformed.status === 400, `HTTP ${malformed.status}`);
+  const notFound = await post("/api/match", { participationCode: "XXXXXX" });
+  check("없는 참여코드 (404)", notFound.status === 404, `HTTP ${notFound.status}`);
 
   console.log("\n[5] 연락처 공개");
   const mentorId = results[0]?.mentor.id as string | undefined;

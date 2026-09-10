@@ -31,7 +31,12 @@ async function hasColumn(table: string, column: string): Promise<boolean> {
   return res.ok;
 }
 
-/** 제약을 확인하려고 일부러 위반 행을 넣어 본다. 거부되면 제약이 살아 있는 것. */
+/**
+ * 제약을 확인하려고 일부러 위반 행을 넣어 본다. 거부되면 제약이 살아 있는 것.
+ *
+ * 주의: 확인하려는 제약 말고 다른 제약에 걸리면 안 된다.
+ * 참여코드는 0,O,1,I,L 을 뺀 알파벳만 허용하므로 테스트 코드도 그 규칙을 지켜야 한다.
+ */
 async function insertRejected(row: Record<string, unknown>): Promise<boolean> {
   const res = await fetch(`${url}/rest/v1/users`, {
     method: "POST",
@@ -75,7 +80,7 @@ const requirements: Requirement[] = [
     probe: () =>
       insertRejected({
         role: "MENTEE",
-        participation_code: "CHKCN1",
+        participation_code: "CHKCNA",
         name: "제약확인",
         gender: "FEMALE",
         contact: "010-0000-9001",
@@ -102,7 +107,7 @@ const requirements: Requirement[] = [
       const first = await fetch(`${url}/rest/v1/users`, {
         method: "POST",
         headers: { ...headers, Prefer: "return=representation" },
-        body: JSON.stringify({ ...base, participation_code: "CHKDP1" }),
+        body: JSON.stringify({ ...base, participation_code: "CHKDPA" }),
       });
       if (!first.ok) return false; // 동의 제약이 없으면 여기서 이미 실패
 
@@ -110,7 +115,7 @@ const requirements: Requirement[] = [
       const second = await fetch(`${url}/rest/v1/users`, {
         method: "POST",
         headers,
-        body: JSON.stringify({ ...base, participation_code: "CHKDP2" }),
+        body: JSON.stringify({ ...base, participation_code: "CHKDPB" }),
       });
       const rejected = !second.ok;
 

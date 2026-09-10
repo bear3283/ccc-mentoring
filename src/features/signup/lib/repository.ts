@@ -109,12 +109,14 @@ export interface SaveResult {
  * 이름이 다르면 남의 번호를 잘못 적었거나 번호를 공유하는 경우라
  * 코드를 알려주지 않고 막는다.
  */
-async function findExistingSignup(
-  supabase: NonNullable<ReturnType<typeof getSupabase>>,
+export async function findExistingSignup(
   role: UserRole,
   name: string,
   contact: string,
 ): Promise<{ sameName: boolean; code: string } | null> {
+  const supabase = getSupabase();
+  if (!supabase) return null;
+
   const { data } = await supabase
     .from("users")
     .select("participation_code, name")
@@ -142,12 +144,7 @@ export async function saveSignup(
 
   // 중복 신청 확인이 먼저다. 새 행을 만든 뒤 유니크 제약에 걸리면
   // 참여코드만 낭비되고 사용자는 원인을 알 수 없는 오류를 본다.
-  const existing = await findExistingSignup(
-    supabase,
-    role,
-    draft.name ?? "",
-    draft.contact ?? "",
-  );
+  const existing = await findExistingSignup(role, draft.name ?? "", draft.contact ?? "");
   if (existing) {
     return existing.sameName
       ? { ok: false, existingCode: existing.code }

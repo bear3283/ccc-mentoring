@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { saveSignup } from "@/features/signup/lib/repository";
+import { findExistingSignup, saveSignup } from "@/features/signup/lib/repository";
 import type { OnboardingDraft } from "@/features/onboarding/model/types";
 import { generateParticipationCode } from "@/features/onboarding/lib/participationCode";
 import { clientKey, rateLimit, tooManyRequestsMessage } from "@/shared/lib/security/rateLimit";
@@ -64,7 +64,22 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: invalid }, { status: 400 });
   }
 
-  // 검증을 통과한 뒤에야 "저장 시도" 한 칸을 쓴다.
+  // 이미 신청한 사람은 새 행을 만들지 않으므로 저장 칸을 쓰지 않는다.
+  // 대량 등록을 막으려는 제한인데, 재제출한 사람의 몫까지 깎으면
+  // 같은 사람이 몇 번 더 눌렀다는 이유로 차단된다.
+  const existing = await findExistingSignup(role, draft.name ?? "", draft.contact ?? "");
+  if (existing) {
+    if (!existing.sameName) {
+      return NextResponse.json(
+        { error: "이미 등록된 연락처예요. 번호를 다시 확인해주세요." },
+        { status: 400 },
+      );
+    }
+    console.log(`[signup] ${role} duplicate -> ${existing.code}`);
+    return NextResponse.json({ participationCode: existing.code, alreadyRegistered: true });
+  }
+
+  // 실제로 새 행을 만드는 요청만 저장 칸을 쓴다.
   const saves = rateLimit(clientKey(request, "signup-save"), MAX_SIGNUPS, WINDOW_MS);
   if (!saves.allowed) {
     return NextResponse.json(
