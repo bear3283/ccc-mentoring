@@ -14,7 +14,16 @@ import { isSupabaseConfigured } from "@/shared/lib/supabase/server";
  * 남의 코드와 충돌시키는 요청을 만들 수 있다.
  */
 
-/** 한 사람이 실수로 두세 번 누르는 것은 허용하되, 대량 등록은 막는다. */
+/**
+ * 속도 제한을 두 단계로 나눈다.
+ *
+ * 막으려는 것은 "대량 등록"이지 "오타"가 아니다. 실패한 시도까지 한 칸에 세면
+ * 연락처를 잘못 적은 사람이 몇 번 만에 차단되어 신청을 못 한다.
+ *
+ *  - 요청 자체: 넉넉하게. 무한 호출만 막는다
+ *  - 실제 저장: 빡빡하게. 여기가 계정이 생기는 지점이다
+ */
+const MAX_ATTEMPTS = 30;
 const MAX_SIGNUPS = 5;
 const WINDOW_MS = 10 * 60 * 1000;
 
@@ -22,10 +31,10 @@ const WINDOW_MS = 10 * 60 * 1000;
 const MAX_CODE_RETRIES = 5;
 
 export async function POST(request: Request) {
-  const limit = rateLimit(clientKey(request, "signup"), MAX_SIGNUPS, WINDOW_MS);
-  if (!limit.allowed) {
+  const attempts = rateLimit(clientKey(request, "signup-attempt"), MAX_ATTEMPTS, WINDOW_MS);
+  if (!attempts.allowed) {
     return NextResponse.json(
-      { error: tooManyRequestsMessage(limit.retryAfterSeconds) },
+      { error: tooManyRequestsMessage(attempts.retryAfterSeconds) },
       { status: 429 },
     );
   }
@@ -55,6 +64,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: invalid }, { status: 400 });
   }
 
+  // 검증을 통과한 뒤에야 "저장 시도" 한 칸을 쓴다.
+  const saves = rateLimit(clientKey(request, "signup-save"), MAX_SIGNUPS, WINDOW_MS);
+  if (!saves.allowed) {
+    return NextResponse.json(
+      { error: tooManyRequestsMessage(saves.retryAfterSeconds) },
+      { status: 429 },
+    );
+  }
+
   for (let attempt = 0; attempt < MAX_CODE_RETRIES; attempt++) {
     const participationCode = generateParticipationCode();
     const result = await saveSignup(role, draft, participationCode);
@@ -65,9 +83,20 @@ export async function POST(request: Request) {
       return NextResponse.json({ participationCode });
     }
 
-    // 코드 충돌이면 다시 뽑아 재시도하고, 그 외 오류는 즉시 알린다.
-    if (!result.error?.includes("중복")) {
-      return NextResponse.json({ error: result.error }, { status: 500 });
+    // 이미 신청한 본인이면 기존 코드를 돌려준다.
+    // 실수로 두 번 제출한 사람에게 오류를 보여주는 것보다,
+    // "이미 신청하셨어요" 와 함께 코드를 다시 알려주는 편이 실제로 필요한 응답이다.
+    if (result.existingCode) {
+      console.log(`[signup] ${role} duplicate -> ${result.existingCode}`);
+      return NextResponse.json({
+        participationCode: result.existingCode,
+        alreadyRegistered: true,
+      });
+    }
+
+    // 참여코드 충돌이면 다시 뽑아 재시도하고, 그 외 오류는 즉시 알린다.
+    if (!result.error?.includes("코드가 중복")) {
+      return NextResponse.json({ error: result.error }, { status: 400 });
     }
   }
 

@@ -159,3 +159,15 @@ do $$ begin
     add constraint users_consent_required
     check (consented_at is not null and consent_version is not null);
 exception when duplicate_object then null; end $$;
+
+-- ─────────────────────────────────────────────────────────────
+-- 중복 신청 방지  (2026-09-06 추가)
+--
+-- 같은 사람이 두 번 신청하면 매칭이 중복되고 인원 집계가 틀어진다.
+-- 역할별로 잠그는 이유: 이론상 한 사람이 멘티와 멘토 양쪽일 수는 없지만,
+-- 번호를 잘못 적은 경우까지 막으면 정정이 불가능해진다.
+-- ─────────────────────────────────────────────────────────────
+do $$ begin
+  alter table public.users
+    add constraint users_contact_role_unique unique (contact, role);
+exception when duplicate_object then null; end $$;

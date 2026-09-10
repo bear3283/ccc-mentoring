@@ -65,7 +65,11 @@ export function RoleFunnel({ role }: RoleFunnelProps) {
         body: JSON.stringify({ role, draft }),
       });
 
-      const body = (await res.json()) as { participationCode?: string; error?: string };
+      const body = (await res.json()) as {
+        participationCode?: string;
+        alreadyRegistered?: boolean;
+        error?: string;
+      };
 
       if (!res.ok || !body.participationCode) {
         setError(body.error ?? "저장하지 못했어요. 잠시 후 다시 시도해주세요.");
@@ -74,7 +78,7 @@ export function RoleFunnel({ role }: RoleFunnelProps) {
       }
 
       // 완료 화면과 결과 화면이 읽을 수 있게 이 브라우저에도 남긴다.
-      saveDraft(role, draft, body.participationCode);
+      saveDraft(role, draft, body.participationCode, body.alreadyRegistered);
       router.push("/onboarding/complete");
     } catch {
       setError("연결에 실패했어요. 인터넷 상태를 확인해주세요.");

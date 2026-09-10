@@ -95,6 +95,38 @@ export interface SaveResult {
   userId?: string;
   /** 실패 사유. 화면에 그대로 보여줄 수 있는 한국어 문장. */
   error?: string;
+  /**
+   * 이미 신청한 사람이라 새로 만들지 않고 기존 코드를 돌려준 경우.
+   * 실수로 두 번 제출한 사람에게 오류를 보여주는 대신 코드를 다시 알려준다.
+   */
+  existingCode?: string;
+}
+
+/**
+ * 같은 연락처로 이미 신청했는지 본다.
+ *
+ * 이름까지 같으면 본인이 다시 제출한 것으로 보고 기존 코드를 돌려준다.
+ * 이름이 다르면 남의 번호를 잘못 적었거나 번호를 공유하는 경우라
+ * 코드를 알려주지 않고 막는다.
+ */
+async function findExistingSignup(
+  supabase: NonNullable<ReturnType<typeof getSupabase>>,
+  role: UserRole,
+  name: string,
+  contact: string,
+): Promise<{ sameName: boolean; code: string } | null> {
+  const { data } = await supabase
+    .from("users")
+    .select("participation_code, name")
+    .eq("contact", contact)
+    .eq("role", role)
+    .maybeSingle();
+
+  if (!data) return null;
+  return {
+    sameName: (data.name as string).trim() === name.trim(),
+    code: data.participation_code as string,
+  };
 }
 
 /** 신청서를 저장한다. users 행을 만들고 역할별 프로필을 잇는다. */
@@ -106,6 +138,23 @@ export async function saveSignup(
   const supabase = getSupabase();
   if (!supabase) {
     return { ok: false, error: "서버가 아직 연결되지 않았어요. 운영자에게 문의해주세요." };
+  }
+
+  // 중복 신청 확인이 먼저다. 새 행을 만든 뒤 유니크 제약에 걸리면
+  // 참여코드만 낭비되고 사용자는 원인을 알 수 없는 오류를 본다.
+  const existing = await findExistingSignup(
+    supabase,
+    role,
+    draft.name ?? "",
+    draft.contact ?? "",
+  );
+  if (existing) {
+    return existing.sameName
+      ? { ok: false, existingCode: existing.code }
+      : {
+          ok: false,
+          error: "이미 등록된 연락처예요. 번호를 다시 확인해주세요.",
+        };
   }
 
   const { data: user, error: userError } = await supabase

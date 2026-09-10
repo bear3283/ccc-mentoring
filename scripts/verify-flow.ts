@@ -1,0 +1,217 @@
+/**
+ * 실제 서버를 상대로 전체 흐름을 검증한다.
+ *
+ * verify-matching.ts 는 점수 계산만 본다(서버 불필요).
+ * 이 스크립트는 API·DB·보안이 실제로 맞물려 도는지 확인한다.
+ *
+ * 실행:
+ *   npm run build && npm start     # 다른 터미널에서
+ *   npm run verify:flow
+ *
+ * 검증이 끝나면 만든 데이터를 스스로 지운다.
+ */
+import { CONSENT_VERSION } from "../src/shared/constants/privacy";
+import { supabaseAccess } from "./lib/env";
+
+const BASE = process.env.BASE_URL ?? "http://localhost:3000";
+const { url: dbUrl, headers: dbHeaders } = supabaseAccess();
+
+/** 이 스크립트가 만든 데이터만 지우기 위한 표식. */
+const TEST_PREFIX = "010-0099-";
+
+let passed = 0;
+let failed = 0;
+
+function check(label: string, ok: boolean, detail = "") {
+  if (ok) passed++;
+  else failed++;
+  console.log(`  ${ok ? "✓" : "✗"} ${label}${detail ? ` — ${detail}` : ""}`);
+}
+
+async function post(path: string, body: unknown, cookie?: string) {
+  const res = await fetch(BASE + path, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(cookie ? { Cookie: cookie } : {}),
+    },
+    body: JSON.stringify(body),
+    redirect: "manual",
+  });
+  const text = await res.text();
+  let json: Record<string, unknown> = {};
+  try {
+    json = JSON.parse(text) as Record<string, unknown>;
+  } catch {
+    /* HTML 응답일 수 있다 */
+  }
+  return { status: res.status, json, res };
+}
+
+const consent = { consentedAt: new Date().toISOString(), consentVersion: CONSENT_VERSION };
+const empty = {
+  targetCampus: [],
+  desiredAreas: [],
+  targetMajors: [],
+  targetCareers: [],
+  mentoringArea: [],
+  currentMajors: [],
+  careerPaths: [],
+};
+
+function mentor(n: number, over: Record<string, unknown> = {}) {
+  return {
+    ...empty,
+    ...consent,
+    name: `검증멘토${n}`,
+    gender: "MALE",
+    contact: `${TEST_PREFIX}${String(1000 + n).slice(-4)}`,
+    personaType: "SOLOMON",
+    mbti: "INTJ",
+    currentCampus: "연세대",
+    admissionYear: 2023,
+    mentoringArea: ["학점관리"],
+    currentMajors: ["경영학과"],
+    careerPaths: ["금융권"],
+    availableTimes: ["WEEKDAY_EVENING"],
+    ...over,
+  };
+}
+
+function mentee(over: Record<string, unknown> = {}) {
+  return {
+    ...empty,
+    ...consent,
+    name: "검증멘티",
+    gender: "FEMALE",
+    contact: `${TEST_PREFIX}0001`,
+    personaType: "ESTHER",
+    mbti: "ENFP",
+    targetCampus: ["연세대"],
+    desiredAreas: ["학점관리"],
+    targetMajors: ["경영학과"],
+    targetCareers: ["금융권"],
+    availableTimes: ["WEEKDAY_EVENING"],
+    ...over,
+  };
+}
+
+async function cleanup() {
+  await fetch(`${dbUrl}/rest/v1/users?contact=like.${TEST_PREFIX}*`, {
+    method: "DELETE",
+    headers: dbHeaders,
+  });
+}
+
+async function main() {
+  console.log("=".repeat(56));
+  console.log(`전체 흐름 검증  ${BASE}`);
+  console.log("=".repeat(56));
+
+  // 서버가 떠 있는지 먼저 본다. 없으면 이후 검사가 전부 의미 없다.
+  try {
+    const ping = await fetch(BASE, { redirect: "manual" });
+    if (!ping.ok) throw new Error(String(ping.status));
+  } catch {
+    console.error(`\n서버에 연결하지 못했습니다: ${BASE}`);
+    console.error("먼저 실행하세요:  npm run build && npm start");
+    process.exit(1);
+  }
+
+  await cleanup();
+
+  console.log("\n[1] 신청 저장");
+  const m1 = await post("/api/signup", { role: "MENTOR", draft: mentor(1) });
+  check("멘토 신청", m1.status === 200 && typeof m1.json.participationCode === "string",
+    String(m1.json.participationCode ?? m1.json.error));
+  const menteeRes = await post("/api/signup", { role: "MENTEE", draft: mentee() });
+  const menteeCode = menteeRes.json.participationCode as string | undefined;
+  check("멘티 신청", menteeRes.status === 200 && !!menteeCode, String(menteeCode ?? menteeRes.json.error));
+
+  console.log("\n[2] 입력 검증 (서버가 다시 막는가)");
+  const badPhone = await post("/api/signup", {
+    role: "MENTEE",
+    draft: mentee({ contact: "01012345678" }),
+  });
+  check("잘못된 연락처 형식 거부", badPhone.status === 400, String(badPhone.json.error ?? ""));
+
+  const noConsent = await post("/api/signup", {
+    role: "MENTEE",
+    draft: { ...mentee({ contact: `${TEST_PREFIX}0009` }), consentedAt: undefined, consentVersion: undefined },
+  });
+  check("동의 없는 신청 거부", noConsent.status === 400, String(noConsent.json.error ?? ""));
+
+  const oldConsent = await post("/api/signup", {
+    role: "MENTEE",
+    draft: { ...mentee({ contact: `${TEST_PREFIX}0010` }), consentVersion: "1999-01-01" },
+  });
+  check("옛 동의 문구 거부", oldConsent.status === 400, String(oldConsent.json.error ?? ""));
+
+  console.log("\n[3] 중복 신청");
+  const dup = await post("/api/signup", { role: "MENTEE", draft: mentee() });
+  check(
+    "같은 사람 재신청 시 기존 코드 반환",
+    dup.status === 200 && dup.json.alreadyRegistered === true && dup.json.participationCode === menteeCode,
+    String(dup.json.participationCode ?? dup.json.error),
+  );
+  const otherName = await post("/api/signup", {
+    role: "MENTEE",
+    draft: mentee({ name: "다른사람" }),
+  });
+  check("같은 번호 다른 이름 거부", otherName.status === 400, String(otherName.json.error ?? ""));
+
+  console.log("\n[4] 매칭");
+  const match = await post("/api/match", { participationCode: menteeCode });
+  const results = (match.json.results ?? []) as { mentor: Record<string, unknown>; score: number }[];
+  check("매칭 계산", match.status === 200 && results.length > 0, `${results.length}명`);
+  check(
+    "응답에 전체 연락처 없음",
+    !/010-\d{4}-\d{4}/.test(JSON.stringify(match.json).replace(/010-\*\*\*\*-\d{4}/g, "")),
+  );
+  check(
+    "연락처가 마스킹됨",
+    results.every((r) => String(r.mentor.maskedContact).includes("****")),
+  );
+  const badCode = await post("/api/match", { participationCode: "XXXXXX" });
+  check("잘못된 참여코드 거부", badCode.status === 400);
+
+  console.log("\n[5] 연락처 공개");
+  const mentorId = results[0]?.mentor.id as string | undefined;
+  const reveal = await post("/api/match/request", { participationCode: menteeCode, mentorId });
+  check("매칭된 멘토에게 요청 시 공개", reveal.status === 200 && /^010-/.test(String(reveal.json.contact ?? "")));
+  const fake = await post("/api/match/request", {
+    participationCode: menteeCode,
+    mentorId: "00000000-0000-0000-0000-000000000000",
+  });
+  check("매칭되지 않은 멘토 요청 거부", fake.status === 400);
+  const stolen = await post("/api/match/request", { participationCode: "ZZZZZZ", mentorId });
+  check("남의 참여코드로 요청 거부", stolen.status === 400);
+
+  console.log("\n[6] 참여코드 조회");
+  const found = await post("/api/lookup", { name: "검증멘티", contact: `${TEST_PREFIX}0001` });
+  check("이름+번호 일치 시 조회", found.json.found === true && found.json.participationCode === menteeCode);
+  const wrong = await post("/api/lookup", { name: "검증멘티", contact: "010-0000-0000" });
+  check("번호 불일치 시 비공개", wrong.json.found === false);
+
+  console.log("\n[7] 운영자 화면 접근 제어");
+  const noAuth = await fetch(`${BASE}/admin`, { redirect: "manual" });
+  check("로그인 없이 /admin 차단", noAuth.status === 307 || noAuth.status === 302, `HTTP ${noAuth.status}`);
+  const forged = await fetch(`${BASE}/admin`, {
+    headers: { Cookie: "ccc_admin=99999999999999.forged" },
+    redirect: "manual",
+  });
+  check("위조 쿠키 차단", forged.status === 307 || forged.status === 302);
+  const wrongPw = await post("/api/admin/login", { password: "wrong-password" });
+  check("틀린 비밀번호 거부", wrongPw.status === 401);
+
+  await cleanup();
+
+  console.log("\n" + "=".repeat(56));
+  console.log(failed === 0 ? `모든 흐름 검증 통과 (${passed}개 항목)` : `${failed}건 실패 / ${passed}건 통과`);
+  console.log("=".repeat(56));
+  console.log("검증용 데이터는 정리했습니다.");
+
+  process.exit(failed === 0 ? 0 : 1);
+}
+
+void main();

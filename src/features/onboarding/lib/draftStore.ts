@@ -18,6 +18,8 @@ export interface StoredDraft {
   draft: OnboardingDraft;
   /** 제출 시 발급된 참여코드 */
   participationCode: string;
+  /** 이미 신청한 사람이라 기존 코드를 받은 경우 */
+  alreadyRegistered?: boolean;
   /** 언제 제출했는지. 오래된 값을 걸러낼 때 쓴다. */
   savedAt: number;
 }
@@ -26,10 +28,17 @@ export function saveDraft(
   role: Extract<Role, "MENTEE" | "MENTOR">,
   draft: OnboardingDraft,
   participationCode: string,
+  alreadyRegistered?: boolean,
 ): void {
   if (typeof window === "undefined") return;
   try {
-    const payload: StoredDraft = { role, draft, participationCode, savedAt: Date.now() };
+    const payload: StoredDraft = {
+      role,
+      draft,
+      participationCode,
+      alreadyRegistered,
+      savedAt: Date.now(),
+    };
     sessionStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
   } catch {
     // 저장 용량 초과(사진이 큰 경우) 등으로 실패해도 온보딩 자체는 막지 않는다.

@@ -62,14 +62,50 @@ Hobby 플랜에는 비밀번호 보호가 없어 **주소를 아는 사람은 �
 
 ## 2. 사전 확인 (배포 전, 로컬)
 
+### 명령 정리
+
+| 명령 | 무엇을 보는가 | 서버 필요 |
+| --- | --- | --- |
+| `npm run typecheck` | 타입 오류 | |
+| `npm run build` | 빌드 | |
+| `npm run check:db` | **DB 스키마가 코드와 맞는지** | |
+| `npm run verify` | 매칭 알고리즘 28개 항목 (2,500조합 전수) | |
+| `npm run verify:flow` | **API·DB·보안이 실제로 맞물려 도는지** | ✅ |
+| `npm run reset-data` | 신청 데이터 삭제 | |
+| `npm run purge -- --event-end YYYY-MM-DD` | 보유 기간 지난 데이터 파기 | |
+
+### 순서
+
 ```bash
-npm run typecheck    # 타입 오류
-npm run build        # 빌드
-npm run verify       # 매칭 알고리즘 28개 항목
+npm run typecheck
+npm run build
+npm run check:db        # 스키마가 안 맞으면 실행할 SQL을 알려줍니다
+npm run verify
+
+# 흐름 검증은 서버가 떠 있어야 합니다
+npm start               # 다른 터미널에서
+npm run verify:flow
 ```
 
-셋 다 통과해야 배포합니다. `npm run verify` 는 멘토 50 × 멘티 50 = 2,500조합을
-전수 검사하고 가중치 합계·미반영 항목·MBTI 배점까지 확인합니다.
+### `check:db` 를 먼저 돌리는 이유
+
+스키마 변경은 Supabase SQL Editor에서 **사람이 직접 실행**해야 합니다.
+코드만 배포하고 SQL을 잊으면 **모든 신청이 실패**하는데, 화면에는
+"저장하지 못했어요"만 나와서 원인을 알기 어렵습니다.
+
+`check:db` 는 부족한 항목을 찾아 **실행할 SQL을 그대로 출력**합니다.
+복사해서 SQL Editor에 붙여넣으면 됩니다.
+
+### `verify:flow` 가 확인하는 것
+
+실제 서버에 요청을 보내 19개 항목을 검사하고, 끝나면 만든 데이터를 스스로 지웁니다.
+
+- 신청 저장 · 입력 검증 (연락처 형식, 동의 누락, 옛 동의 문구)
+- 중복 신청 시 기존 코드 반환 / 같은 번호 다른 이름 거부
+- 매칭 계산 · **응답에 전체 연락처가 없는지**
+- 연락처 공개 · 매칭되지 않은 멘토 요청 거부 · 남의 코드로 요청 거부
+- 참여코드 조회 · 번호 불일치 시 비공개
+- `/admin` 차단 · 위조 쿠키 차단 · 틀린 비밀번호 거부
 
 ---
 

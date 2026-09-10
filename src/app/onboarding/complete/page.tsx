@@ -51,20 +51,23 @@ export default function OnboardingCompletePage() {
     <div className="mx-auto flex min-h-dvh w-full max-w-[430px] flex-col bg-white px-6">
       <div ref={bodyRef} className="flex-1 pt-16">
         <p data-reveal className="text-[14px] font-medium text-brand">
-          신청 완료
+          {stored.alreadyRegistered ? "이미 신청하셨어요" : "신청 완료"}
         </p>
 
         <h1
           data-reveal
           className="mt-1.5 text-[24px] leading-[1.35] font-bold tracking-[-0.02em] text-gray-900"
         >
-          <Name>{name}</Name>님, 접수했어요
+          <Name>{name}</Name>님,{" "}
+          {stored.alreadyRegistered ? "먼저 접수됐어요" : "접수했어요"}
         </h1>
 
         <p data-reveal className="mt-2 text-[14px] leading-relaxed text-gray-500">
-          {isMentee
-            ? "잘 맞는 선배를 찾아뒀어요. 아래에서 확인해보세요."
-            : "후배가 신청하면 운영자가 연결해 드릴게요."}
+          {stored.alreadyRegistered
+            ? "같은 연락처로 이미 신청한 내역이 있어요. 아래가 그때 받으신 코드예요."
+            : isMentee
+              ? "잘 맞는 선배를 찾아뒀어요. 아래에서 확인해보세요."
+              : "후배가 신청하면 운영자가 연결해 드릴게요."}
         </p>
 
         {/* 참여코드. 문의할 때 이름 대신 대는 번호라 가장 크게 둔다. */}

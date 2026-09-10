@@ -9,7 +9,10 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "verify": "tsx scripts/verify-matching.ts",
-    "reset-data": "tsx scripts/reset-data.ts"
+    "reset-data": "tsx scripts/reset-data.ts",
+    "check:db": "tsx scripts/check-db.ts",
+    "verify:flow": "tsx scripts/verify-flow.ts",
+    "purge": "tsx scripts/purge-expired.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.5.2",
