@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
-import { findMenteeByCode, listMentors, saveMatchings } from "@/features/signup/lib/repository";
+import {
+  findMenteeByCode,
+  findSettledMatch,
+  listAvailableMentors,
+  saveMatchings,
+} from "@/features/signup/lib/repository";
 import { hasNoTimeOverlap, matchMentors } from "@/features/matching/lib/score";
 import { normalizeParticipationCode, isValidParticipationCode } from "@/features/onboarding/lib/participationCode";
 import { maskContact } from "@/shared/lib/security/mask";
@@ -46,8 +51,22 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "신청 내역을 찾지 못했어요." }, { status: 404 });
   }
 
-  const mentors = await listMentors();
-  const results = matchMentors(mentee, mentors, TOP_N);
+  // 이미 매칭을 마쳤으면 재계산하지 않는다.
+  // 후보 목록에서 자기 멘토가 빠져 있어 다시 계산하면 사라져 버린다.
+  const settled = await findSettledMatch(mentee.id);
+
+  // 이미 배정된 멘토는 빼고 계산한다. 매칭은 1:1이다.
+  const mentors = await listAvailableMentors();
+  const results = settled
+    ? [
+        {
+          mentor: settled.mentor,
+          score: settled.score,
+          breakdown: settled.breakdown as ReturnType<typeof matchMentors>[number]["breakdown"],
+          hashtags: matchMentors(mentee, [settled.mentor], 1)[0]?.hashtags ?? [],
+        },
+      ]
+    : matchMentors(mentee, mentors, TOP_N);
 
   // 결과가 적거나 없을 때 "왜 그런지"를 함께 보낸다.
   const inCampus = mentors.filter((m) => mentee.targetCampus.includes(m.currentCampus));
@@ -61,7 +80,8 @@ export async function POST(request: Request) {
   };
 
   // 계산 결과를 남겨 두면 운영자가 나중에 같은 순위를 다시 볼 수 있다.
-  await saveMatchings(
+  if (!settled)
+    await saveMatchings(
     mentee.id,
     results.map((r, i) => ({
       mentorId: r.mentor.id,
@@ -73,6 +93,8 @@ export async function POST(request: Request) {
 
   return NextResponse.json({
     diagnosis,
+    // 이미 매칭을 마친 멘티에게는 그 한 명만 보여준다.
+    settledMentorId: settled?.mentor.id,
     mentee: {
       name: mentee.name,
       participationCode: mentee.participationCode,

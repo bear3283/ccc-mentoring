@@ -198,6 +198,51 @@ async function main() {
   const stolen = await post("/api/match/request", { participationCode: "ZZZZZZ", mentorId });
   check("남의 참여코드로 요청 거부", stolen.status === 400);
 
+  console.log("\n[5-1] 1:1 매칭");
+  // 방금 연락처를 공개했으므로 이 멘토는 배정이 끝났다.
+
+  // ① 멘티는 두 명과 매칭할 수 없다.
+  const secondMentorId = results[1]?.mentor.id as string | undefined;
+  if (secondMentorId) {
+    const twoMentors = await post("/api/match/request", {
+      participationCode: menteeCode,
+      mentorId: secondMentorId,
+    });
+    check("멘티가 두 번째 멘토 요청 시 거부", twoMentors.status === 400,
+      String(twoMentors.json.error ?? ""));
+  } else {
+    check("멘티가 두 번째 멘토 요청 시 거부", true, "후보가 1명뿐이라 생략");
+  }
+
+  // ② 같은 연락처를 다시 요청하면 막지 않고 그대로 보여준다.
+  const again = await post("/api/match/request", { participationCode: menteeCode, mentorId });
+  check("같은 멘토 재요청 시 연락처 재공개", again.status === 200 && /^010-/.test(String(again.json.contact ?? "")));
+
+  // ③ 배정된 멘토는 다른 멘티의 후보에서 사라진다.
+  const other = await post("/api/signup", {
+    role: "MENTEE",
+    draft: mentee({ name: "검증멘티2", contact: `${TEST_PREFIX}0002` }),
+  });
+  const otherCode = other.json.participationCode as string | undefined;
+  const otherMatch = await post("/api/match", { participationCode: otherCode });
+  const otherResults = (otherMatch.json.results ?? []) as { mentor: { id: string } }[];
+  check(
+    "배정된 멘토가 다른 멘티 후보에서 제외됨",
+    !otherResults.some((r) => r.mentor.id === mentorId),
+    `후보 ${otherResults.length}명`,
+  );
+
+  // ④ 매칭을 마친 멘티가 다시 열면 자기 멘토가 그대로 보인다.
+  //    줄어든 후보로 재계산하면 정작 본인 멘토가 사라진다.
+  const revisit = await post("/api/match", { participationCode: menteeCode });
+  const revisitResults = (revisit.json.results ?? []) as { mentor: { id: string } }[];
+  check(
+    "매칭 완료 후 재방문 시 자기 멘토 유지",
+    revisit.json.settledMentorId === mentorId &&
+      revisitResults.some((r) => r.mentor.id === mentorId),
+    `settled=${String(revisit.json.settledMentorId)}`,
+  );
+
   console.log("\n[6] 참여코드 조회");
   const found = await post("/api/lookup", { name: "검증멘티", contact: `${TEST_PREFIX}0001` });
   check("이름+번호 일치 시 조회", found.json.found === true && found.json.participationCode === menteeCode);

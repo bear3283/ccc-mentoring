@@ -13,6 +13,10 @@ interface MentorCardProps {
   /** 매칭을 요청해 공개된 전체 연락처. 없으면 가린 번호만 보인다. */
   revealedContact?: string;
   busy?: boolean;
+  /** 이미 다른 선배와 매칭해서 고를 수 없는 상태. */
+  locked?: boolean;
+  /** 이 선배가 바로 내가 매칭한 상대. */
+  settled?: boolean;
 }
 
 /**
@@ -21,7 +25,14 @@ interface MentorCardProps {
  *   컬러 그라디언트 헤더 밴드 -> 밴드에 걸친 원형 아바타 -> 이름 -> 소속 -> 태그 행 -> 설명 -> CTA
  * 리스트가 아니라 카드인 이유: 멘토 한 명에 집중해서 보고 결정하게 만들기 위함.
  */
-export function MentorCard({ result, onMatch, revealedContact, busy }: MentorCardProps) {
+export function MentorCard({
+  result,
+  onMatch,
+  revealedContact,
+  busy,
+  locked,
+  settled,
+}: MentorCardProps) {
   const { mentor, score, hashtags } = result;
   const persona = PERSONAS[mentor.personaType];
   const [from, to] = persona.gradient;
@@ -144,11 +155,24 @@ export function MentorCard({ result, onMatch, revealedContact, busy }: MentorCar
             <button
               type="button"
               onClick={() => onMatch(result)}
-              disabled={busy}
+              disabled={busy || locked}
               className="mt-5 h-[52px] w-full rounded-2xl bg-brand text-[16px] font-bold text-white transition-colors duration-150 active:bg-brand-dark disabled:bg-gray-100 disabled:text-gray-300"
             >
-              {busy ? "요청 중…" : "매칭하기"}
+              {settled
+                ? "연락처 다시 보기"
+                : locked
+                  ? "이미 다른 선배와 매칭했어요"
+                  : busy
+                    ? "요청 중…"
+                    : "매칭하기"}
             </button>
+
+            {/* 한 번 고르면 바꿀 수 없으므로 누르기 전에 알린다. */}
+            {!locked && !settled && (
+              <p className="mt-2 text-center text-[12px] text-gray-400">
+                한 분과만 매칭돼요. 신중히 골라주세요.
+              </p>
+            )}
           </>
         )}
       </div>

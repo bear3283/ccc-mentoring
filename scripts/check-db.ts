@@ -68,6 +68,86 @@ const UNIQUE_SQL = `do $$ begin
     add constraint users_contact_role_unique unique (contact, role);
 exception when duplicate_object then null; end $$;`;
 
+const ONE_TO_ONE_SQL = `create unique index if not exists matchings_mentor_taken_unique
+  on public.matchings (mentor_id)
+  where status in ('REQUESTED', 'CONFIRMED');
+
+create unique index if not exists matchings_mentee_taken_unique
+  on public.matchings (mentee_id)
+  where status in ('REQUESTED', 'CONFIRMED');`;
+
+/**
+ * 1:1 제약을 확인한다.
+ *
+ * 코드에서도 "이미 매칭됐는지" 보지만, 두 멘티가 같은 순간에 누르면 둘 다
+ * 통과한다. 마지막 방어선은 DB 인덱스뿐이라 여기서 살아있는지 확인한다.
+ *
+ * 실데이터를 건드리지 않도록 검사용 사용자를 새로 만들고 끝나면 지운다.
+ */
+async function probeOneToOne(): Promise<boolean> {
+  const CHECK_CONTACT = "010-0000-9003";
+  const base = {
+    gender: "FEMALE" as const,
+    persona_type: "DAVID",
+    available_times: ["WEEKDAY_EVENING"],
+    consented_at: new Date().toISOString(),
+    consent_version: "check",
+    current_campus: "연세대",
+  };
+
+  async function add(role: string, code: string, n: number): Promise<string | undefined> {
+    const res = await fetch(`${url}/rest/v1/users`, {
+      method: "POST",
+      headers: { ...headers, Prefer: "return=representation" },
+      body: JSON.stringify({
+        ...base,
+        role,
+        participation_code: code,
+        name: `1대1확인${n}`,
+        contact: `${CHECK_CONTACT}`.slice(0, -1) + n,
+      }),
+    });
+    if (!res.ok) return undefined;
+    const [row] = (await res.json()) as { id: string }[];
+    return row.id;
+  }
+
+  async function link(menteeId: string, mentorId: string): Promise<boolean> {
+    const res = await fetch(`${url}/rest/v1/matchings`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        mentee_id: menteeId,
+        mentor_id: mentorId,
+        score: 50,
+        rank: 1,
+        status: "REQUESTED",
+      }),
+    });
+    return res.ok;
+  }
+
+  const cleanup = () =>
+    fetch(`${url}/rest/v1/users?contact=like.010-0000-900*`, { method: "DELETE", headers });
+
+  await cleanup();
+  const menteeA = await add("MENTEE", "CHK1TA", 4);
+  const menteeB = await add("MENTEE", "CHK1TB", 5);
+  const mentor = await add("MENTOR", "CHK1TC", 6);
+
+  if (!menteeA || !menteeB || !mentor) {
+    await cleanup();
+    return false;
+  }
+
+  const first = await link(menteeA, mentor);
+  // 같은 멘토를 다른 멘티가 가져가려 하면 거부되어야 한다.
+  const second = await link(menteeB, mentor);
+
+  await cleanup();
+  return first && !second;
+}
+
 const requirements: Requirement[] = [
   {
     name: "동의 컬럼 (consented_at, consent_version)",
@@ -126,6 +206,12 @@ const requirements: Requirement[] = [
       return rejected;
     },
     sql: UNIQUE_SQL,
+  },
+  {
+    name: "1:1 매칭 제약 (멘토·멘티 각 1명)",
+    requires: "동의 컬럼 (consented_at, consent_version)",
+    probe: probeOneToOne,
+    sql: ONE_TO_ONE_SQL,
   },
 ];
 

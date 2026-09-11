@@ -20,7 +20,14 @@ interface MenteeSummary {
 
 type State =
   | { kind: "loading" }
-  | { kind: "ready"; mentee: MenteeSummary; results: PublicMatchResult[]; diagnosis?: MatchDiagnosis }
+  | {
+      kind: "ready";
+      mentee: MenteeSummary;
+      results: PublicMatchResult[];
+      diagnosis?: MatchDiagnosis;
+      /** 이미 매칭을 마쳤다면 그 멘토의 id. 1:1이라 한 명뿐이다. */
+      settledMentorId?: string;
+    }
   | { kind: "noSignup" }
   | { kind: "error"; message: string };
 
@@ -47,6 +54,7 @@ export default function MatchingResultPage() {
           mentee?: MenteeSummary;
           results?: PublicMatchResult[];
           diagnosis?: MatchDiagnosis;
+          settledMentorId?: string;
           error?: string;
         };
         if (cancelled) return;
@@ -55,7 +63,13 @@ export default function MatchingResultPage() {
           setState({ kind: "error", message: body.error ?? "결과를 불러오지 못했어요." });
           return;
         }
-        setState({ kind: "ready", mentee: body.mentee, results: body.results, diagnosis: body.diagnosis });
+        setState({
+          kind: "ready",
+          mentee: body.mentee,
+          results: body.results,
+          diagnosis: body.diagnosis,
+          settledMentorId: body.settledMentorId,
+        });
       })
       .catch(() => {
         if (!cancelled) {
@@ -81,8 +95,21 @@ export default function MatchingResultPage() {
   const [revealed, setRevealed] = useState<Record<string, string>>({});
   const [requesting, setRequesting] = useState<string>();
 
+  const [pending, setPending] = useState<PublicMatchResult>();
+  const [matchError, setMatchError] = useState<string>();
+
   const handleMatch = async (result: PublicMatchResult) => {
     if (state.kind !== "ready" || requesting) return;
+
+    // 1:1이라 한 번 고르면 되돌릴 수 없다. 먼저 확인을 받는다.
+    // 이미 매칭한 상대의 연락처를 다시 보는 경우는 확인이 필요 없다.
+    if (result.mentor.id !== state.settledMentorId && pending?.mentor.id !== result.mentor.id) {
+      setPending(result);
+      return;
+    }
+
+    setPending(undefined);
+    setMatchError(undefined);
     setRequesting(result.mentor.id);
     try {
       const res = await fetch("/api/match/request", {
@@ -96,6 +123,8 @@ export default function MatchingResultPage() {
       const body = (await res.json()) as { contact?: string; error?: string };
       if (res.ok && body.contact) {
         setRevealed((prev) => ({ ...prev, [result.mentor.id]: body.contact! }));
+      } else {
+        setMatchError(body.error ?? "요청하지 못했어요. 잠시 후 다시 시도해주세요.");
       }
     } catch {
       // 실패하면 카드는 그대로 두고 다시 누를 수 있게 한다.
@@ -134,6 +163,9 @@ export default function MatchingResultPage() {
   }
 
   const { mentee, results, diagnosis } = state;
+  // 서버가 확정된 매칭을 알려주면 그걸 따른다.
+  // 화면을 새로 열면 revealed 는 비어 있으므로 이것만으로는 판단할 수 없다.
+  const hasMatched = !!state.settledMentorId || Object.keys(revealed).length > 0;
 
   return (
     <div className="mx-auto min-h-dvh w-full max-w-[430px] bg-gray-100">
@@ -156,6 +188,12 @@ export default function MatchingResultPage() {
         </div>
       </header>
 
+      {matchError && (
+        <p className="mx-5 mt-4 rounded-2xl bg-red-500/10 px-4 py-3 text-[14px] leading-relaxed text-red-600">
+          {matchError}
+        </p>
+      )}
+
       <div ref={listRef} className="flex flex-col gap-4 px-5 py-6">
         {results.length === 0 ? (
           <EmptyResult diagnosis={diagnosis} targetCampus={mentee.targetCampus} />
@@ -167,10 +205,41 @@ export default function MatchingResultPage() {
               onMatch={handleMatch}
               revealedContact={revealed[result.mentor.id]}
               busy={requesting === result.mentor.id}
+              // 한 명과 매칭했으면 나머지는 고를 수 없다.
+              locked={hasMatched && result.mentor.id !== state.settledMentorId && !revealed[result.mentor.id]}
+              settled={result.mentor.id === state.settledMentorId}
             />
           ))
         )}
       </div>
+      {/* 되돌릴 수 없는 선택이라 한 번 더 확인한다. */}
+      {pending && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 px-5 pb-[max(24px,env(safe-area-inset-bottom))]">
+          <div className="w-full max-w-[390px] rounded-3xl bg-white p-6">
+            <p className="text-[18px] leading-snug font-bold text-gray-900">
+              {pending.mentor.name} 선배와 매칭할까요?
+            </p>
+            <p className="mt-2 text-[14px] leading-relaxed text-gray-500">
+              한 분과만 연결돼요. 매칭하면 다른 선배는 고를 수 없고,
+              선택한 선배도 다른 후배와 매칭되지 않아요.
+            </p>
+            <button
+              type="button"
+              onClick={() => void handleMatch(pending)}
+              className="mt-5 h-[52px] w-full rounded-2xl bg-brand text-[16px] font-bold text-white"
+            >
+              네, 이 선배와 할래요
+            </button>
+            <button
+              type="button"
+              onClick={() => setPending(undefined)}
+              className="mt-2 h-[52px] w-full rounded-2xl bg-gray-100 text-[16px] font-semibold text-gray-700"
+            >
+              더 볼게요
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

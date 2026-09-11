@@ -213,7 +213,59 @@ export async function saveSignup(
   return { ok: true, userId: user.id };
 }
 
-/** 매칭 대상이 되는 멘토 전체. 자격증명이 없으면 더미로 대체한다. */
+/**
+ * 이미 배정이 끝난 멘토의 id.
+ *
+ * 매칭은 1:1이라, 멘티가 '매칭하기'를 눌러 성사된 멘토는 다른 멘티의
+ * 후보에서 빠져야 한다. 추천(SUGGESTED)만 된 상태는 아직 성사가 아니므로
+ * 후보로 남는다. 그렇지 않으면 첫 멘티가 결과를 여는 순간 멘토 3명이 잠긴다.
+ */
+export async function listTakenMentorIds(): Promise<Set<string>> {
+  const supabase = getSupabase();
+  if (!supabase) return new Set();
+
+  const { data } = await supabase
+    .from("matchings")
+    .select("mentor_id")
+    .in("status", ["REQUESTED", "CONFIRMED"]);
+
+  return new Set((data ?? []).map((row) => row.mentor_id as string));
+}
+
+/**
+ * 이 멘티가 이미 성사시킨 매칭. 없으면 undefined.
+ *
+ * 매칭을 마친 멘티가 결과 화면을 다시 열면, 줄어든 후보로 재계산되어
+ * 정작 자기 멘토가 목록에서 사라진다. 그래서 재계산보다 이걸 먼저 본다.
+ */
+export async function findSettledMatch(
+  menteeId: string,
+): Promise<{ mentor: Mentor; score: number; breakdown: unknown } | undefined> {
+  const supabase = getSupabase();
+  if (!supabase) return undefined;
+
+  const { data } = await supabase
+    .from("matchings")
+    .select("mentor_id, score, breakdown")
+    .eq("mentee_id", menteeId)
+    .in("status", ["REQUESTED", "CONFIRMED"])
+    .maybeSingle();
+
+  if (!data) return undefined;
+
+  const mentor = (await listMentors()).find((m) => m.id === data.mentor_id);
+  if (!mentor) return undefined;
+
+  return { mentor, score: data.score as number, breakdown: data.breakdown };
+}
+
+/** 아직 배정되지 않은 멘토만. 매칭 계산은 이 목록을 쓴다. */
+export async function listAvailableMentors(): Promise<Mentor[]> {
+  const [mentors, taken] = await Promise.all([listMentors(), listTakenMentorIds()]);
+  return mentors.filter((m) => !taken.has(m.id));
+}
+
+/** 멘토 전체. 운영자 표처럼 배정 여부와 무관하게 다 봐야 할 때 쓴다. */
 export async function listMentors(): Promise<Mentor[]> {
   const supabase = getSupabase();
   if (!supabase) return MOCK_MENTORS;
@@ -428,14 +480,43 @@ export async function requestMatch(
   // 그래야 아무 멘토 id나 넣어 연락처를 캐낼 수 없다.
   const { data: matching } = await supabase
     .from("matchings")
-    .select("id")
+    .select("id, status")
     .eq("mentee_id", mentee.id)
     .eq("mentor_id", mentorId)
     .maybeSingle();
 
   if (!matching) return { ok: false, error: "매칭된 멘토가 아니에요." };
 
-  await supabase.from("matchings").update({ status: "REQUESTED" }).eq("id", matching.id);
+  // 이미 이 조합으로 요청했으면 연락처만 다시 보여준다.
+  const alreadyMine = matching.status === "REQUESTED" || matching.status === "CONFIRMED";
+
+  if (!alreadyMine) {
+    // 1:1이라 멘티도 한 명만 고를 수 있다.
+    const { data: myOther } = await supabase
+      .from("matchings")
+      .select("id")
+      .eq("mentee_id", mentee.id)
+      .in("status", ["REQUESTED", "CONFIRMED"])
+      .maybeSingle();
+
+    if (myOther) {
+      return { ok: false, error: "이미 다른 선배와 매칭하셨어요. 한 분과만 연결돼요." };
+    }
+
+    const { error: updateError } = await supabase
+      .from("matchings")
+      .update({ status: "REQUESTED" })
+      .eq("id", matching.id);
+
+    // DB의 부분 유니크 인덱스가 마지막 방어선이다.
+    // 두 멘티가 같은 순간에 눌러도 하나만 통과한다.
+    if (updateError) {
+      return {
+        ok: false,
+        error: "방금 다른 후배와 매칭됐어요. 다른 선배를 선택해주세요.",
+      };
+    }
+  }
 
   const { data: mentor } = await supabase
     .from("users")
@@ -470,7 +551,9 @@ export async function listUnmatched(): Promise<UnmatchedReason[]> {
 
   const [mentees, mentors, matchings] = await Promise.all([
     listMentees(),
-    listMentors(),
+    // 1:1이라 이미 배정된 멘토는 이 멘티가 만날 수 없다.
+    // 전체 수를 세면 "캠퍼스에 3명 있는데 왜 매칭이 안 되지"로 오해한다.
+    listAvailableMentors(),
     supabase.from("matchings").select("mentee_id"),
   ]);
 
