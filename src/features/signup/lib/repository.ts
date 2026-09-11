@@ -32,6 +32,9 @@ interface UserRow {
   referrer: string | null;
   photo_url: string | null;
   available_times: string[];
+  church: string | null;
+  is_new_friend: boolean;
+  mentoring_applied: boolean;
 }
 
 interface MenteeRow {
@@ -57,6 +60,9 @@ function toMentee(user: UserRow, profile: MenteeRow): Mentee {
     gender: user.gender,
     contact: user.contact,
     highSchool: user.high_school ?? undefined,
+    church: user.church ?? undefined,
+    isNewFriend: user.is_new_friend ?? false,
+    mentoringApplied: user.mentoring_applied ?? false,
     referrer: user.referrer ?? undefined,
     photoUrl: user.photo_url ?? undefined,
     availableTimes: user.available_times as TimeSlot[],
@@ -77,6 +83,9 @@ function toMentor(user: UserRow, profile: MentorRow): Mentor {
     gender: user.gender,
     contact: user.contact,
     highSchool: user.high_school ?? undefined,
+    church: user.church ?? undefined,
+    isNewFriend: user.is_new_friend ?? false,
+    mentoringApplied: user.mentoring_applied ?? false,
     referrer: user.referrer ?? undefined,
     photoUrl: user.photo_url ?? undefined,
     availableTimes: user.available_times as TimeSlot[],
@@ -160,14 +169,18 @@ export async function saveSignup(
       role,
       participation_code: participationCode,
       name: draft.name,
-      gender: draft.gender,
+      gender: draft.gender ?? null,
       contact: draft.contact,
-      persona_type: draft.personaType,
+      church: draft.church ?? null,
+      is_new_friend: draft.isNewFriend ?? false,
+      // 멘토링을 신청하지 않은 등록자는 아래 값들이 비어 있다.
+      mentoring_applied: draft.mentoringApplied ?? false,
+      persona_type: draft.personaType ?? null,
       mbti: draft.mbti ?? null,
       high_school: draft.highSchool ?? null,
       referrer: draft.referrer ?? null,
       photo_url: draft.photoUrl ?? null,
-      available_times: draft.availableTimes,
+      available_times: draft.availableTimes ?? [],
       consented_at: draft.consentedAt,
       consent_version: draft.consentVersion,
     })
@@ -188,9 +201,9 @@ export async function saveSignup(
           await supabase.from("mentee_profiles").insert({
             user_id: user.id,
             target_campus: draft.targetCampus,
-            desired_areas: draft.desiredAreas,
-            target_majors: draft.targetMajors,
-            target_careers: draft.targetCareers,
+            desired_areas: draft.desiredAreas ?? [],
+            target_majors: draft.targetMajors ?? [],
+            target_careers: draft.targetCareers ?? [],
           })
         ).error
       : (
@@ -198,9 +211,9 @@ export async function saveSignup(
             user_id: user.id,
             current_campus: draft.currentCampus,
             admission_year: draft.admissionYear,
-            mentoring_area: draft.mentoringArea,
-            current_majors: draft.currentMajors,
-            career_paths: draft.careerPaths,
+            mentoring_area: draft.mentoringArea ?? [],
+            current_majors: draft.currentMajors ?? [],
+            career_paths: draft.careerPaths ?? [],
           })
         ).error;
 
@@ -233,6 +246,83 @@ export async function listTakenMentorIds(): Promise<Set<string>> {
 }
 
 /**
+ * 2단계 — 이미 등록한 사람에게 멘토링 정보를 덧붙인다.
+ *
+ * 새 행을 만들지 않고 기존 행을 갱신한다. 참여코드로 본인을 확인하므로
+ * 이름·연락처를 다시 받지 않는다 — 그러면 남의 등록에 붙일 수 있다.
+ */
+export async function applyMentoring(
+  role: UserRole,
+  participationCode: string,
+  draft: OnboardingDraft,
+): Promise<SaveResult> {
+  const supabase = getSupabase();
+  if (!supabase) {
+    return { ok: false, error: "서버가 아직 연결되지 않았어요. 운영자에게 문의해주세요." };
+  }
+
+  const { data: user } = await supabase
+    .from("users")
+    .select("id, role, mentoring_applied")
+    .eq("participation_code", participationCode)
+    .maybeSingle();
+
+  if (!user) return { ok: false, error: "등록 내역을 찾지 못했어요." };
+
+  // 멘티로 등록해 놓고 멘토 신청서를 밀어 넣는 것을 막는다.
+  if (user.role !== role) {
+    return { ok: false, error: "등록하신 역할과 달라요. 처음부터 다시 시도해주세요." };
+  }
+
+  const { error: userError } = await supabase
+    .from("users")
+    .update({
+      mentoring_applied: true,
+      persona_type: draft.personaType,
+      mbti: draft.mbti ?? null,
+      photo_url: draft.photoUrl ?? null,
+      available_times: draft.availableTimes,
+    })
+    .eq("id", user.id);
+
+  if (userError) {
+    return { ok: false, error: "저장하지 못했어요. 잠시 후 다시 시도해주세요." };
+  }
+
+  const profileError =
+    role === "MENTEE"
+      ? (
+          await supabase
+            .from("mentee_profiles")
+            .update({
+              desired_areas: draft.desiredAreas,
+              target_majors: draft.targetMajors,
+              target_careers: draft.targetCareers,
+            })
+            .eq("user_id", user.id)
+        ).error
+      : (
+          await supabase
+            .from("mentor_profiles")
+            .update({
+              mentoring_area: draft.mentoringArea,
+              current_majors: draft.currentMajors,
+              career_paths: draft.careerPaths,
+            })
+            .eq("user_id", user.id)
+        ).error;
+
+  if (profileError) {
+    // users 는 이미 갱신됐으므로 멘토링 표시를 되돌린다.
+    // 그대로 두면 관심사가 빈 채로 매칭 후보에 올라간다.
+    await supabase.from("users").update({ mentoring_applied: false }).eq("id", user.id);
+    return { ok: false, error: "저장하지 못했어요. 잠시 후 다시 시도해주세요." };
+  }
+
+  return { ok: true, userId: user.id };
+}
+
+/**
  * 이 멘티가 이미 성사시킨 매칭. 없으면 undefined.
  *
  * 매칭을 마친 멘티가 결과 화면을 다시 열면, 줄어든 후보로 재계산되어
@@ -259,10 +349,19 @@ export async function findSettledMatch(
   return { mentor, score: data.score as number, breakdown: data.breakdown };
 }
 
-/** 아직 배정되지 않은 멘토만. 매칭 계산은 이 목록을 쓴다. */
+/**
+ * 매칭 후보가 되는 멘토.
+ *
+ * 두 가지를 걸러낸다.
+ *  1. 행사 등록만 한 사람 — 관심사·시간대가 비어 있어 점수가 나오지 않는다
+ *  2. 이미 배정된 사람 — 매칭은 1:1이다
+ *
+ * 운영자 화면은 listMentors() 로 전원을 본다. 등록만 한 사람도
+ * 행사에는 오기 때문에 명단에서 빠지면 안 된다.
+ */
 export async function listAvailableMentors(): Promise<Mentor[]> {
   const [mentors, taken] = await Promise.all([listMentors(), listTakenMentorIds()]);
-  return mentors.filter((m) => !taken.has(m.id));
+  return mentors.filter((m) => m.mentoringApplied && !taken.has(m.id));
 }
 
 /** 멘토 전체. 운영자 표처럼 배정 여부와 무관하게 다 봐야 할 때 쓴다. */
@@ -284,6 +383,7 @@ export async function listMentors(): Promise<Mentor[]> {
 }
 
 /** 참여코드로 멘티 한 명을 찾는다. 매칭 결과 화면에서 쓴다. */
+/** 멘토링을 신청하지 않았으면 매칭 대상이 아니다. */
 export async function findMenteeByCode(code: string): Promise<Mentee | null> {
   const supabase = getSupabase();
   if (!supabase) {
@@ -560,7 +660,8 @@ export async function listUnmatched(): Promise<UnmatchedReason[]> {
   const matchedIds = new Set((matchings.data ?? []).map((m) => m.mentee_id as string));
 
   return mentees
-    .filter((mentee) => !matchedIds.has(mentee.id))
+    // 멘토링을 신청하지 않은 사람은 '미매칭'이 아니다. 애초에 대상이 아니다.
+    .filter((mentee) => mentee.mentoringApplied && !matchedIds.has(mentee.id))
     .map((mentee) => {
       const inCampus = mentors.filter((m) => mentee.targetCampus.includes(m.currentCampus));
       return {

@@ -148,7 +148,28 @@ async function probeOneToOne(): Promise<boolean> {
   return first && !second;
 }
 
+const EVENT_SQL = `alter table public.users
+  add column if not exists church text,
+  add column if not exists is_new_friend boolean not null default false,
+  add column if not exists mentoring_applied boolean not null default false;
+
+alter table public.users alter column persona_type drop not null;
+alter table public.users alter column gender drop not null;
+
+do $$ begin
+  alter table public.users drop constraint users_available_times_check;
+exception when undefined_object then null; end $$;
+
+alter table public.users
+  alter column available_times drop not null,
+  alter column available_times set default '{}';`;
+
 const requirements: Requirement[] = [
+  {
+    name: "행사 등록 컬럼 (church, is_new_friend, mentoring_applied)",
+    column: { table: "users", column: "church,is_new_friend,mentoring_applied" },
+    sql: EVENT_SQL,
+  },
   {
     name: "동의 컬럼 (consented_at, consent_version)",
     column: { table: "users", column: "consented_at,consent_version" },

@@ -48,7 +48,19 @@ export async function POST(request: Request) {
 
   const mentee = await findMenteeByCode(code);
   if (!mentee) {
-    return NextResponse.json({ error: "신청 내역을 찾지 못했어요." }, { status: 404 });
+    return NextResponse.json({ error: "등록 내역을 찾지 못했어요." }, { status: 404 });
+  }
+
+  // 행사 등록만 하고 멘토링은 신청하지 않은 경우.
+  // "찾지 못했어요"로 뭉뚱그리면 등록이 안 된 줄 알고 다시 등록한다.
+  if (!mentee.mentoringApplied) {
+    return NextResponse.json(
+      {
+        error: "아직 멘토링을 신청하지 않으셨어요.",
+        needsMentoring: true,
+      },
+      { status: 409 },
+    );
   }
 
   // 이미 매칭을 마쳤으면 재계산하지 않는다.

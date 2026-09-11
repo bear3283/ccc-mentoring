@@ -19,12 +19,20 @@ interface OnboardingFunnelProps {
   role: Extract<Role, "MENTEE" | "MENTOR">;
   steps: readonly OnboardingStep[];
   registry: StepRegistry;
+  /** 2단계는 1단계에서 받은 내용 위에 이어 쓴다. */
+  initialDraft?: OnboardingDraft;
   onComplete: (draft: OnboardingDraft) => void | Promise<void>;
 }
 
-export function OnboardingFunnel({ role, steps, registry, onComplete }: OnboardingFunnelProps) {
+export function OnboardingFunnel({
+  role,
+  steps,
+  registry,
+  initialDraft,
+  onComplete,
+}: OnboardingFunnelProps) {
   const { step, stepIndex, progress, draft, isFirst, isLast, next, back, update } =
-    useFunnel(steps);
+    useFunnel(steps, initialDraft);
 
   const mainRef = useRef<HTMLElement>(null);
   const previousStepRef = useRef(step);

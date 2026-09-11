@@ -234,6 +234,21 @@ exception when duplicate_object then null; end $$;
 문구를 고치면 `CONSENT_VERSION` 을 함께 올려야 합니다. 그래야 "누가 어떤 문구에
 동의했는지"가 기록으로 남습니다.
 
+### 행사 등록 / 멘토링 2단계 분리 — DB 작업 남음
+
+가입이 두 단계가 되었습니다. **1단계 행사 등록**(이름·연락처·학교·교회)만 해도
+행사에 올 수 있고, **2단계 멘토링 신청**은 원하는 사람만 합니다.
+
+등록만 한 사람은 성향·시간대가 비어 있어 지금 스키마로는 **저장 자체가 막힙니다.**
+`supabase/migrations/2026-09-11-event-registration.sql` 을 SQL Editor에서 실행하세요.
+
+- `church`, `is_new_friend`, `mentoring_applied` 컬럼 추가
+- `persona_type`, `gender`, `available_times` 를 선택으로 완화
+- 대신 `mentoring_applied` 가 참일 때만 필수가 되는 조건부 제약 추가
+
+> 멘토링을 신청하지 않은 사람은 매칭 후보에서 빠집니다. 운영자 화면에는
+> 그대로 보입니다 — 행사에는 오시는 분들이라 명단에서 빠지면 안 됩니다.
+
 ### 1:1 매칭 — DB 작업 남음
 
 멘토 한 명은 후배 한 명과만 연결됩니다. 코드에서도 막지만, 두 멘티가 같은 순간에

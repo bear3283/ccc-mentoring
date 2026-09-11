@@ -21,6 +21,12 @@ export interface Mentee {
   highSchool?: string;
   /** 이 서비스를 소개해 준 사람 */
   referrer?: string;
+  /** 출석하는 교회. 새친구면 비어 있다. */
+  church?: string;
+  /** 다니는 교회가 없는 참가자. 행사에서 따로 챙긴다. */
+  isNewFriend?: boolean;
+  /** 행사 등록만 했는지, 멘토링까지 신청했는지 */
+  mentoringApplied?: boolean;
   /** 프로필 사진 (data URL). 없으면 페르소나 이모지로 대체한다. */
   photoUrl?: string;
   availableTimes: TimeSlot[];
@@ -44,6 +50,12 @@ export interface Mentor {
   contact: string;
   highSchool?: string;
   referrer?: string;
+  /** 출석하는 교회. 새친구면 비어 있다. */
+  church?: string;
+  /** 다니는 교회가 없는 참가자. 행사에서 따로 챙긴다. */
+  isNewFriend?: boolean;
+  /** 행사 등록만 했는지, 멘토링까지 신청했는지 */
+  mentoringApplied?: boolean;
   photoUrl?: string;
   availableTimes: TimeSlot[];
   currentCampus: Campus;

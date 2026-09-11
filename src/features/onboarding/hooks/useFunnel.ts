@@ -21,10 +21,10 @@ interface UseFunnelResult {
 
 export function useFunnel(
   steps: readonly OnboardingStep[],
-  initialDraft: OnboardingDraft = EMPTY_DRAFT,
+  initialDraft: OnboardingDraft | undefined = EMPTY_DRAFT,
 ): UseFunnelResult {
   const [stepIndex, setStepIndex] = useState(0);
-  const [draft, setDraft] = useState<OnboardingDraft>(initialDraft);
+  const [draft, setDraft] = useState<OnboardingDraft>(initialDraft ?? EMPTY_DRAFT);
 
   const next = useCallback(
     (patch: Partial<OnboardingDraft>) => {

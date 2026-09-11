@@ -59,17 +59,27 @@ const empty = {
   careerPaths: [],
 };
 
+/** 1단계 — 행사 등록에 필요한 것만. */
 function mentor(n: number, over: Record<string, unknown> = {}) {
   return {
     ...empty,
     ...consent,
     name: `검증멘토${n}`,
-    gender: "MALE",
     contact: `${TEST_PREFIX}${String(1000 + n).slice(-4)}`,
-    personaType: "SOLOMON",
-    mbti: "INTJ",
+    church: "신길교회",
+    isNewFriend: false,
     currentCampus: "연세대",
     admissionYear: 2023,
+    ...over,
+  };
+}
+
+/** 2단계 — 멘토링 신청 항목. 등록 페이로드 위에 덮어 쓴다. */
+function mentorMentoring(over: Record<string, unknown> = {}) {
+  return {
+    ...empty,
+    personaType: "SOLOMON",
+    mbti: "INTJ",
     mentoringArea: ["학점관리"],
     currentMajors: ["경영학과"],
     careerPaths: ["금융권"],
@@ -83,11 +93,19 @@ function mentee(over: Record<string, unknown> = {}) {
     ...empty,
     ...consent,
     name: "검증멘티",
-    gender: "FEMALE",
     contact: `${TEST_PREFIX}0001`,
+    church: "신길교회",
+    isNewFriend: false,
+    targetCampus: ["연세대"],
+    ...over,
+  };
+}
+
+function menteeMentoring(over: Record<string, unknown> = {}) {
+  return {
+    ...empty,
     personaType: "ESTHER",
     mbti: "ENFP",
-    targetCampus: ["연세대"],
     desiredAreas: ["학점관리"],
     targetMajors: ["경영학과"],
     targetCareers: ["금융권"],
@@ -120,7 +138,7 @@ async function main() {
 
   await cleanup();
 
-  console.log("\n[1] 신청 저장");
+  console.log("\n[1] 행사 등록 (1단계)");
   // 짧은 간격으로 다시 돌리면 속도 제한에 걸린다. 원인을 헷갈리지 않게 먼저 알린다.
   const probe = await post("/api/signup", { role: "MENTEE", draft: { name: "x" } });
   if (probe.status === 429) {
@@ -129,11 +147,43 @@ async function main() {
     process.exit(1);
   }
   const m1 = await post("/api/signup", { role: "MENTOR", draft: mentor(1) });
-  check("멘토 신청", m1.status === 200 && typeof m1.json.participationCode === "string",
+  check("멘토 등록", m1.status === 200 && typeof m1.json.participationCode === "string",
     String(m1.json.participationCode ?? m1.json.error));
+  const m1Code = m1.json.participationCode as string | undefined;
   const menteeRes = await post("/api/signup", { role: "MENTEE", draft: mentee() });
   const menteeCode = menteeRes.json.participationCode as string | undefined;
-  check("멘티 신청", menteeRes.status === 200 && !!menteeCode, String(menteeCode ?? menteeRes.json.error));
+  check("멘티 등록", menteeRes.status === 200 && !!menteeCode, String(menteeCode ?? menteeRes.json.error));
+
+  console.log("\n[1-1] 멘토링 신청 (2단계)");
+  // 등록만 한 사람은 매칭 대상이 아니어야 한다.
+  const beforeApply = await post("/api/match", { participationCode: menteeCode });
+  check(
+    "등록만 한 멘티는 매칭 거부 (409)",
+    beforeApply.status === 409 && beforeApply.json.needsMentoring === true,
+    `HTTP ${beforeApply.status}`,
+  );
+
+  const mentorApply = await post("/api/mentoring", {
+    role: "MENTOR",
+    draft: mentorMentoring(),
+    participationCode: m1Code,
+  });
+  check("멘토 멘토링 신청", mentorApply.status === 200, String(mentorApply.json.error ?? ""));
+
+  const menteeApply = await post("/api/mentoring", {
+    role: "MENTEE",
+    draft: menteeMentoring(),
+    participationCode: menteeCode,
+  });
+  check("멘티 멘토링 신청", menteeApply.status === 200, String(menteeApply.json.error ?? ""));
+
+  // 남의 코드로 멘토링을 붙이는 것을 막아야 한다.
+  const wrongRole = await post("/api/mentoring", {
+    role: "MENTOR",
+    draft: mentorMentoring(),
+    participationCode: menteeCode,
+  });
+  check("역할이 다른 코드로 신청 거부", wrongRole.status === 400, String(wrongRole.json.error ?? ""));
 
   console.log("\n[2] 입력 검증 (서버가 다시 막는가)");
   const badPhone = await post("/api/signup", {
@@ -147,6 +197,18 @@ async function main() {
     draft: { ...mentee({ contact: `${TEST_PREFIX}0009` }), consentedAt: undefined, consentVersion: undefined },
   });
   check("동의 없는 신청 거부", noConsent.status === 400, String(noConsent.json.error ?? ""));
+
+  const noChurch = await post("/api/signup", {
+    role: "MENTEE",
+    draft: { ...mentee({ contact: `${TEST_PREFIX}0011` }), church: undefined, isNewFriend: false },
+  });
+  check("교회·새친구 둘 다 없으면 거부", noChurch.status === 400, String(noChurch.json.error ?? ""));
+
+  const newFriend = await post("/api/signup", {
+    role: "MENTEE",
+    draft: mentee({ name: "새친구검증", contact: `${TEST_PREFIX}0012`, church: undefined, isNewFriend: true }),
+  });
+  check("교회 없이 새친구로는 등록 가능", newFriend.status === 200, String(newFriend.json.error ?? ""));
 
   const oldConsent = await post("/api/signup", {
     role: "MENTEE",

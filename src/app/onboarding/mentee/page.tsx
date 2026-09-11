@@ -1,5 +1,6 @@
 import { RoleFunnel } from "@/features/onboarding/components/RoleFunnel";
 
-export default function MenteeOnboardingPage() {
-  return <RoleFunnel role="MENTEE" />;
+/** 1단계 — 행사 등록. 멘토링을 하지 않아도 여기까지는 모두 거친다. */
+export default function MenteeRegisterPage() {
+  return <RoleFunnel role="MENTEE" phase="register" />;
 }

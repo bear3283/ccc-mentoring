@@ -4,40 +4,35 @@ import type { PersonaType } from "@/shared/constants/persona";
 import type { Role } from "@/shared/constants/role";
 
 /**
- * 스텝 순서. 배열 순서가 곧 진행 순서이자 진행률 계산 기준이다.
- * 멘티와 멘토는 묻는 내용이 다르므로 순서도 따로 정의한다.
+ * 가입은 두 단계다.
+ *
+ * 1단계(행사 등록)는 행사에 오는 모든 사람이 거친다. 여기서 저장되고
+ * 참여코드가 나온다. 2단계(멘토링 신청)는 원하는 사람만 이어서 한다.
+ *
+ * 한 번에 다 묻던 것을 나눈 이유: 행사 등록만 하려는 사람에게
+ * 성경 인물과 MBTI부터 물으면 등록 자체를 포기한다.
  */
-export const MENTEE_STEPS = [
-  "persona",
-  "mbti",
-  "targetCampus",
-  "desiredArea",
-  "targetMajor",
-  "consent",
-  "profile",
-  "schedule",
-  "photo",
-] as const;
 
-export const MENTOR_STEPS = [
-  "persona",
-  "mbti",
-  "currentCampus",
-  "mentoringArea",
-  "currentMajor",
-  "consent",
-  "profile",
-  "schedule",
-  "photo",
-] as const;
+/** 1단계 — 행사 등록. 이것만 해도 행사에 올 수 있다. */
+export const REGISTER_STEPS_BY_ROLE = {
+  MENTEE: ["consent", "basic", "targetCampus", "church"],
+  MENTOR: ["consent", "basic", "currentCampus", "church"],
+} as const;
 
-export type MenteeStep = (typeof MENTEE_STEPS)[number];
-export type MentorStep = (typeof MENTOR_STEPS)[number];
-export type OnboardingStep = MenteeStep | MentorStep;
+/** 2단계 — 멘토링 신청. 선택이다. */
+export const MENTORING_STEPS_BY_ROLE = {
+  MENTEE: ["mentoringIntro", "persona", "mbti", "desiredArea", "targetMajor", "schedule", "photo"],
+  MENTOR: ["mentoringIntro", "persona", "mbti", "mentoringArea", "currentMajor", "schedule", "photo"],
+} as const;
 
+export type RegisterStep = (typeof REGISTER_STEPS_BY_ROLE)["MENTEE" | "MENTOR"][number];
+export type MentoringStep = (typeof MENTORING_STEPS_BY_ROLE)["MENTEE" | "MENTOR"][number];
+export type OnboardingStep = RegisterStep | MentoringStep;
+
+/** 두 단계를 이어 붙인 전체. 진행률이 아니라 목록이 필요할 때 쓴다. */
 export const STEPS_BY_ROLE = {
-  MENTEE: MENTEE_STEPS,
-  MENTOR: MENTOR_STEPS,
+  MENTEE: [...REGISTER_STEPS_BY_ROLE.MENTEE, ...MENTORING_STEPS_BY_ROLE.MENTEE],
+  MENTOR: [...REGISTER_STEPS_BY_ROLE.MENTOR, ...MENTORING_STEPS_BY_ROLE.MENTOR],
 } as const satisfies Record<"MENTEE" | "MENTOR", readonly OnboardingStep[]>;
 
 /** 스텝을 진행하며 조금씩 채워지는 초안. 마지막 스텝에서만 완성된다. */
@@ -53,6 +48,14 @@ export interface OnboardingDraft {
   highSchool?: string;
   /** 이 서비스를 소개해 준 사람 */
   referrer?: string;
+  /**
+   * 출석하는 교회. 없으면 비우고 isNewFriend 를 세운다.
+   * 행사에서 새친구를 따로 챙기기 위한 구분이다.
+   */
+  church?: string;
+  isNewFriend?: boolean;
+  /** 2단계까지 마쳤는지. 등록만 한 사람과 구분한다. */
+  mentoringApplied?: boolean;
   /** 프로필 사진 (data URL) */
   photoUrl?: string;
   /** 개인정보 동의 시각 (ISO). 없으면 서버가 신청을 거부한다. */
@@ -78,6 +81,8 @@ export interface OnboardingDraft {
 }
 
 export const EMPTY_DRAFT: OnboardingDraft = {
+  isNewFriend: false,
+  mentoringApplied: false,
   targetCampus: [],
   desiredAreas: [],
   targetMajors: [],

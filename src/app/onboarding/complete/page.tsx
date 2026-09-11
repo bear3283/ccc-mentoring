@@ -46,12 +46,15 @@ export default function OnboardingCompletePage() {
 
   const isMentee = stored.role === "MENTEE";
   const name = stored.draft.name ?? "";
+  const mentoringPath = isMentee
+    ? "/onboarding/mentoring/mentee"
+    : "/onboarding/mentoring/mentor";
 
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-[430px] flex-col bg-white px-6">
       <div ref={bodyRef} className="flex-1 pt-16">
         <p data-reveal className="text-[14px] font-medium text-brand">
-          {stored.alreadyRegistered ? "이미 신청하셨어요" : "신청 완료"}
+          {stored.alreadyRegistered ? "이미 등록하셨어요" : "행사 등록 완료"}
         </p>
 
         <h1
@@ -59,15 +62,13 @@ export default function OnboardingCompletePage() {
           className="mt-1.5 text-[24px] leading-[1.35] font-bold tracking-[-0.02em] text-gray-900"
         >
           <Name>{name}</Name>님,{" "}
-          {stored.alreadyRegistered ? "먼저 접수됐어요" : "접수했어요"}
+          {stored.alreadyRegistered ? "먼저 등록되어 있어요" : "등록됐어요"}
         </h1>
 
         <p data-reveal className="mt-2 text-[14px] leading-relaxed text-gray-500">
           {stored.alreadyRegistered
-            ? "같은 연락처로 이미 신청한 내역이 있어요. 아래가 그때 받으신 코드예요."
-            : isMentee
-              ? "잘 맞는 선배를 찾아뒀어요. 아래에서 확인해보세요."
-              : "후배가 신청하면 운영자가 연결해 드릴게요."}
+            ? "같은 연락처로 이미 등록한 내역이 있어요. 아래가 그때 받으신 코드예요."
+            : "행사에 오실 수 있어요. 멘토링까지 신청하면 짝을 찾아드릴게요."}
         </p>
 
         {/* 참여코드. 문의할 때 이름 대신 대는 번호라 가장 크게 둔다. */}
@@ -94,21 +95,20 @@ export default function OnboardingCompletePage() {
           <span className="text-[18px]">→</span>
         </Link>
 
-        {isMentee ? (
-          <Link
-            href="/matching/result"
-            className="flex h-[54px] w-full items-center justify-center rounded-2xl bg-brand text-[17px] font-bold text-white active:bg-brand-dark"
-          >
-            매칭 결과 보기
-          </Link>
-        ) : (
-          <Link
-            href="/"
-            className="flex h-[54px] w-full items-center justify-center rounded-2xl bg-gray-100 text-[17px] font-bold text-gray-700"
-          >
-            처음으로
-          </Link>
-        )}
+        {/* 등록은 끝났다. 멘토링은 하고 싶은 사람만 이어서 한다. */}
+        <Link
+          href={mentoringPath}
+          className="flex h-[54px] w-full items-center justify-center rounded-2xl bg-brand text-[17px] font-bold text-white active:bg-brand-dark"
+        >
+          {isMentee ? "멘토링도 신청할래요" : "멘토로 신청할래요"}
+        </Link>
+
+        <Link
+          href="/"
+          className="flex h-[52px] w-full items-center justify-center rounded-2xl bg-gray-100 text-[16px] font-bold text-gray-700 active:bg-gray-200"
+        >
+          등록만 할게요
+        </Link>
       </div>
     </div>
   );
