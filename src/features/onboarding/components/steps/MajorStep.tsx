@@ -1,7 +1,15 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { CAREERS, MAJORS, type Career, type Major } from "@/shared/constants/domain";
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  CAREERS,
+  FIELD_EMOJI,
+  MAJOR_FIELDS,
+  majorsByField,
+  type Career,
+  type Major,
+  type MajorField,
+} from "@/shared/constants/domain";
 import { useStaggerReveal } from "@/shared/hooks/useStaggerReveal";
 import { cn } from "@/shared/lib/cn";
 import { StepLayout } from "../StepLayout";
@@ -38,6 +46,26 @@ export function MajorStep({ role, draft, onNext, onChange }: StepProps) {
   const toggleMajor = makeToggle(setMajors);
   const toggleCareer = makeToggle(setCareers);
 
+  /**
+   * 앞 스텝에서 고른 학교의 학과만 보여준다.
+   * 멘티는 지망 3곳, 멘토는 재학 중인 1곳이 기준이 된다.
+   */
+  const campuses = useMemo(
+    () => (isMentee ? draft.targetCampus : draft.currentCampus ? [draft.currentCampus] : []),
+    [isMentee, draft.targetCampus, draft.currentCampus],
+  );
+  const byField = useMemo(() => majorsByField(campuses), [campuses]);
+
+  /**
+   * 계열을 모두 펼치면 100개가 넘게 쏟아진다.
+   * 하나만 열어 두고, 이미 고른 학과가 있으면 그 계열부터 연다.
+   */
+  const [openField, setOpenField] = useState<MajorField | null>(() => {
+    const first = majors[0];
+    if (!first) return "공학";
+    return MAJOR_FIELDS.find((f) => byField[f].includes(first)) ?? "공학";
+  });
+
   const bodyRef = useRef<HTMLDivElement>(null);
   useStaggerReveal(bodyRef, { selector: "[data-group]", startDelay: 160, gap: 90 });
 
@@ -60,9 +88,11 @@ export function MajorStep({ role, draft, onNext, onChange }: StepProps) {
       eyebrow="거의 다 왔어요"
       question={isMentee ? "어떤 공부를 하고 싶어요?" : "어떤 공부를 하고 있나요?"}
       hint={
-        isMentee
-          ? "같은 길을 먼저 걸어본 선배를 찾아드려요."
-          : "같은 길을 준비하는 후배와 이어드려요."
+        campuses.length > 0
+          ? `${campuses.join(", ")}의 학과예요.`
+          : isMentee
+            ? "같은 길을 먼저 걸어본 선배를 찾아드려요."
+            : "같은 길을 준비하는 후배와 이어드려요."
       }
       ctaLabel={complete ? "다음" : "학과와 진로를 골라주세요"}
       ctaDisabled={!complete}
@@ -74,18 +104,67 @@ export function MajorStep({ role, draft, onNext, onChange }: StepProps) {
             label={isMentee ? "희망 학과" : "전공"}
             count={majors.length}
           />
-          <ul role="group" className="flex flex-wrap gap-2">
-            {MAJORS.map((m) => (
-              <li key={m}>
-                <Chip
-                  selected={majors.includes(m)}
-                  blocked={!majors.includes(m) && majors.length >= MAX_CHOICES}
-                  onSelect={() => toggleMajor(m)}
-                  label={m}
-                />
-              </li>
-            ))}
-          </ul>
+          {/* 고른 학과는 계열을 접어도 계속 보이게 위에 남겨둔다. */}
+          {majors.length > 0 && (
+            <ul role="group" className="mb-3 flex flex-wrap gap-2">
+              {majors.map((m) => (
+                <li key={m}>
+                  <Chip selected blocked={false} onSelect={() => toggleMajor(m)} label={m} />
+                </li>
+              ))}
+            </ul>
+          )}
+
+          <div className="flex flex-col gap-1.5">
+            {MAJOR_FIELDS.map((field) => {
+              const items = byField[field];
+              const opened = openField === field;
+              const picked = items.filter((m) => majors.includes(m)).length;
+
+              return (
+                <div key={field} className="overflow-hidden rounded-2xl bg-gray-50">
+                  <button
+                    type="button"
+                    aria-expanded={opened}
+                    onClick={() => setOpenField(opened ? null : field)}
+                    className="flex w-full items-center gap-2 px-4 py-3 text-left"
+                  >
+                    <span className="text-[16px]">{FIELD_EMOJI[field]}</span>
+                    <span className="flex-1 text-[15px] font-semibold text-gray-800">
+                      {field}
+                    </span>
+                    {picked > 0 && (
+                      <span className="rounded-full bg-brand px-2 py-0.5 text-[11px] font-bold text-white">
+                        {picked}
+                      </span>
+                    )}
+                    <span
+                      className={`text-[13px] text-gray-400 transition-transform ${
+                        opened ? "rotate-180" : ""
+                      }`}
+                    >
+                      ▾
+                    </span>
+                  </button>
+
+                  {opened && (
+                    <ul role="group" className="flex flex-wrap gap-2 px-4 pt-1 pb-4">
+                      {items.map((m) => (
+                        <li key={m}>
+                          <Chip
+                            selected={majors.includes(m)}
+                            blocked={!majors.includes(m) && majors.length >= MAX_CHOICES}
+                            onSelect={() => toggleMajor(m)}
+                            label={m}
+                          />
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </section>
 
         <section data-group>

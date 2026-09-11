@@ -1,13 +1,19 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { CAMPUSES, type Campus } from "@/shared/constants/domain";
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  CAMPUSES_BY_REGION,
+  REGIONS,
+  regionOf,
+  type Campus,
+  type Region,
+} from "@/shared/constants/domain";
 import { useStaggerReveal } from "@/shared/hooks/useStaggerReveal";
 import { OptionButton } from "../OptionButton";
 import { StepLayout } from "../StepLayout";
 import type { StepProps } from "../../model/types";
 
-/** 멘티는 3지망까지 고른다. 매칭 가중치 50%가 여기서 갈린다. */
+/** 멘티는 3지망까지 고른다. 매칭 가중치가 가장 큰 항목이다. */
 const MAX_CHOICES = 3;
 
 export function CampusStep({ role, draft, onNext, onChange }: StepProps) {
@@ -18,8 +24,36 @@ export function CampusStep({ role, draft, onNext, onChange }: StepProps) {
     isMentee ? draft.targetCampus : draft.currentCampus ? [draft.currentCampus] : [],
   );
 
+  /**
+   * 전국 캠퍼스는 100개에 가깝다. 한 목록으로 늘어놓으면 찾지 못한다.
+   * 이미 고른 학교가 있으면 그 지역부터 열어 준다.
+   */
+  const [region, setRegion] = useState<Region>(
+    () => (choices[0] && regionOf(choices[0])) || "서울",
+  );
+  const [query, setQuery] = useState("");
+
   const listRef = useRef<HTMLUListElement>(null);
-  useStaggerReveal(listRef, { selector: "[data-option]", startDelay: 160, gap: 26 });
+  // 지역을 바꿀 때마다 목록이 통째로 바뀌므로 등장 애니메이션도 다시 재생한다.
+  useStaggerReveal(listRef, {
+    selector: "[data-option]",
+    startDelay: 60,
+    gap: 18,
+    replayKey: `${region}-${query}`,
+  });
+
+  /**
+   * 검색어가 있으면 지역을 무시하고 전국에서 찾는다.
+   * "한동대"를 아는 사람에게 경상 탭을 먼저 누르게 할 이유가 없다.
+   */
+  const visible = useMemo(() => {
+    const keyword = query.trim();
+    if (!keyword) return CAMPUSES_BY_REGION[region] as readonly Campus[];
+
+    return REGIONS.flatMap((r) => CAMPUSES_BY_REGION[r] as readonly Campus[]).filter(
+      (campus) => campus.includes(keyword),
+    );
+  }, [region, query]);
 
   const toggle = (campus: Campus) => {
     if (!isMentee) {
@@ -34,7 +68,6 @@ export function CampusStep({ role, draft, onNext, onChange }: StepProps) {
       return [...prev, campus];
     });
   };
-
 
   // 고르는 즉시 draft에 반영한다. 뒤로 갔다 돌아와도 선택이 남아 있어야 한다.
   useEffect(() => {
@@ -54,25 +87,78 @@ export function CampusStep({ role, draft, onNext, onChange }: StepProps) {
         ? `다음 (${choices.length}/${MAX_CHOICES})`
         : "다음"
     : choices.length === 0
-      ? "캠퍼스를 골라주세요"
+      ? "학교를 골라주세요"
       : "다음";
 
   return (
     <StepLayout
       eyebrow={isMentee ? "가장 중요한 질문이에요" : "어디에서 활동하고 계세요?"}
-      question={isMentee ? "가고 싶은 캠퍼스는?" : "지금 다니는 캠퍼스는?"}
+      question={isMentee ? "가고 싶은 학교는?" : "지금 다니는 학교는?"}
       hint={
         isMentee
           ? "누른 순서가 곧 지망 순위예요. 3개까지 고를 수 있어요."
-          : "이 캠퍼스를 지망하는 후배와 이어드려요."
+          : "이 학교를 지망하는 후배와 이어드려요."
       }
       ctaLabel={ctaLabel}
       // 멘티는 최소 1지망만 있어도 넘어갈 수 있게 한다. 3개를 강제하면 이탈이 는다.
       ctaDisabled={choices.length === 0}
       onCta={handleNext}
     >
-      <ul ref={listRef} role={isMentee ? "group" : "radiogroup"} className="flex flex-col gap-2">
-        {CAMPUSES.map((campus) => {
+      {/* 고른 학교를 위에 고정해 둔다. 지역을 옮겨다녀도 놓치지 않는다. */}
+      {isMentee && choices.length > 0 && (
+        <div className="mb-3 flex flex-wrap gap-1.5">
+          {choices.map((campus, i) => (
+            <button
+              key={campus}
+              type="button"
+              onClick={() => toggle(campus)}
+              className="flex items-center gap-1.5 rounded-full bg-brand px-3 py-1.5 text-[13px] font-bold text-white"
+            >
+              <span className="opacity-70">{i + 1}지망</span>
+              {campus}
+              <span className="text-[14px] leading-none opacity-70">×</span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      <input
+        type="search"
+        inputMode="search"
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        placeholder="학교 이름으로 찾기"
+        className="mb-3 h-11 w-full rounded-xl bg-gray-100 px-4 text-[15px] text-gray-900 outline-none placeholder:text-gray-400 focus:ring-2 focus:ring-brand/40"
+      />
+
+      {/* 검색 중에는 지역 탭이 의미가 없다. */}
+      {!query.trim() && (
+        <div className="-mx-5 mb-3 overflow-x-auto px-5">
+          <div className="flex w-max gap-1.5">
+            {REGIONS.map((r) => (
+              <button
+                key={r}
+                type="button"
+                onClick={() => setRegion(r)}
+                className={`h-9 shrink-0 rounded-full px-3.5 text-[14px] font-semibold transition-colors ${
+                  r === region
+                    ? "bg-gray-900 text-white"
+                    : "bg-gray-100 text-gray-600 active:bg-gray-200"
+                }`}
+              >
+                {r}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <ul
+        ref={listRef}
+        role={isMentee ? "group" : "radiogroup"}
+        className="flex flex-col gap-2"
+      >
+        {visible.map((campus) => {
           const rank = choices.indexOf(campus);
           const selected = rank !== -1;
 
@@ -93,6 +179,12 @@ export function CampusStep({ role, draft, onNext, onChange }: StepProps) {
             </li>
           );
         })}
+
+        {visible.length === 0 && (
+          <li className="py-10 text-center text-[14px] text-gray-400">
+            &lsquo;{query.trim()}&rsquo; 와 맞는 학교가 없어요
+          </li>
+        )}
       </ul>
     </StepLayout>
   );

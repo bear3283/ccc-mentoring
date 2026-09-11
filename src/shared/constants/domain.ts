@@ -1,24 +1,22 @@
-/** 캠퍼스, 멘토링 영역, 시간대 - 온보딩 선택지이자 매칭 점수의 입력값. */
+/** 멘토링 영역, 시간대, 진로 - 온보딩 선택지이자 매칭 점수의 입력값. */
 
-export const CAMPUSES = [
-  "서울대",
-  "연세대",
-  "고려대",
-  "서강대",
-  "성균관대",
-  "한양대",
-  "중앙대",
-  "경희대",
-  "한국외대",
-  "서울시립대",
-  "건국대",
-  "동국대",
-  "홍익대",
-  "숭실대",
-  "국민대",
-] as const;
+// 캠퍼스와 학과는 양이 많아 campus.ts 로 분리했다.
+// 기존 import 경로를 깨지 않도록 여기서 다시 내보낸다.
+export {
+  CAMPUSES,
+  CAMPUSES_BY_REGION,
+  REGIONS,
+  MAJOR_FIELDS,
+  FIELD_EMOJI,
+  COMMON_MAJORS,
+  CAMPUS_MAJORS,
+  majorsByField,
+  fieldOf,
+  regionOf,
+  isCampus,
+} from "./campus";
+export type { Campus, Region, MajorField } from "./campus";
 
-export type Campus = (typeof CAMPUSES)[number];
 
 export const MENTORING_AREAS = [
   "학점관리",
@@ -110,6 +108,7 @@ export function formatTimeSlotShort(id: TimeSlot): string {
 export const GENDERS = ["MALE", "FEMALE"] as const;
 export type Gender = (typeof GENDERS)[number];
 
+/** 더미 데이터 생성과 예시에 쓰는 대표 학과. 실제 선택지는 학교별로 만들어진다. */
 export const MAJORS = [
   "경영학과",
   "컴퓨터공학과",
@@ -125,7 +124,12 @@ export const MAJORS = [
   "사회복지학과",
 ] as const;
 
-export type Major = (typeof MAJORS)[number];
+/**
+ * 학과는 학교마다 다르다. 고정 목록으로 묶으면 "내 학과가 없다"가 된다.
+ * campus.ts 의 majorsByField() 가 학교에 맞는 후보를 만들어 주고,
+ * 저장되는 값은 그 문자열이다.
+ */
+export type Major = string;
 
 export const CAREERS = [
   "대기업 취업",
