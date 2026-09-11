@@ -84,7 +84,16 @@ export default function OnboardingCompletePage() {
         </p>
       </div>
 
-      <div className="pb-[max(24px,env(safe-area-inset-bottom))]">
+      <div className="flex flex-col gap-2 pb-[max(24px,env(safe-area-inset-bottom))]">
+        {/* 행사 장소는 역할과 무관하게 모두 궁금해한다. */}
+        <Link
+          href="/venue"
+          className="flex h-[52px] w-full items-center justify-between rounded-2xl bg-brand-soft px-5 text-[15px] font-bold text-brand active:bg-brand-soft/70"
+        >
+          <span>행사 장소 · 오시는 길</span>
+          <span className="text-[18px]">→</span>
+        </Link>
+
         {isMentee ? (
           <Link
             href="/matching/result"

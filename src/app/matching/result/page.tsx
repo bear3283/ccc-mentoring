@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { MentoringGuide } from "@/features/venue/components/MentoringGuide";
 import { useEffect, useRef, useState } from "react";
 import { CodeBadge } from "@/components/ui/CodeBadge";
 import { Name } from "@/components/ui/Name";
@@ -212,6 +213,14 @@ export default function MatchingResultPage() {
           ))
         )}
       </div>
+
+      {/* 매칭 결과가 있을 때만. 0명인 화면에 만남 안내를 붙이면 공허하다. */}
+      {results.length > 0 && (
+        <div className="mt-6 mb-10">
+          <MentoringGuide />
+        </div>
+      )}
+
       {/* 되돌릴 수 없는 선택이라 한 번 더 확인한다. */}
       {pending && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 px-5 pb-[max(24px,env(safe-area-inset-bottom))]">
