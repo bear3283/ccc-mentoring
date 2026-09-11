@@ -17,7 +17,7 @@ import { MOCK_MENTEES, MOCK_MENTORS } from "../src/shared/lib/mock/generate";
 import { readFileSync } from "node:fs";
 import { buildHashtags } from "../src/features/matching/lib/hashtags";
 import { MBTI_TYPES } from "../src/shared/constants/mbti";
-import { scoreMbti } from "../src/features/matching/lib/score";
+import { scoreMbti, scoreSchedule } from "../src/features/matching/lib/score";
 import { PERSONAS } from "../src/shared/constants/persona";
 import { formatTimeSlotShort } from "../src/shared/constants/domain";
 
@@ -44,7 +44,7 @@ check(
 check(
   "캠퍼스가 가장 무거움",
   Object.entries(WEIGHTS).every(([k, v]) => k === "campus" || v < WEIGHTS.campus),
-  `캠퍼스 ${WEIGHTS.campus} / 영역 ${WEIGHTS.area} / MBTI ${WEIGHTS.mbti} / 성경인물 ${WEIGHTS.persona} / 학과·진로 ${WEIGHTS.majorAndCareer} / 기본 ${WEIGHTS.basics}`,
+  `캠퍼스 ${WEIGHTS.campus} / 영역 ${WEIGHTS.area} / 시간대 ${WEIGHTS.schedule} / MBTI ${WEIGHTS.mbti} / 학과·진로 ${WEIGHTS.majorAndCareer} / 성경인물 ${WEIGHTS.persona}`,
 );
 check(
   "MBTI 4축이 각각 2.5점",
@@ -193,22 +193,23 @@ const filteredOut = MOCK_MENTEES.flatMap((mentee) =>
 );
 
 check(
-  "필터 탈락 쌍은 모두 탈락 사유 보유 (캠퍼스 불일치 또는 시간대 미겹침)",
-  filteredOut.every(({ mentee, mentor }) => {
-    const campusMiss = !mentee.targetCampus.includes(mentor.currentCampus);
-    const timeMiss = !mentee.availableTimes.some((t) => mentor.availableTimes.includes(t));
-    return campusMiss || timeMiss;
-  }),
+  "필터 탈락은 캠퍼스 불일치가 유일한 사유",
+  filteredOut.every(({ mentee, mentor }) => !mentee.targetCampus.includes(mentor.currentCampus)),
 );
 
 const results = MOCK_MENTEES.map((m) => matchMentors(m, MOCK_MENTORS, 5));
 check(
-  "매칭 결과에 시간대 안 겹치는 멘토 없음",
-  results.every((rs, i) =>
-    rs.every((r) =>
-      MOCK_MENTEES[i].availableTimes.some((t) => r.mentor.availableTimes.includes(t)),
+  "시간대가 안 겹쳐도 후보에는 남음 (0점 처리)",
+  MOCK_MENTEES.some((mentee) =>
+    matchMentors(mentee, MOCK_MENTORS, 3).some(
+      (r) => !mentee.availableTimes.some((t) => r.mentor.availableTimes.includes(t)),
     ),
-  ),
+  ) ||
+    // 더미 데이터가 우연히 전부 겹칠 수도 있으니, 그때는 점수 함수를 직접 확인한다
+    scoreSchedule(
+      { ...MOCK_MENTEES[0], availableTimes: ["WEEKDAY_MORNING"] },
+      { ...MOCK_MENTORS[0], availableTimes: ["WEEKEND_NIGHT"] },
+    ) === 0,
 );
 check(
   "매칭 결과에 지망 캠퍼스 밖 멘토 없음",
@@ -300,8 +301,8 @@ for (const mentee of MOCK_MENTEES.slice(0, 3)) {
       `    ${r.score}%  ${r.mentor.name}(${r.mentor.currentCampus}) ${r.hashtags.join(" ")}`,
     );
     console.log(
-      `           캠퍼스 ${b.campus.toFixed(1)} / 영역 ${b.area.toFixed(1)} / MBTI ${b.mbti.toFixed(1)} / ` +
-        `성경인물 ${b.persona.toFixed(1)} / 학과·진로 ${b.majorAndCareer.toFixed(1)} / 기본 ${b.basics.toFixed(1)}`,
+      `           캠퍼스 ${b.campus.toFixed(1)} / 영역 ${b.area.toFixed(1)} / 시간대 ${b.schedule.toFixed(1)} / ` +
+        `MBTI ${b.mbti.toFixed(1)} / 학과·진로 ${b.majorAndCareer.toFixed(1)} / 성경인물 ${b.persona.toFixed(1)}`,
     );
   }
 }

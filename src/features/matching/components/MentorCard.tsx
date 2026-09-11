@@ -86,6 +86,15 @@ export function MentorCard({ result, onMatch, revealedContact, busy }: MentorCar
           ))}
         </ul>
 
+        {/* 시간이 안 겹쳐도 후보에는 남지만, 모르고 연락하면 서로 곤란하다. */}
+        {result.noTimeOverlap && (
+          <p className="mt-4 rounded-xl bg-gray-100 px-3 py-2.5 text-[13px] leading-relaxed text-gray-600">
+            ⏰ 서로 가능한 시간이 겹치지 않아요.
+            <br />
+            연락해서 일정을 맞추거나 온라인으로 만나보세요.
+          </p>
+        )}
+
         <p className="mt-4 text-[14px] leading-relaxed text-gray-600">
           {persona.keywords.join("·")} 있는 {persona.name}형 선배예요.
           <br />

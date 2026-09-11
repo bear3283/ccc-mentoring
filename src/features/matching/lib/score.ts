@@ -8,19 +8,27 @@ import type { MatchResult, Mentee, Mentor, ScoreBreakdown } from "../model/types
  */
 export const WEIGHTS = {
   /**
-   * 1순위. 지망 순위까지 반영한다.
+   * 지망 순위까지 반영한다.
    * 캠퍼스는 필수 필터이기도 해서, 지망 밖 멘토는 이미 후보에서 빠진다.
    * 이 점수가 가르는 것은 "1지망이냐 3지망이냐"뿐이다.
    */
-  campus: 45,
+  campus: 40,
   /** 무엇을 도와주길 원하는가. 성향보다 실질적인 신호라 비중을 뒀다. */
   area: 20,
+  /**
+   * 만날 수 있는 시간이 얼마나 겹치는가.
+   *
+   * 예전에는 하나도 안 겹치면 후보에서 제외했다. 그러면 같은 캠퍼스에
+   * 관심사까지 맞는 멘토가 시간 한 칸 때문에 통째로 사라져, 멘티는
+   * "0명"만 보고 이유도 알 수 없었다. 일정은 조정할 수 있고 밤 시간대는
+   * 온라인이라, 아예 배제하기보다 크게 깎는 편이 낫다.
+   */
+  schedule: 15,
   /** MBTI 4축 x 2.5점. 축 하나가 맞을 때마다 2.5점. */
   mbti: 10,
+  majorAndCareer: 10,
   /** 성경 인물 성향. MBTI와 역할이 겹치므로 보조 지표로 둔다. */
   persona: 5,
-  majorAndCareer: 15,
-  basics: 5,
 } as const;
 
 /** 가중치 총합. 검증 스크립트가 100인지 확인한다. */
@@ -125,18 +133,23 @@ export function scoreMajorAndCareer(mentee: Mentee, mentor: Mentor): number {
 }
 
 /**
- * 기본 (5점): 시간대가 얼마나 넉넉히 겹치는지 + 동성 여부.
- * 시간대 겹침 자체는 아래 필수 필터에서 이미 걸러지므로,
- * 여기서는 "겹치는 슬롯이 많을수록 만나기 쉽다"를 점수화한다.
+ * 시간대 (15점).
+ *
+ * 멘티가 고른 시간 중 몇 개가 겹치는지의 비율.
+ * 하나도 안 겹치면 0점이지만 후보에서 빠지지는 않는다.
+ *
+ * 성별은 점수에 넣지 않는다. 예전에는 1.5점을 줬는데 순위를 바꾼 적이
+ * 사실상 없었고, 멘토링 상대를 성별로 가점하는 것 자체가 적절하지 않다.
  */
-export function scoreBasics(mentee: Mentee, mentor: Mentor): number {
+export function scoreSchedule(mentee: Mentee, mentor: Mentor): number {
+  if (mentee.availableTimes.length === 0) return 0;
   const overlap = mentee.availableTimes.filter((t) => mentor.availableTimes.includes(t));
-  const overlapRatio =
-    mentee.availableTimes.length === 0 ? 0 : overlap.length / mentee.availableTimes.length;
+  return WEIGHTS.schedule * (overlap.length / mentee.availableTimes.length);
+}
 
-  const sameGender = mentee.gender === mentor.gender ? 1 : 0;
-
-  return WEIGHTS.basics * (overlapRatio * 0.7 + sameGender * 0.3);
+/** 겹치는 시간이 하나도 없는지. 카드에 경고를 띄울 때 쓴다. */
+export function hasNoTimeOverlap(mentee: Mentee, mentor: Mentor): boolean {
+  return !mentee.availableTimes.some((t) => mentor.availableTimes.includes(t));
 }
 
 /**
@@ -148,11 +161,8 @@ export function passesRequiredFilters(mentee: Mentee, mentor: Mentor): boolean {
   // 연락처가 없으면 매칭돼도 연결할 방법이 없다.
   if (!mentor.contact || !mentee.contact) return false;
 
-  // 참여 가능 시간대가 하나도 겹치지 않으면 만날 수 없다.
-  const hasOverlap = mentee.availableTimes.some((t) => mentor.availableTimes.includes(t));
-  if (!hasOverlap) return false;
-
-  // 지망 캠퍼스에 없는 멘토는 제외한다.
+  // 지망 캠퍼스는 멘티가 직접 고른 조건이라 그대로 지킨다.
+  // 시간대와 달리 조정할 수 있는 값이 아니다.
   if (!mentee.targetCampus.includes(mentor.currentCampus)) return false;
 
   return true;
@@ -162,10 +172,10 @@ export function calculateBreakdown(mentee: Mentee, mentor: Mentor): ScoreBreakdo
   return {
     campus: scoreCampus(mentee, mentor),
     area: scoreArea(mentee, mentor),
+    schedule: scoreSchedule(mentee, mentor),
     mbti: scoreMbti(mentee, mentor),
-    persona: scorePersona(mentee, mentor),
     majorAndCareer: scoreMajorAndCareer(mentee, mentor),
-    basics: scoreBasics(mentee, mentor),
+    persona: scorePersona(mentee, mentor),
   };
 }
 

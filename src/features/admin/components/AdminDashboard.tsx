@@ -9,7 +9,7 @@ import { WEIGHTS } from "@/features/matching/lib/score";
 import { PERSONAS } from "@/shared/constants/persona";
 import { cn } from "@/shared/lib/cn";
 
-type Tab = "mentee" | "mentor" | "matching";
+type Tab = "mentee" | "mentor" | "matching" | "unmatched";
 
 /** 매칭 표의 한 행. 멘티 1명 x 추천 멘토 1명. */
 export interface MatchRow {
@@ -24,10 +24,10 @@ export interface MatchRow {
   score: number;
   campusScore: number;
   areaScore: number;
+  scheduleScore: number;
   mbtiScore: number;
   personaScore: number;
   majorScore: number;
-  basicScore: number;
   contact: string;
   /** SUGGESTED = 추천만 됨, REQUESTED = 멘티가 연락을 요청함 */
   status: string;
@@ -116,10 +116,21 @@ const matchColumns: TableColumn<MatchRow>[] = [
   // 헤더만 옛 값으로 남아 표를 읽는 사람이 잘못 이해한다.
   { key: "campusScore", header: `캠퍼스(${WEIGHTS.campus})`, value: (r) => r.campusScore, align: "right" },
   { key: "areaScore", header: `영역(${WEIGHTS.area})`, value: (r) => r.areaScore, align: "right" },
+  {
+    key: "scheduleScore",
+    header: `시간대(${WEIGHTS.schedule})`,
+    value: (r) => r.scheduleScore,
+    align: "right",
+    // 0점이면 만날 시간이 없다는 뜻이라 운영자가 먼저 확인해야 한다.
+    render: (r) => (
+      <span className={cn(r.scheduleScore === 0 && "font-bold text-red-500")}>
+        {r.scheduleScore}
+      </span>
+    ),
+  },
   { key: "mbtiScore", header: `MBTI(${WEIGHTS.mbti})`, value: (r) => r.mbtiScore, align: "right" },
-  { key: "personaScore", header: `성경인물(${WEIGHTS.persona})`, value: (r) => r.personaScore, align: "right" },
   { key: "majorScore", header: `학과·진로(${WEIGHTS.majorAndCareer})`, value: (r) => r.majorScore, align: "right" },
-  { key: "basicScore", header: `기본(${WEIGHTS.basics})`, value: (r) => r.basicScore, align: "right" },
+  { key: "personaScore", header: `성경인물(${WEIGHTS.persona})`, value: (r) => r.personaScore, align: "right" },
   { key: "contact", header: "멘토 연락처", value: (r) => r.contact },
 ];
 
@@ -127,20 +138,51 @@ const TABS: { key: Tab; label: string }[] = [
   { key: "mentee", label: "멘티 신청자" },
   { key: "mentor", label: "멘토 신청자" },
   { key: "matching", label: "매칭 결과" },
+  { key: "unmatched", label: "미매칭" },
 ];
+
+export interface UnmatchedRow {
+  code: string;
+  name: string;
+  targetCampus: string[];
+  mentorsInCampus: number;
+  reason: string;
+}
 
 interface AdminDashboardProps {
   mentees: Mentee[];
   mentors: Mentor[];
   matchRows: MatchRow[];
+  unmatched: UnmatchedRow[];
 }
 
-export function AdminDashboard({ mentees, mentors, matchRows }: AdminDashboardProps) {
+const unmatchedColumns: TableColumn<UnmatchedRow>[] = [
+  { key: "code", header: "참여코드", value: (r) => r.code, width: "110px" },
+  { key: "name", header: "이름", value: (r) => r.name, width: "90px" },
+  { key: "campus", header: "지망 캠퍼스", value: (r) => r.targetCampus.join(" > ") },
+  {
+    key: "mentors",
+    header: "지망 캠퍼스 멘토 수",
+    value: (r) => r.mentorsInCampus,
+    align: "right",
+    width: "150px",
+    // 0이면 멘토를 더 모집해야 한다는 신호다.
+    render: (r) => (
+      <span className={cn(r.mentorsInCampus === 0 && "font-bold text-red-500")}>
+        {r.mentorsInCampus}
+      </span>
+    ),
+  },
+  { key: "reason", header: "원인", value: (r) => r.reason },
+];
+
+export function AdminDashboard({ mentees, mentors, matchRows, unmatched }: AdminDashboardProps) {
   const [tab, setTab] = useState<Tab>("matching");
 
-  // 결과를 아직 열어보지 않은 멘티는 매칭 행이 없다.
-  const matchedMenteeCodes = new Set(matchRows.map((r) => r.menteeCode));
-  const unmatched = mentees.filter((m) => !matchedMenteeCodes.has(m.participationCode));
+  // 어느 캠퍼스에 멘토가 없어서 막혔는지 한 줄로 보여준다.
+  const campusGaps = [
+    ...new Set(unmatched.filter((u) => u.mentorsInCampus === 0).flatMap((u) => u.targetCampus)),
+  ].filter((campus) => !mentors.some((m) => m.currentCampus === campus));
 
   const handleExport = () => {
     // 화면 표와 같은 열 구성으로 떨어뜨린다.
@@ -219,6 +261,25 @@ export function AdminDashboard({ mentees, mentors, matchRows }: AdminDashboardPr
           rowKey={(r) => r.id}
           searchable={(r) => `${r.participationCode} ${r.name} ${r.currentCampus} ${r.currentMajors.join(" ")} ${r.mentoringArea.join(" ")}`}
         />
+      )}
+
+      {tab === "unmatched" && (
+        <>
+          {campusGaps.length > 0 && (
+            <p className="mb-3 rounded-lg bg-red-500/10 px-4 py-3 text-[13px] text-red-600">
+              <strong>{campusGaps.join(", ")}</strong> 캠퍼스에 멘토가 없습니다. 해당 캠퍼스
+              멘토를 모집하면 {unmatched.filter((u) => u.mentorsInCampus === 0).length}명이
+              매칭될 수 있습니다.
+            </p>
+          )}
+          <DataTable
+            rows={unmatched}
+            columns={unmatchedColumns}
+            rowKey={(r) => r.code}
+            searchable={(r) => `${r.code} ${r.name} ${r.targetCampus.join(" ")}`}
+            emptyMessage="미매칭 인원이 없습니다."
+          />
+        </>
       )}
 
       {tab === "matching" && (

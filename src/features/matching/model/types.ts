@@ -60,10 +60,10 @@ export interface Mentor {
 export interface ScoreBreakdown {
   campus: number;
   area: number;
+  schedule: number;
   mbti: number;
-  persona: number;
   majorAndCareer: number;
-  basics: number;
+  persona: number;
 }
 
 export interface MatchResult {
@@ -100,4 +100,21 @@ export interface PublicMatchResult {
   score: number;
   hashtags: string[];
   mentor: PublicMentor;
+  /** 겹치는 시간이 하나도 없음. 카드에 경고를 띄운다. */
+  noTimeOverlap: boolean;
+}
+
+/**
+ * 결과가 없거나 아쉬울 때 참가자에게 이유를 알려주기 위한 정보.
+ * "조건에 맞는 멘토가 없어요" 만으로는 무엇을 고쳐야 할지 알 수 없다.
+ */
+export interface MatchDiagnosis {
+  /** 지망 캠퍼스에 있는 멘토 수 */
+  inTargetCampus: number;
+  /** 그중 시간이 하나도 안 겹치는 수 */
+  noTimeOverlap: number;
+  /** 전체 멘토 수 */
+  totalMentors: number;
+  /** 멘토가 한 명도 없는 지망 캠퍼스 */
+  emptyCampuses: string[];
 }

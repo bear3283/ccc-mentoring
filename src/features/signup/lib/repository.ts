@@ -447,3 +447,48 @@ export async function requestMatch(
 
   return { ok: true, contact: mentor.contact as string, mentorName: mentor.name as string };
 }
+
+export interface UnmatchedReason {
+  code: string;
+  name: string;
+  targetCampus: string[];
+  /** 지망 캠퍼스에 있는 멘토 수 */
+  mentorsInCampus: number;
+  /** 왜 매칭이 안 됐는지 */
+  reason: "캠퍼스에 멘토 없음" | "결과 미확인" | "조건 불일치";
+}
+
+/**
+ * 매칭되지 않은 멘티와 그 원인.
+ *
+ * 운영자가 "어느 캠퍼스 멘토를 더 모집해야 하는지" 판단하려면
+ * 인원수만으로는 부족하고 원인이 필요하다.
+ */
+export async function listUnmatched(): Promise<UnmatchedReason[]> {
+  const supabase = getSupabase();
+  if (!supabase) return [];
+
+  const [mentees, mentors, matchings] = await Promise.all([
+    listMentees(),
+    listMentors(),
+    supabase.from("matchings").select("mentee_id"),
+  ]);
+
+  const matchedIds = new Set((matchings.data ?? []).map((m) => m.mentee_id as string));
+
+  return mentees
+    .filter((mentee) => !matchedIds.has(mentee.id))
+    .map((mentee) => {
+      const inCampus = mentors.filter((m) => mentee.targetCampus.includes(m.currentCampus));
+      return {
+        code: mentee.participationCode,
+        name: mentee.name,
+        targetCampus: mentee.targetCampus,
+        mentorsInCampus: inCampus.length,
+        reason:
+          inCampus.length === 0
+            ? ("캠퍼스에 멘토 없음" as const)
+            : ("결과 미확인" as const),
+      };
+    });
+}

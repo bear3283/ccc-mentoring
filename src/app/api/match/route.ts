@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { findMenteeByCode, listMentors, saveMatchings } from "@/features/signup/lib/repository";
-import { matchMentors } from "@/features/matching/lib/score";
+import { hasNoTimeOverlap, matchMentors } from "@/features/matching/lib/score";
 import { normalizeParticipationCode, isValidParticipationCode } from "@/features/onboarding/lib/participationCode";
 import { maskContact } from "@/shared/lib/security/mask";
 import { clientKey, rateLimit, tooManyRequestsMessage } from "@/shared/lib/security/rateLimit";
@@ -49,6 +49,17 @@ export async function POST(request: Request) {
   const mentors = await listMentors();
   const results = matchMentors(mentee, mentors, TOP_N);
 
+  // 결과가 적거나 없을 때 "왜 그런지"를 함께 보낸다.
+  const inCampus = mentors.filter((m) => mentee.targetCampus.includes(m.currentCampus));
+  const diagnosis = {
+    inTargetCampus: inCampus.length,
+    noTimeOverlap: inCampus.filter((m) => hasNoTimeOverlap(mentee, m)).length,
+    totalMentors: mentors.length,
+    emptyCampuses: mentee.targetCampus.filter(
+      (campus) => !mentors.some((m) => m.currentCampus === campus),
+    ),
+  };
+
   // 계산 결과를 남겨 두면 운영자가 나중에 같은 순위를 다시 볼 수 있다.
   await saveMatchings(
     mentee.id,
@@ -61,6 +72,7 @@ export async function POST(request: Request) {
   );
 
   return NextResponse.json({
+    diagnosis,
     mentee: {
       name: mentee.name,
       participationCode: mentee.participationCode,
@@ -71,6 +83,7 @@ export async function POST(request: Request) {
     results: results.map((r) => ({
       score: r.score,
       hashtags: r.hashtags,
+      noTimeOverlap: hasNoTimeOverlap(mentee, r.mentor),
       mentor: {
         id: r.mentor.id,
         name: r.mentor.name,

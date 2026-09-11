@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { CodeBadge } from "@/components/ui/CodeBadge";
 import { Name } from "@/components/ui/Name";
 import { MentorCard } from "@/features/matching/components/MentorCard";
-import type { PublicMatchResult } from "@/features/matching/model/types";
+import type { MatchDiagnosis, PublicMatchResult } from "@/features/matching/model/types";
 import { loadDraft } from "@/features/onboarding/lib/draftStore";
 import { PERSONAS, type PersonaType } from "@/shared/constants/persona";
 import { useStaggerReveal } from "@/shared/hooks/useStaggerReveal";
@@ -20,7 +20,7 @@ interface MenteeSummary {
 
 type State =
   | { kind: "loading" }
-  | { kind: "ready"; mentee: MenteeSummary; results: PublicMatchResult[] }
+  | { kind: "ready"; mentee: MenteeSummary; results: PublicMatchResult[]; diagnosis?: MatchDiagnosis }
   | { kind: "noSignup" }
   | { kind: "error"; message: string };
 
@@ -46,6 +46,7 @@ export default function MatchingResultPage() {
         const body = (await res.json()) as {
           mentee?: MenteeSummary;
           results?: PublicMatchResult[];
+          diagnosis?: MatchDiagnosis;
           error?: string;
         };
         if (cancelled) return;
@@ -54,7 +55,7 @@ export default function MatchingResultPage() {
           setState({ kind: "error", message: body.error ?? "결과를 불러오지 못했어요." });
           return;
         }
-        setState({ kind: "ready", mentee: body.mentee, results: body.results });
+        setState({ kind: "ready", mentee: body.mentee, results: body.results, diagnosis: body.diagnosis });
       })
       .catch(() => {
         if (!cancelled) {
@@ -132,7 +133,7 @@ export default function MatchingResultPage() {
     );
   }
 
-  const { mentee, results } = state;
+  const { mentee, results, diagnosis } = state;
 
   return (
     <div className="mx-auto min-h-dvh w-full max-w-[430px] bg-gray-100">
@@ -157,11 +158,7 @@ export default function MatchingResultPage() {
 
       <div ref={listRef} className="flex flex-col gap-4 px-5 py-6">
         {results.length === 0 ? (
-          <p className="rounded-2xl bg-white px-5 py-10 text-center text-[15px] leading-relaxed text-gray-500">
-            조건에 맞는 멘토를 찾지 못했어요.
-            <br />
-            지망 캠퍼스나 가능 시간을 넓혀보세요.
-          </p>
+          <EmptyResult diagnosis={diagnosis} targetCampus={mentee.targetCampus} />
         ) : (
           results.map((result) => (
             <MentorCard
@@ -174,6 +171,61 @@ export default function MatchingResultPage() {
           ))
         )}
       </div>
+    </div>
+  );
+}
+
+/**
+ * 결과가 없을 때.
+ *
+ * "조건에 맞는 멘토가 없어요" 만으로는 무엇을 고쳐야 할지 알 수 없다.
+ * 어느 단계에서 걸렀는지 구체적으로 알려준다.
+ */
+function EmptyResult({
+  diagnosis,
+  targetCampus,
+}: {
+  diagnosis?: MatchDiagnosis;
+  targetCampus: string[];
+}) {
+  const reason = (() => {
+    if (!diagnosis) return null;
+
+    if (diagnosis.totalMentors === 0) {
+      return {
+        title: "아직 등록된 선배가 없어요",
+        detail: "선배들이 신청을 마치면 알려드릴게요. 조금만 기다려주세요.",
+      };
+    }
+
+    if (diagnosis.inTargetCampus === 0) {
+      const empty = diagnosis.emptyCampuses.join(", ") || targetCampus.join(", ");
+      return {
+        title: `${empty}에는 아직 선배가 없어요`,
+        detail: `다른 캠퍼스에는 ${diagnosis.totalMentors}명이 신청했어요. 지망 캠퍼스를 넓히면 만날 수 있어요.`,
+      };
+    }
+
+    return {
+      title: "선배는 있는데 조건이 맞지 않아요",
+      detail: `지망 캠퍼스에 ${diagnosis.inTargetCampus}명이 있어요. 관심 분야를 넓혀보세요.`,
+    };
+  })();
+
+  return (
+    <div className="rounded-2xl bg-white px-5 py-9 text-center">
+      <p className="text-[16px] font-bold text-gray-900">
+        {reason?.title ?? "조건에 맞는 선배를 찾지 못했어요"}
+      </p>
+      <p className="mt-2 text-[14px] leading-relaxed text-gray-500">
+        {reason?.detail ?? "지망 캠퍼스나 관심 분야를 넓혀보세요."}
+      </p>
+      <Link
+        href="/onboarding/mentee"
+        className="mt-5 inline-flex h-11 items-center rounded-xl bg-brand-soft px-5 text-[14px] font-bold text-brand"
+      >
+        조건 바꿔서 다시 신청하기
+      </Link>
     </div>
   );
 }
