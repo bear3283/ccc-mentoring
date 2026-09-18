@@ -7,7 +7,7 @@ import { useStaggerReveal } from "@/shared/hooks/useStaggerReveal";
 /**
  * 교회 안에서 멘토와 멘티가 만날 만한 장소.
  *
- * 행사 당일 "어디서 만나지?"에서 대화가 끊기는 일이 많다.
+ * 채플 당일 "어디서 만나지?"에서 대화가 끊기는 일이 많다.
  * 미리 몇 곳을 정해 두면 채팅에서 장소를 고르기만 하면 된다.
  */
 export function MeetingSpots() {
@@ -20,7 +20,7 @@ export function MeetingSpots() {
         어디서 만날까요?
       </h2>
       <p className="mt-1.5 text-[14px] leading-relaxed text-gray-500">
-        교회 안에서 이야기 나누기 좋은 곳이에요. 채팅으로 미리 정해두면
+        교회 안에서 이야기 나누기 좋은 곳이에요. 문자로 미리 정해두면
         당일에 헤매지 않아요.
       </p>
 
@@ -50,7 +50,7 @@ export function MeetingSpots() {
 
       {MEETING_SPOTS_ARE_DRAFT && (
         <p className="mt-3 rounded-xl bg-brand-soft px-3.5 py-2.5 text-[12px] leading-relaxed text-brand">
-          아직 예시예요. 행사 공간이 확정되면 실제 장소로 바뀝니다.
+          아직 예시예요. 채플 공간이 확정되면 실제 장소로 바뀝니다.
         </p>
       )}
     </section>

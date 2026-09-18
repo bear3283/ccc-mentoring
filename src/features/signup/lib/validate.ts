@@ -1,4 +1,5 @@
 import { CONSENT_VERSION } from "@/shared/constants/privacy";
+import { MBTI_TYPES } from "@/shared/constants/mbti";
 import type { OnboardingDraft } from "@/features/onboarding/model/types";
 
 /**
@@ -41,13 +42,10 @@ export function validateRegistration(
     return "교회 이름이 너무 길어요.";
   }
 
-  if (role === "MENTEE") {
-    if (draft.targetCampus.length < 1 || draft.targetCampus.length > 3) {
-      return "지망 학교를 확인해주세요.";
-    }
-  } else {
-    if (!draft.currentCampus) return "학교를 골라주세요.";
-    if (!draft.admissionYear) return "학번을 골라주세요.";
+  // 캠퍼스는 여기서 보지 않는다. 채플에 오는 데 필요한 정보가 아니라
+  // 매칭에 쓰는 정보라 2단계로 옮겼다.
+  if (draft.role && draft.role !== role) {
+    return "잘못된 요청이에요.";
   }
 
   return null;
@@ -61,11 +59,23 @@ export function validateMentoring(
   if (!draft) return "잘못된 요청이에요.";
 
   if (!draft.personaType) return "성향을 골라주세요.";
+
+  // MBTI 는 건너뛸 수 있지만, 적었다면 16개 유형 중 하나여야 한다.
+  // 여기서 막지 않으면 DB 제약에 걸려 "저장하지 못했어요"만 보게 된다.
+  if (draft.mbti && !(MBTI_TYPES as readonly string[]).includes(draft.mbti)) {
+    return "MBTI를 다시 확인해주세요.";
+  }
+
   if (!draft.availableTimes || draft.availableTimes.length === 0) {
     return "가능한 시간을 골라주세요.";
   }
 
+  // 캠퍼스는 2단계로 옮겨왔다. 프로필 행이 여기서 처음 만들어지므로
+  // 비어 있으면 DB 제약에 걸려 저장 단계에서야 실패한다.
   if (role === "MENTEE") {
+    if (draft.targetCampus.length < 1 || draft.targetCampus.length > 3) {
+      return "지망 학교를 확인해주세요.";
+    }
     if (draft.desiredAreas.length < 1 || draft.desiredAreas.length > 3) {
       return "관심 분야를 확인해주세요.";
     }
@@ -76,6 +86,8 @@ export function validateMentoring(
       return "희망 진로를 확인해주세요.";
     }
   } else {
+    if (!draft.currentCampus) return "학교를 골라주세요.";
+    if (!draft.admissionYear) return "학번을 골라주세요.";
     if (draft.mentoringArea.length < 1) return "도와줄 영역을 골라주세요.";
     if (draft.currentMajors.length < 1 || draft.currentMajors.length > 3) {
       return "전공을 확인해주세요.";

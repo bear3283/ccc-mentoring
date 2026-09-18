@@ -6,38 +6,61 @@ import type { Role } from "@/shared/constants/role";
 /**
  * 가입은 두 단계다.
  *
- * 1단계(행사 등록)는 행사에 오는 모든 사람이 거친다. 여기서 저장되고
+ * 1단계(고3채플 등록)는 행사에 오는 모든 사람이 거친다. 여기서 저장되고
  * 참여코드가 나온다. 2단계(멘토링 신청)는 원하는 사람만 이어서 한다.
  *
- * 한 번에 다 묻던 것을 나눈 이유: 행사 등록만 하려는 사람에게
+ * 한 번에 다 묻던 것을 나눈 이유: 등록만 하려는 사람에게
  * 성경 인물과 MBTI부터 물으면 등록 자체를 포기한다.
+ *
+ * 1단계는 역할에 상관없이 모두 같은 질문을 받는다. 채플에 오는 데 필요한
+ * 정보만 묻기 때문이다. 고3인지 대학생인지는 명단을 나누기 위해 받아두되,
+ * 질문이 갈라지는 것은 2단계부터다 — 캠퍼스는 매칭에 쓰는 정보이지
+ * 채플에 오는 데 필요한 정보가 아니다.
  */
 
-/** 1단계 — 행사 등록. 이것만 해도 행사에 올 수 있다. */
-export const REGISTER_STEPS_BY_ROLE = {
-  MENTEE: ["consent", "basic", "targetCampus", "church"],
-  MENTOR: ["consent", "basic", "currentCampus", "church"],
-} as const;
+/** 1단계 — 고3채플 등록. 역할과 무관하게 모두 같은 순서다. */
+export const REGISTER_STEPS = ["consent", "basic", "role", "church"] as const;
 
-/** 2단계 — 멘토링 신청. 선택이다. */
+/**
+ * 2단계 — 멘토링 신청. 선택이다.
+ *
+ * 가볍게 답할 수 있는 것(성경 인물·MBTI·관심 영역)을 앞에 두고,
+ * 진지하게 고민해야 하는 학교·학과를 뒤로 미룬다. 첫 질문이 무거우면
+ * 거기서 멈춘다.
+ *
+ * 캠퍼스는 학과 바로 앞이어야 한다. 학과 선택지가 여기서 고른 학교로 좁혀진다.
+ */
 export const MENTORING_STEPS_BY_ROLE = {
-  MENTEE: ["mentoringIntro", "persona", "mbti", "desiredArea", "targetMajor", "schedule", "photo"],
-  MENTOR: ["mentoringIntro", "persona", "mbti", "mentoringArea", "currentMajor", "schedule", "photo"],
+  MENTEE: [
+    "mentoringIntro", "persona", "mbti", "desiredArea",
+    "targetCampus", "targetMajor", "schedule", "photo",
+  ],
+  MENTOR: [
+    "mentoringIntro", "persona", "mbti", "mentoringArea",
+    "currentCampus", "currentMajor", "schedule", "photo",
+  ],
 } as const;
 
-export type RegisterStep = (typeof REGISTER_STEPS_BY_ROLE)["MENTEE" | "MENTOR"][number];
+export type RegisterStep = (typeof REGISTER_STEPS)[number];
 export type MentoringStep = (typeof MENTORING_STEPS_BY_ROLE)["MENTEE" | "MENTOR"][number];
 export type OnboardingStep = RegisterStep | MentoringStep;
 
 /** 두 단계를 이어 붙인 전체. 진행률이 아니라 목록이 필요할 때 쓴다. */
 export const STEPS_BY_ROLE = {
-  MENTEE: [...REGISTER_STEPS_BY_ROLE.MENTEE, ...MENTORING_STEPS_BY_ROLE.MENTEE],
-  MENTOR: [...REGISTER_STEPS_BY_ROLE.MENTOR, ...MENTORING_STEPS_BY_ROLE.MENTOR],
+  MENTEE: [...REGISTER_STEPS, ...MENTORING_STEPS_BY_ROLE.MENTEE],
+  MENTOR: [...REGISTER_STEPS, ...MENTORING_STEPS_BY_ROLE.MENTOR],
 } as const satisfies Record<"MENTEE" | "MENTOR", readonly OnboardingStep[]>;
 
 /** 스텝을 진행하며 조금씩 채워지는 초안. 마지막 스텝에서만 완성된다. */
 export interface OnboardingDraft {
   // 공통
+  /**
+   * 고3인지 CCC 대학생인지. 1단계에서 받는다.
+   *
+   * 등록만 하고 가는 사람도 명단에서 구분되어야 해서 여기서 묻는다.
+   * 이 값이 2단계에서 어떤 질문을 받을지도 정한다.
+   */
+  role?: Extract<Role, "MENTEE" | "MENTOR">;
   personaType?: PersonaType;
   /** 아이스브레이킹용. 모르면 비워둘 수 있다. */
   mbti?: MbtiType;

@@ -27,12 +27,9 @@ function formatPhone(raw: string): string {
  * 이름과 연락처만 받는다. 성별·고등학교처럼 당장 필요 없는 것을 여기서 물으면
  * 등록 문턱만 높아진다.
  */
-export function BasicStep({ role, draft, onNext, onChange }: StepProps) {
-  const isMentor = role === "MENTOR";
-
+export function BasicStep({ draft, onNext, onChange }: StepProps) {
   const [name, setName] = useState(draft.name ?? "");
   const [contact, setContact] = useState(draft.contact ?? "");
-  const [admissionYear, setAdmissionYear] = useState<number | undefined>(draft.admissionYear);
 
   const bodyRef = useRef<HTMLDivElement>(null);
   useStaggerReveal(bodyRef, { selector: "[data-group]", startDelay: 160, gap: 70 });
@@ -42,29 +39,21 @@ export function BasicStep({ role, draft, onNext, onChange }: StepProps) {
     onChange({
       name: name.trim() || undefined,
       contact: contact || undefined,
-      ...(isMentor ? { admissionYear } : {}),
     });
-  }, [name, contact, admissionYear, isMentor, onChange]);
+  }, [name, contact, onChange]);
 
   const phoneValid = PHONE_PATTERN.test(contact);
   const nameValid = name.trim().length >= 2;
-  // 학번은 멘토에게만 필수다. 고3 멘티는 아직 학번이 없다.
-  const complete = nameValid && phoneValid && (!isMentor || !!admissionYear);
+  const complete = nameValid && phoneValid;
 
   return (
     <StepLayout
-      eyebrow="행사 등록을 시작할게요"
+      eyebrow="고3채플 등록을 시작할게요"
       question="어떻게 불러드릴까요?"
       hint="연락처는 매칭된 상대에게만 보여요."
       ctaLabel={complete ? "다음" : "빈 칸을 채워주세요"}
       ctaDisabled={!complete}
-      onCta={() =>
-        onNext({
-          name: name.trim(),
-          contact,
-          ...(isMentor ? { admissionYear } : {}),
-        })
-      }
+      onCta={() => onNext({ name: name.trim(), contact })}
     >
       <div ref={bodyRef} className="flex flex-col gap-5">
         <section data-group>
@@ -98,31 +87,6 @@ export function BasicStep({ role, draft, onNext, onChange }: StepProps) {
           )}
         </section>
 
-        {isMentor && (
-          <section data-group>
-            <Label>학번</Label>
-            <ul role="radiogroup" className="flex flex-wrap gap-2">
-              {ADMISSION_YEARS.map((year) => (
-                <li key={year}>
-                  <button
-                    type="button"
-                    role="radio"
-                    aria-checked={admissionYear === year}
-                    onClick={() => setAdmissionYear(year)}
-                    className={cn(
-                      "rounded-full border-2 px-4 py-2 text-[14px] font-semibold transition-colors duration-150",
-                      admissionYear === year
-                        ? "border-brand bg-brand-soft text-brand"
-                        : "border-transparent bg-gray-50 text-gray-700",
-                    )}
-                  >
-                    {String(year).slice(2)}학번
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </section>
-        )}
       </div>
     </StepLayout>
   );

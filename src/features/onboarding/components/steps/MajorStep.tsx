@@ -5,7 +5,6 @@ import {
   CAREERS,
   FIELD_EMOJI,
   MAJOR_FIELDS,
-  majorsByField,
   type Career,
   type Major,
   type MajorField,
@@ -20,7 +19,7 @@ const MAX_CHOICES = 3;
 
 /**
  * 학과와 진로를 한 스텝에서 받는다.
- * 둘 다 합쳐 가중치 15%뿐이라 스텝을 나누면 체감 길이만 늘어난다.
+ * 둘 다 합쳐도 가중치가 크지 않아 스텝을 나누면 체감 길이만 늘어난다.
  * 항목이 많아 리스트 대신 칩(chip) 격자로 배치했다.
  */
 export function MajorStep({ role, draft, onNext, onChange }: StepProps) {
@@ -54,17 +53,48 @@ export function MajorStep({ role, draft, onNext, onChange }: StepProps) {
     () => (isMentee ? draft.targetCampus : draft.currentCampus ? [draft.currentCampus] : []),
     [isMentee, draft.targetCampus, draft.currentCampus],
   );
-  const byField = useMemo(() => majorsByField(campuses), [campuses]);
+
+  /*
+   * 전국 학과표는 138KB쯤 된다. 정적으로 import 하면 랜딩부터 그 무게를 지고
+   * 시작하므로, 이 스텝에 도달했을 때만 받아온다. 앞에 다섯 스텝이 있어
+   * 사용자가 여기 올 때쯤이면 이미 받아져 있다.
+   */
+  const [byField, setByField] = useState<Record<MajorField, string[]> | null>(null);
+  useEffect(() => {
+    let alive = true;
+    import("@/shared/constants/campusMajors").then(({ majorsByField }) => {
+      if (alive) setByField(majorsByField(campuses));
+    });
+    return () => {
+      alive = false;
+    };
+  }, [campuses]);
 
   /**
    * 계열을 모두 펼치면 100개가 넘게 쏟아진다.
    * 하나만 열어 두고, 이미 고른 학과가 있으면 그 계열부터 연다.
    */
-  const [openField, setOpenField] = useState<MajorField | null>(() => {
+  const [openField, setOpenField] = useState<MajorField | null>("공학");
+  useEffect(() => {
     const first = majors[0];
-    if (!first) return "공학";
-    return MAJOR_FIELDS.find((f) => byField[f].includes(first)) ?? "공학";
-  });
+    if (!first || !byField) return;
+    setOpenField(MAJOR_FIELDS.find((f) => byField[f].includes(first)) ?? "공학");
+    // 처음 데이터를 받았을 때만 맞춰 연다. 이후 사용자가 접은 것을 되돌리면 안 된다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [byField]);
+
+  /**
+   * 학교에 따라 100개가 넘는 학과가 나온다. 계열을 일일이 펼쳐 훑기는 어렵다.
+   * 자기 학과 이름을 이미 아는 사람이 대부분이라 검색이 가장 빠른 길이다.
+   */
+  const [query, setQuery] = useState("");
+  const found = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q || !byField) return null;
+    return MAJOR_FIELDS.flatMap((f) => byField[f]).filter((m) =>
+      m.toLowerCase().includes(q),
+    );
+  }, [query, byField]);
 
   const bodyRef = useRef<HTMLDivElement>(null);
   useStaggerReveal(bodyRef, { selector: "[data-group]", startDelay: 160, gap: 90 });
@@ -115,9 +145,43 @@ export function MajorStep({ role, draft, onNext, onChange }: StepProps) {
             </ul>
           )}
 
+          <input
+            type="search"
+            inputMode="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="학과 이름으로 찾기"
+            className="mb-2 w-full rounded-2xl bg-gray-50 px-4 py-3 text-[15px] text-gray-900 placeholder:text-gray-400 focus:outline-none"
+          />
+
+          {!byField ? (
+            <p className="py-6 text-center text-[14px] text-gray-400">학과를 불러오는 중…</p>
+          ) : found ? (
+            found.length > 0 ? (
+              <ul role="group" className="flex flex-wrap gap-2 py-1">
+                {found.map((m) => (
+                  <li key={m}>
+                    <Chip
+                      selected={majors.includes(m)}
+                      blocked={!majors.includes(m) && majors.length >= MAX_CHOICES}
+                      onSelect={() => toggleMajor(m)}
+                      label={m}
+                    />
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="py-6 text-center text-[14px] leading-relaxed text-gray-400">
+                찾는 학과가 없어요.
+                <br />
+                비슷한 학과를 계열에서 골라주세요.
+              </p>
+            )
+          ) : (
           <div className="flex flex-col gap-1.5">
             {MAJOR_FIELDS.map((field) => {
               const items = byField[field];
+              if (items.length === 0) return null;
               const opened = openField === field;
               const picked = items.filter((m) => majors.includes(m)).length;
 
@@ -165,6 +229,7 @@ export function MajorStep({ role, draft, onNext, onChange }: StepProps) {
               );
             })}
           </div>
+          )}
         </section>
 
         <section data-group>

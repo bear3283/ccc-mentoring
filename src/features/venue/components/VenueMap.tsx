@@ -121,20 +121,14 @@ export function VenueMap() {
       </button>
 
       {/* ── 바로가기 ── */}
-      <div className="mt-3 grid grid-cols-2 gap-2">
+      <div className="mt-3">
         <a
           href={VENUE.naverMapUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex h-[52px] items-center justify-center rounded-2xl bg-brand text-[15px] font-bold text-white transition-colors active:bg-brand-dark"
+          className="flex h-[52px] w-full items-center justify-center rounded-2xl bg-brand text-[15px] font-bold text-white transition-colors active:bg-brand-dark"
         >
           지도로 길찾기
-        </a>
-        <a
-          href={`tel:${VENUE.phone.replace(/-/g, "")}`}
-          className="flex h-[52px] items-center justify-center rounded-2xl bg-gray-100 text-[15px] font-bold text-gray-700 transition-colors active:bg-gray-200"
-        >
-          교회에 전화
         </a>
       </div>
 

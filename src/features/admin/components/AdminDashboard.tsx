@@ -43,11 +43,11 @@ const menteeColumns: TableColumn<Mentee>[] = [
     value: (r) => (r.isNewFriend ? "🌱 새친구" : (r.church ?? "-")),
     width: "120px",
   },
-  { key: "campus1", header: "1지망", value: (r) => r.targetCampus[0] },
-  { key: "campus2", header: "2지망", value: (r) => r.targetCampus[1] },
-  { key: "campus3", header: "3지망", value: (r) => r.targetCampus[2] },
+  { key: "campus1", header: "1지망", value: (r) => r.targetCampus[0] ?? "-" },
+  { key: "campus2", header: "2지망", value: (r) => r.targetCampus[1] ?? "-" },
+  { key: "campus3", header: "3지망", value: (r) => r.targetCampus[2] ?? "-" },
   { key: "area", header: "희망 영역", value: (r) => r.desiredAreas.join(", ") },
-  { key: "persona", header: "성향", value: (r) => PERSONAS[r.personaType].name, align: "center" },
+  { key: "persona", header: "성향", value: (r) => personaName(r.personaType), align: "center" },
   { key: "mbti", header: "MBTI", value: (r) => r.mbti ?? "-", align: "center", width: "70px" },
   { key: "major", header: "희망 학과", value: (r) => r.targetMajors.join(", ") },
   { key: "career", header: "희망 진로", value: (r) => r.targetCareers.join(", ") },
@@ -63,6 +63,14 @@ const menteeColumns: TableColumn<Mentee>[] = [
   { key: "contact", header: "연락처", value: (r) => r.contact },
 ];
 
+/**
+ * 등록만 한 사람은 성향이 비어 있다. 멘토링 2단계에서 받는 값이기 때문이다.
+ * 그대로 PERSONAS[...] 를 태우면 undefined.name 으로 표 전체가 죽는다.
+ */
+function personaName(type: Mentee["personaType"] | undefined): string {
+  return type ? PERSONAS[type].name : "-";
+}
+
 const mentorColumns: TableColumn<Mentor>[] = [
   { key: "code", header: "참여코드", value: (r) => r.participationCode, width: "110px" },
   { key: "name", header: "이름", value: (r) => r.name, width: "80px" },
@@ -73,10 +81,16 @@ const mentorColumns: TableColumn<Mentor>[] = [
     value: (r) => (r.isNewFriend ? "🌱 새친구" : (r.church ?? "-")),
     width: "120px",
   },
-  { key: "campus", header: "캠퍼스", value: (r) => r.currentCampus },
-  { key: "admission", header: "학번", value: (r) => `${String(r.admissionYear).slice(2)}학번`, align: "center", width: "80px" },
+  { key: "campus", header: "캠퍼스", value: (r) => r.currentCampus ?? "-" },
+  {
+    key: "admission",
+    header: "학번",
+    value: (r) => (r.admissionYear ? `${String(r.admissionYear).slice(2)}학번` : "-"),
+    align: "center",
+    width: "80px",
+  },
   { key: "area", header: "멘토링 영역", value: (r) => r.mentoringArea.join(", ") },
-  { key: "persona", header: "성향", value: (r) => PERSONAS[r.personaType].name, align: "center" },
+  { key: "persona", header: "성향", value: (r) => personaName(r.personaType), align: "center" },
   { key: "mbti", header: "MBTI", value: (r) => r.mbti ?? "-", align: "center", width: "70px" },
   { key: "major", header: "학과", value: (r) => r.currentMajors.join(", ") },
   { key: "career", header: "진로", value: (r) => r.careerPaths.join(", ") },
@@ -210,6 +224,44 @@ export function AdminDashboard({ mentees, mentors, matchRows, unmatched }: Admin
     ...new Set(unmatched.filter((u) => u.mentorsInCampus === 0).flatMap((u) => u.targetCampus)),
   ].filter((campus) => !mentors.some((m) => m.currentCampus === campus));
 
+  const [running, setRunning] = useState(false);
+  const [runMessage, setRunMessage] = useState<string>();
+
+  /**
+   * 신청자 전원의 추천을 다시 계산한다.
+   *
+   * 추천은 멘티가 결과 화면을 열어야 저장되므로, 신청만 하고 안 본 사람은
+   * 매칭 표에 없다. 이 버튼이 그 빈칸을 채운다. 짝을 정하지는 않는다.
+   */
+  const handleRunMatching = async () => {
+    if (running) return;
+    setRunning(true);
+    setRunMessage(undefined);
+    try {
+      const res = await fetch("/api/admin/match-all", { method: "POST" });
+      const body = (await res.json()) as {
+        applicants?: number;
+        computed?: number;
+        settled?: number;
+        noCandidates?: number;
+        error?: string;
+      };
+      if (!res.ok) {
+        setRunMessage(body.error ?? "매칭을 계산하지 못했어요.");
+        return;
+      }
+      setRunMessage(
+        `신청자 ${body.applicants}명 — 추천 계산 ${body.computed}명 · ` +
+          `이미 확정 ${body.settled}명 · 조건 맞는 선배 없음 ${body.noCandidates}명. ` +
+          `새로고침하면 표에 반영됩니다.`,
+      );
+    } catch {
+      setRunMessage("연결에 실패했어요.");
+    } finally {
+      setRunning(false);
+    }
+  };
+
   const handleExport = () => {
     // 화면 표와 같은 열 구성으로 떨어뜨린다.
     const asCsvColumns = <T,>(cols: TableColumn<T>[]): CsvColumn<T>[] =>
@@ -232,14 +284,31 @@ export function AdminDashboard({ mentees, mentors, matchRows, unmatched }: Admin
             </h1>
           </div>
 
-          <button
-            type="button"
-            onClick={handleExport}
-            className="h-9 rounded-lg bg-brand px-4 text-[13px] font-bold text-white active:bg-brand-dark"
-          >
-            CSV 내보내기
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleRunMatching}
+              disabled={running}
+              className="h-9 rounded-lg border border-gray-200 px-4 text-[13px] font-bold text-gray-700 active:bg-gray-100 disabled:text-gray-300"
+            >
+              {running ? "계산 중…" : "전체 매칭 실행"}
+            </button>
+            <button
+              type="button"
+              onClick={handleExport}
+              className="h-9 rounded-lg bg-brand px-4 text-[13px] font-bold text-white active:bg-brand-dark"
+            >
+              CSV 내보내기
+            </button>
+          </div>
         </div>
+
+        {/* 실행 결과는 숫자로만 알린다. 무엇이 바뀌었는지 바로 확인해야 한다. */}
+        {runMessage && (
+          <p className="mt-3 rounded-lg bg-brand-soft px-4 py-2.5 text-[13px] font-medium text-brand">
+            {runMessage}
+          </p>
+        )}
 
         {/* 운영 판단에 필요한 수치를 표 위에 고정해 둔다. */}
         <dl className="mt-4 flex gap-6 border-y border-gray-100 py-3">

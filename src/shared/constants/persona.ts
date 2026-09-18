@@ -1,10 +1,26 @@
 /**
  * 성경 인물 페르소나.
- * 온보딩 아이스브레이킹 질문의 선택지이자, 매칭 점수(2순위 30%)의 성향 축으로 함께 쓰인다.
+ * 온보딩 아이스브레이킹 질문의 선택지이자, 매칭 점수(WEIGHTS.persona)의 성향 축으로 함께 쓰인다.
  * 온보딩과 매칭 로직이 같은 상수를 참조하도록 shared 레이어에 둔다.
  */
 
-export const PERSONA_TYPES = ["DAVID", "SOLOMON", "ESTHER", "NOAH"] as const;
+/**
+ * 넷만 두었을 때는 "넷 중엔 이게 제일 가깝네" 로 고르게 되어
+ * 고른 사람도 자기를 설명했다고 느끼지 못했다. 여덟로 넓혔다.
+ *
+ * 여기에 값을 더하면 DB enum 도 함께 넓혀야 한다.
+ * supabase/migrations/2026-09-15-persona-expand.sql 을 참고할 것.
+ */
+export const PERSONA_TYPES = [
+  "DAVID",
+  "SOLOMON",
+  "ESTHER",
+  "NOAH",
+  "NEHEMIAH",
+  "DANIEL",
+  "RUTH",
+  "DEBORAH",
+] as const;
 
 export type PersonaType = (typeof PERSONA_TYPES)[number];
 
@@ -60,22 +76,66 @@ export const PERSONAS: Record<PersonaType, Persona> = {
     keywords: ["성실", "꾸준함"],
     gradient: ["#38b48b", "#6fcf97"],
   },
+  NEHEMIAH: {
+    type: "NEHEMIAH",
+    emoji: "🧱",
+    name: "느헤미야",
+    hashtag: "#느헤미야형",
+    description: "계획을 세워 끝까지 해내는 완성파",
+    keywords: ["기획", "추진"],
+    gradient: ["#3d6ea8", "#6b9bd1"],
+  },
+  DANIEL: {
+    type: "DANIEL",
+    emoji: "🦁",
+    name: "다니엘",
+    hashtag: "#다니엘형",
+    description: "흔들리지 않고 소신을 지키는 신념파",
+    keywords: ["소신", "절제"],
+    gradient: ["#2f8fa8", "#55b8cc"],
+  },
+  RUTH: {
+    type: "RUTH",
+    emoji: "🌾",
+    name: "룻",
+    hashtag: "#룻형",
+    description: "곁을 지키며 함께 걷는 동행파",
+    keywords: ["신의", "동행"],
+    gradient: ["#d76d92", "#f0a0b8"],
+  },
+  DEBORAH: {
+    type: "DEBORAH",
+    emoji: "⚖️",
+    name: "드보라",
+    hashtag: "#드보라형",
+    description: "판을 읽고 앞에서 이끄는 리더파",
+    keywords: ["결단", "리더십"],
+    gradient: ["#9b5bb5", "#c08ad4"],
+  },
 };
 
 export const PERSONA_LIST: Persona[] = PERSONA_TYPES.map((t) => PERSONAS[t]);
 
 /**
  * 페르소나 궁합 점수 (0.0 ~ 1.0).
- * 매칭 2순위(30%)의 성향 매칭 항목에서 사용한다.
+ * 매칭의 성향 항목(WEIGHTS.persona)에 곱해 쓴다.
  * 같은 유형은 1.0, 서로 보완하는 유형은 0.7, 그 외는 0.4를 준다.
  * (완전 불일치에도 0을 주지 않는 이유: 캠퍼스/영역이 맞는 좋은 멘토가
  *  성향 하나 때문에 후보에서 사라지는 것을 막기 위함)
  */
 const COMPLEMENTARY: Record<PersonaType, PersonaType[]> = {
-  DAVID: ["ESTHER"],
-  SOLOMON: ["NOAH"],
-  ESTHER: ["DAVID"],
-  NOAH: ["SOLOMON"],
+  // 저돌적으로 부딪히는 쪽과 재고 따지는 쪽
+  DAVID: ["SOLOMON"],
+  SOLOMON: ["DAVID"],
+  // 사람들과 어울리는 쪽과 자기 기준을 지키는 쪽
+  ESTHER: ["DANIEL"],
+  DANIEL: ["ESTHER"],
+  // 오래 쌓는 쪽과 기한 안에 끝내는 쪽
+  NOAH: ["NEHEMIAH"],
+  NEHEMIAH: ["NOAH"],
+  // 곁에서 함께 가는 쪽과 앞에서 이끄는 쪽
+  RUTH: ["DEBORAH"],
+  DEBORAH: ["RUTH"],
 };
 
 export function getPersonaAffinity(a: PersonaType, b: PersonaType): number {

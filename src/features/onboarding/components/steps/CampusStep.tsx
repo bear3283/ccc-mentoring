@@ -9,6 +9,7 @@ import {
   type Region,
 } from "@/shared/constants/domain";
 import { useStaggerReveal } from "@/shared/hooks/useStaggerReveal";
+import { cn } from "@/shared/lib/cn";
 import { OptionButton } from "../OptionButton";
 import { StepLayout } from "../StepLayout";
 import type { StepProps } from "../../model/types";
@@ -16,8 +17,15 @@ import type { StepProps } from "../../model/types";
 /** 멘티는 3지망까지 고른다. 매칭 가중치가 가장 큰 항목이다. */
 const MAX_CHOICES = 3;
 
+const CURRENT_YEAR = new Date().getFullYear();
+const ADMISSION_YEARS = Array.from({ length: 8 }, (_, i) => CURRENT_YEAR - i);
+
 export function CampusStep({ role, draft, onNext, onChange }: StepProps) {
   const isMentee = role === "MENTEE";
+
+  // 학번은 멘토에게만 묻는다. 고3은 아직 학번이 없다.
+  // 학교와 함께 받아야 "○○대 23학번"이 한 화면에서 완성된다.
+  const [admissionYear, setAdmissionYear] = useState<number | undefined>(draft.admissionYear);
 
   // 멘티는 순서가 곧 지망 순위라 배열을 그대로 쓴다.
   const [choices, setChoices] = useState<Campus[]>(
@@ -72,12 +80,12 @@ export function CampusStep({ role, draft, onNext, onChange }: StepProps) {
   // 고르는 즉시 draft에 반영한다. 뒤로 갔다 돌아와도 선택이 남아 있어야 한다.
   useEffect(() => {
     if (isMentee) onChange({ targetCampus: choices });
-    else if (choices[0]) onChange({ currentCampus: choices[0] });
-  }, [choices, isMentee, onChange]);
+    else onChange({ currentCampus: choices[0], admissionYear });
+  }, [choices, admissionYear, isMentee, onChange]);
 
   const handleNext = () => {
     if (isMentee) onNext({ targetCampus: choices });
-    else onNext({ currentCampus: choices[0] });
+    else onNext({ currentCampus: choices[0], admissionYear });
   };
 
   const ctaLabel = isMentee
@@ -88,7 +96,9 @@ export function CampusStep({ role, draft, onNext, onChange }: StepProps) {
         : "다음"
     : choices.length === 0
       ? "학교를 골라주세요"
-      : "다음";
+      : !admissionYear
+        ? "학번을 골라주세요"
+        : "다음";
 
   return (
     <StepLayout
@@ -101,7 +111,8 @@ export function CampusStep({ role, draft, onNext, onChange }: StepProps) {
       }
       ctaLabel={ctaLabel}
       // 멘티는 최소 1지망만 있어도 넘어갈 수 있게 한다. 3개를 강제하면 이탈이 는다.
-      ctaDisabled={choices.length === 0}
+      // 멘토는 학번까지 있어야 프로필이 완성된다.
+      ctaDisabled={choices.length === 0 || (!isMentee && !admissionYear)}
       onCta={handleNext}
     >
       {/* 고른 학교를 위에 고정해 둔다. 지역을 옮겨다녀도 놓치지 않는다. */}
@@ -119,6 +130,36 @@ export function CampusStep({ role, draft, onNext, onChange }: StepProps) {
               <span className="text-[14px] leading-none opacity-70">×</span>
             </button>
           ))}
+        </div>
+      )}
+
+      {/*
+        고른 학교와 학번을 목록 위에 둔다. 아래에 두면 캠퍼스 100개를 지나
+        스크롤해야 나와서, "학번을 골라주세요"라는 버튼만 보고 길을 잃는다.
+      */}
+      {!isMentee && choices.length > 0 && (
+        <div className="mb-3 rounded-2xl bg-brand-soft px-4 py-3.5">
+          <p className="text-[15px] font-bold text-brand">{choices[0]}</p>
+          <ul role="radiogroup" className="mt-2.5 flex flex-wrap gap-1.5">
+            {ADMISSION_YEARS.map((year) => (
+              <li key={year}>
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={admissionYear === year}
+                  onClick={() => setAdmissionYear(year)}
+                  className={cn(
+                    "rounded-full px-3 py-1.5 text-[13px] font-bold transition-colors duration-150",
+                    admissionYear === year
+                      ? "bg-brand text-white"
+                      : "bg-white text-gray-600",
+                  )}
+                >
+                  {String(year).slice(2)}학번
+                </button>
+              </li>
+            ))}
+          </ul>
         </div>
       )}
 

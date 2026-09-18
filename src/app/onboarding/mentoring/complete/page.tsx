@@ -61,20 +61,38 @@ export default function MentoringCompletePage() {
         <p data-reveal className="mt-2 text-[14px] leading-relaxed text-gray-500">
           {isMentee
             ? "잘 맞는 선배를 찾아뒀어요. 아래에서 확인해보세요."
-            : "후배가 신청하면 연결해 드릴게요. 연락이 오면 반갑게 맞아주세요."}
+            : "후배가 선배님을 고르면 연결돼요. 후배가 먼저 문자를 보낼 거예요."}
         </p>
       </div>
 
-      {isMentee && (
-        <div className="mt-8 px-6">
+      <div className="mt-8 px-6">
+        {isMentee ? (
           <Link
             href="/matching/result"
             className="flex h-[54px] w-full items-center justify-center rounded-2xl bg-brand text-[17px] font-bold text-white active:bg-brand-dark"
           >
             매칭 결과 보기
           </Link>
-        </div>
-      )}
+        ) : (
+          /*
+           * 멘토에게는 알림이 가지 않는다. 확인할 길이 없으면 "신청했는데
+           * 아무 일도 안 일어난다"로 남는다. 직접 볼 수 있는 통로를 준다.
+           */
+          <>
+            <Link
+              href="/mentor/match"
+              className="flex h-[54px] w-full items-center justify-center rounded-2xl bg-brand text-[17px] font-bold text-white active:bg-brand-dark"
+            >
+              연결된 후배 확인하기
+            </Link>
+            <p className="mt-2.5 text-center text-[13px] leading-relaxed text-gray-400">
+              아직 후배가 고르기 전이면 비어 있어요.
+              <br />
+              참여코드로 언제든 다시 확인할 수 있어요.
+            </p>
+          </>
+        )}
+      </div>
 
       <div className="mt-10">
         <MentoringGuide />

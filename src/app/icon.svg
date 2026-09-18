@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="고3채플">
+  <!--
+    탭 아이콘. 16px 까지 줄어드므로 글자는 쓰지 않는다. "고3" 은 그 크기에서 뭉개진다.
+    두 원이 겹친 모양으로 "선배와 후배를 잇는다"를 나타낸다.
+    색 #6c5ce7 은 globals.css 의 브랜드 색과 같은 값이다.
+    (XML 주석에는 붙임표 두 개를 쓸 수 없어 변수명을 그대로 적지 않는다.)
+  -->
+  <rect width="64" height="64" rx="14" fill="#6c5ce7" />
+  <g fill="none" stroke="#ffffff" stroke-width="5">
+    <circle cx="25" cy="32" r="11" />
+    <circle cx="39" cy="32" r="11" />
+  </g>
+</svg>

@@ -15,11 +15,12 @@ import { MbtiStep } from "./steps/MbtiStep";
 import { MentoringIntroStep } from "./steps/MentoringIntroStep";
 import { PersonaStep } from "./steps/PersonaStep";
 import { PhotoStep } from "./steps/PhotoStep";
+import { RoleStep } from "./steps/RoleStep";
 import { ScheduleStep } from "./steps/ScheduleStep";
 import {
   EMPTY_DRAFT,
   MENTORING_STEPS_BY_ROLE,
-  REGISTER_STEPS_BY_ROLE,
+  REGISTER_STEPS,
   type OnboardingDraft,
   type OnboardingStep,
 } from "../model/types";
@@ -29,15 +30,16 @@ import {
  * 같은 컴포넌트가 역할에 따라 다르게 묻는 경우 두 이름을 같은 곳에 건다.
  */
 const REGISTRY: StepRegistry = {
-  // ── 1단계: 행사 등록 ──
+  // ── 1단계: 고3채플 등록 (역할과 무관하게 모두 같은 순서) ──
   consent: ConsentStep,
   basic: BasicStep,
-  targetCampus: CampusStep,
-  currentCampus: CampusStep,
+  role: RoleStep,
   church: ChurchStep,
 
-  // ── 2단계: 멘토링 신청 ──
+  // ── 2단계: 멘토링 신청 (여기서부터 역할별로 갈라진다) ──
   mentoringIntro: MentoringIntroStep,
+  targetCampus: CampusStep,
+  currentCampus: CampusStep,
   persona: PersonaStep,
   mbti: MbtiStep,
   desiredArea: AreaStep,
@@ -51,10 +53,14 @@ const REGISTRY: StepRegistry = {
 type RoleOnly = Extract<Role, "MENTEE" | "MENTOR">;
 
 interface RoleFunnelProps {
-  role: RoleOnly;
+  /**
+   * 2단계에서만 쓴다. 1단계는 역할을 묻는 것이 스텝의 일부라
+   * 시작 시점에는 아직 정해지지 않는다.
+   */
+  role?: RoleOnly;
   /**
    * 어느 단계를 진행하는지.
-   * register = 행사 등록(모두), mentoring = 멘토링 신청(원하는 사람만)
+   * register = 고3채플 등록(모두), mentoring = 멘토링 신청(원하는 사람만)
    */
   phase: "register" | "mentoring";
 }
@@ -64,25 +70,35 @@ export function RoleFunnel({ role, phase }: RoleFunnelProps) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string>();
 
-  const source =
-    phase === "register" ? REGISTER_STEPS_BY_ROLE[role] : MENTORING_STEPS_BY_ROLE[role];
-
-  // 구현이 끝난 스텝만 태운다.
-  const activeSteps = source.filter((step): step is OnboardingStep => step in REGISTRY);
+  const isMentoring = phase === "mentoring";
 
   /**
    * 2단계는 1단계에서 저장한 내용 위에 이어 쓴다.
    * 처음부터 다시 묻지 않으려면 브라우저에 남긴 초안을 먼저 읽어야 한다.
    */
-  const initialDraft: OnboardingDraft =
-    phase === "mentoring" ? (loadDraft()?.draft ?? EMPTY_DRAFT) : EMPTY_DRAFT;
+  const initialDraft: OnboardingDraft = isMentoring
+    ? (loadDraft()?.draft ?? EMPTY_DRAFT)
+    : EMPTY_DRAFT;
+
+  // 1단계는 모두 같은 순서를 밟는다. 역할은 그 안의 한 스텝으로 받는다.
+  const source = isMentoring ? MENTORING_STEPS_BY_ROLE[role ?? "MENTEE"] : REGISTER_STEPS;
+
+  // 구현이 끝난 스텝만 태운다.
+  const activeSteps = source.filter((step): step is OnboardingStep => step in REGISTRY);
 
   const handleComplete = async (draft: OnboardingDraft) => {
     if (submitting) return;
+
+    // 1단계에서는 고른 신분이 곧 역할이다. 2단계는 등록 때 정해진 것을 따른다.
+    const effectiveRole = isMentoring ? role : draft.role;
+    if (!effectiveRole) {
+      setError("고3인지 대학생인지 골라주세요.");
+      return;
+    }
+
     setSubmitting(true);
     setError(undefined);
 
-    const isMentoring = phase === "mentoring";
     const payload = isMentoring ? { ...draft, mentoringApplied: true } : draft;
 
     try {
@@ -94,13 +110,13 @@ export function RoleFunnel({ role, phase }: RoleFunnelProps) {
         body: JSON.stringify(
           isMentoring
             ? {
-                role,
+                role: effectiveRole,
                 draft: payload,
                 // 누구의 신청인지는 코드로 가린다. 이름·번호를 다시 받으면
                 // 남의 등록에 멘토링을 붙일 수 있다.
                 participationCode: loadDraft()?.participationCode,
               }
-            : { role, draft: payload },
+            : { role: effectiveRole, draft: payload },
         ),
       });
 
@@ -117,7 +133,7 @@ export function RoleFunnel({ role, phase }: RoleFunnelProps) {
       }
 
       // 완료 화면과 결과 화면이 읽을 수 있게 이 브라우저에도 남긴다.
-      saveDraft(role, payload, body.participationCode, body.alreadyRegistered);
+      saveDraft(effectiveRole, payload, body.participationCode, body.alreadyRegistered);
       router.push(isMentoring ? "/onboarding/mentoring/complete" : "/onboarding/complete");
     } catch {
       setError("연결에 실패했어요. 인터넷 상태를 확인해주세요.");
@@ -128,7 +144,7 @@ export function RoleFunnel({ role, phase }: RoleFunnelProps) {
   return (
     <>
       <OnboardingFunnel
-        role={role}
+        role={role ?? "MENTEE"}
         steps={activeSteps}
         registry={REGISTRY}
         initialDraft={initialDraft}

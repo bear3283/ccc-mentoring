@@ -10,7 +10,7 @@ import type { StepProps } from "../../model/types";
  * 출석하는 교회.
  *
  * 다니는 교회가 없는 사람을 '새친구'로 구분해 둔다.
- * 행사 당일 따로 맞이하고 챙겨야 하는 분들이라 등록 단계에서 미리 안다.
+ * 채플 당일 따로 맞이하고 챙겨야 하는 분들이라 등록 단계에서 미리 안다.
  *
  * '없음'을 부정적으로 보이지 않게 쓰는 것이 중요하다.
  * 교회를 안 다니는 사람이 여기서 위축되면 행사에 오지 않는다.
@@ -47,7 +47,7 @@ export function ChurchStep({ role, draft, onNext, onChange }: StepProps) {
     <StepLayout
       eyebrow="마지막이에요"
       question="출석하는 교회가 있나요?"
-      hint="행사 당일 안내를 돕기 위해 여쭤봐요."
+      hint="채플 안내를 돕기 위해 여쭤봐요."
       ctaLabel={complete ? "등록 완료하기" : "교회를 알려주세요"}
       ctaDisabled={!complete}
       onCta={() => onNext(payload)}

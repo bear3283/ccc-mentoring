@@ -6,7 +6,9 @@ import type { Role } from "@/shared/constants/role";
 import type { Campus, Career, Gender, Major, MentoringArea, TimeSlot } from "@/shared/constants/domain";
 import type { MbtiType } from "@/shared/constants/mbti";
 import type { PersonaType } from "@/shared/constants/persona";
+import { safeForLog } from "@/shared/lib/security/mask";
 import { getSupabase } from "@/shared/lib/supabase/server";
+import { matchMentors } from "@/features/matching/lib/score";
 import { MOCK_MENTEES, MOCK_MENTORS } from "@/shared/lib/mock/generate";
 
 /**
@@ -52,7 +54,11 @@ interface MentorRow {
   career_paths: string[];
 }
 
-function toMentee(user: UserRow, profile: MenteeRow): Mentee {
+/**
+ * 등록만 한 사람은 프로필 행이 없다. 멘토링을 신청해야 만들어진다.
+ * 운영자 표에는 그대로 보여야 해서(채플에는 오시는 분들이다) 빈 값으로 채운다.
+ */
+function toMentee(user: UserRow, profile: MenteeRow | null): Mentee {
   return {
     id: user.id,
     participationCode: user.participation_code,
@@ -66,16 +72,17 @@ function toMentee(user: UserRow, profile: MenteeRow): Mentee {
     referrer: user.referrer ?? undefined,
     photoUrl: user.photo_url ?? undefined,
     availableTimes: user.available_times as TimeSlot[],
-    targetCampus: profile.target_campus as Campus[],
-    desiredAreas: profile.desired_areas as MentoringArea[],
+    targetCampus: (profile?.target_campus ?? []) as Campus[],
+    desiredAreas: (profile?.desired_areas ?? []) as MentoringArea[],
     personaType: user.persona_type,
     mbti: (user.mbti ?? undefined) as MbtiType | undefined,
-    targetMajors: profile.target_majors as Major[],
-    targetCareers: profile.target_careers as Career[],
+    targetMajors: (profile?.target_majors ?? []) as Major[],
+    targetCareers: (profile?.target_careers ?? []) as Career[],
   };
 }
 
-function toMentor(user: UserRow, profile: MentorRow): Mentor {
+/** toMentee 와 같은 이유로 프로필이 없을 수 있다. */
+function toMentor(user: UserRow, profile: MentorRow | null): Mentor {
   return {
     id: user.id,
     participationCode: user.participation_code,
@@ -89,15 +96,47 @@ function toMentor(user: UserRow, profile: MentorRow): Mentor {
     referrer: user.referrer ?? undefined,
     photoUrl: user.photo_url ?? undefined,
     availableTimes: user.available_times as TimeSlot[],
-    currentCampus: profile.current_campus as Campus,
-    admissionYear: profile.admission_year,
-    mentoringArea: profile.mentoring_area as MentoringArea[],
+    currentCampus: profile?.current_campus as Campus,
+    admissionYear: profile?.admission_year ?? 0,
+    mentoringArea: (profile?.mentoring_area ?? []) as MentoringArea[],
     personaType: user.persona_type,
     mbti: (user.mbti ?? undefined) as MbtiType | undefined,
-    currentMajors: profile.current_majors as Major[],
-    careerPaths: profile.career_paths as Career[],
+    currentMajors: (profile?.current_majors ?? []) as Major[],
+    careerPaths: (profile?.career_paths ?? []) as Career[],
   };
 }
+
+/** Supabase 가 돌려주는 오류의 모양. 전부 optional 이라 따로 적는다. */
+interface DbError {
+  code?: string;
+  message?: string;
+  hint?: string | null;
+  details?: string | null;
+}
+
+/**
+ * DB 오류를 서버 로그에 남긴다.
+ *
+ * 이게 없으면 저장 실패 시 로그에 "POST /api/signup 400" 한 줄만 남아,
+ * 오픈 당일 무엇이 잘못됐는지 알아낼 방법이 없다. 화면에는 계속
+ * 안내 문구만 보여주고, 원인은 운영자만 볼 수 있는 곳에 적는다.
+ *
+ * details 는 찍지 않는다 — PostgREST 는 여기에 실패한 행을 통째로 넣어 주는데,
+ * 그대로 두면 이름과 연락처가 로그 파일에 쌓인다. code·message·hint 만으로도
+ * 어떤 제약에 걸렸는지는 충분히 드러난다.
+ */
+function logDbError(where: string, error: DbError | null, who?: LogSubject): void {
+  if (!error) return;
+  // 누구의 요청이었는지는 참여코드로만 남긴다. 그래야 운영자가 문의받은 사람을
+  // 로그에서 찾을 수 있으면서도 로그에 이름·연락처가 쌓이지 않는다.
+  const subject = who ? ` [${safeForLog(who)}]` : "";
+  console.error(
+    `[db] ${where}${subject} 실패 — code=${error.code ?? "?"} ${error.message ?? ""}` +
+      (error.hint ? ` (hint: ${error.hint})` : ""),
+  );
+}
+
+type LogSubject = Parameters<typeof safeForLog>[0];
 
 export interface SaveResult {
   ok: boolean;
@@ -126,13 +165,15 @@ export async function findExistingSignup(
   const supabase = getSupabase();
   if (!supabase) return null;
 
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("users")
     .select("participation_code, name")
     .eq("contact", contact)
     .eq("role", role)
     .maybeSingle();
 
+  // 조회가 실패하면 "처음 신청하는 사람"으로 읽혀 중복 확인이 통째로 건너뛰어진다.
+  if (error) logDbError("중복 신청 확인", error);
   if (!data) return null;
   return {
     sameName: (data.name as string).trim() === name.trim(),
@@ -189,40 +230,21 @@ export async function saveSignup(
 
   if (userError || !user) {
     // 참여코드가 겹치는 건 사실상 없지만(31^6 조합), 겹치면 재발급이 필요하다.
+    // 이건 정상 경로라 로그를 남기지 않는다 — 호출부가 코드를 다시 뽑아 재시도한다.
     if (userError?.code === "23505") {
       return { ok: false, error: "코드가 중복되었어요. 다시 시도해주세요.", };
     }
+    logDbError(`등록 저장 (${role})`, userError, { participationCode });
     return { ok: false, error: "저장하지 못했어요. 잠시 후 다시 시도해주세요." };
   }
 
-  const profileError =
-    role === "MENTEE"
-      ? (
-          await supabase.from("mentee_profiles").insert({
-            user_id: user.id,
-            target_campus: draft.targetCampus,
-            desired_areas: draft.desiredAreas ?? [],
-            target_majors: draft.targetMajors ?? [],
-            target_careers: draft.targetCareers ?? [],
-          })
-        ).error
-      : (
-          await supabase.from("mentor_profiles").insert({
-            user_id: user.id,
-            current_campus: draft.currentCampus,
-            admission_year: draft.admissionYear,
-            mentoring_area: draft.mentoringArea ?? [],
-            current_majors: draft.currentMajors ?? [],
-            career_paths: draft.careerPaths ?? [],
-          })
-        ).error;
-
-  if (profileError) {
-    // 프로필이 없는 users 행이 남으면 매칭에서 터진다. 되돌린다.
-    await supabase.from("users").delete().eq("id", user.id);
-    return { ok: false, error: "저장하지 못했어요. 잠시 후 다시 시도해주세요." };
-  }
-
+  /*
+   * 프로필(mentee_profiles / mentor_profiles)은 여기서 만들지 않는다.
+   *
+   * 등록만 하는 사람은 캠퍼스·관심사를 답하지 않는데, 두 테이블 모두
+   * 그 값들이 NOT NULL 이라 빈 행을 넣을 수 없다. 프로필은 매칭에 쓰는
+   * 정보이므로 멘토링을 신청하는 2단계에서 한 번에 만든다.
+   */
   return { ok: true, userId: user.id };
 }
 
@@ -286,36 +308,54 @@ export async function applyMentoring(
     .eq("id", user.id);
 
   if (userError) {
+    logDbError(`멘토링 신청 - users 갱신 (${role})`, userError, { participationCode });
     return { ok: false, error: "저장하지 못했어요. 잠시 후 다시 시도해주세요." };
   }
 
+  /*
+   * 프로필은 여기서 처음 만들어진다. 등록 단계에서는 캠퍼스를 묻지 않기 때문이다.
+   *
+   * upsert 를 쓰는 이유: 2단계를 마친 사람이 다시 들어와 고쳐 낼 수 있다.
+   * insert 로 두면 두 번째 제출이 user_id 유니크 제약에 걸려 실패한다.
+   */
   const profileError =
     role === "MENTEE"
       ? (
-          await supabase
-            .from("mentee_profiles")
-            .update({
+          await supabase.from("mentee_profiles").upsert(
+            {
+              user_id: user.id,
+              target_campus: draft.targetCampus,
               desired_areas: draft.desiredAreas,
               target_majors: draft.targetMajors,
               target_careers: draft.targetCareers,
-            })
-            .eq("user_id", user.id)
+            },
+            { onConflict: "user_id" },
+          )
         ).error
       : (
-          await supabase
-            .from("mentor_profiles")
-            .update({
+          await supabase.from("mentor_profiles").upsert(
+            {
+              user_id: user.id,
+              current_campus: draft.currentCampus,
+              admission_year: draft.admissionYear,
               mentoring_area: draft.mentoringArea,
               current_majors: draft.currentMajors,
               career_paths: draft.careerPaths,
-            })
-            .eq("user_id", user.id)
+            },
+            { onConflict: "user_id" },
+          )
         ).error;
 
   if (profileError) {
+    logDbError(`멘토링 신청 - 프로필 저장 (${role})`, profileError, { participationCode });
     // users 는 이미 갱신됐으므로 멘토링 표시를 되돌린다.
     // 그대로 두면 관심사가 빈 채로 매칭 후보에 올라간다.
-    await supabase.from("users").update({ mentoring_applied: false }).eq("id", user.id);
+    const { error: rollbackError } = await supabase
+      .from("users")
+      .update({ mentoring_applied: false })
+      .eq("id", user.id);
+    // 되돌리기까지 실패하면 관심사 없는 사람이 매칭 후보에 남는다. 꼭 드러나야 한다.
+    if (rollbackError) logDbError("멘토링 표시 되돌리기", rollbackError, { participationCode });
     return { ok: false, error: "저장하지 못했어요. 잠시 후 다시 시도해주세요." };
   }
 
@@ -349,6 +389,69 @@ export async function findSettledMatch(
   return { mentor, score: data.score as number, breakdown: data.breakdown };
 }
 
+/** 멘토가 자기 후배를 확인할 때 돌려주는 값. */
+export interface MentorMatchView {
+  /** 멘토 본인 이름. 코드를 맞게 넣었는지 확인시켜 준다. */
+  mentorName: string;
+  /** 아직 아무도 고르지 않았으면 undefined. */
+  mentee?: { name: string; contact: string; campus?: string };
+}
+
+/**
+ * 멘토가 참여코드로 자기에게 연결된 후배를 확인한다.
+ *
+ * 멘토에게는 원래 확인할 방법이 없었다. 멘티가 먼저 문자를 보내면 발신번호로
+ * 이름과 번호가 함께 도착하지만, 멘티가 망설이는 동안 멘토는 매칭된 사실조차
+ * 알 수 없고 1:1이라 다른 후배와 연결되지도 않는다. 그 공백을 메운다.
+ *
+ * 연락처를 돌려주는 곳이라 호출부에서 속도 제한을 건다.
+ */
+export async function findMenteeForMentor(code: string): Promise<MentorMatchView | null> {
+  const supabase = getSupabase();
+  if (!supabase) return null;
+
+  const { data: mentor, error } = await supabase
+    .from("users")
+    .select("id, name")
+    .eq("participation_code", code)
+    .eq("role", "MENTOR")
+    .maybeSingle();
+
+  if (error) logDbError("멘토 코드 조회", error);
+  if (!mentor) return null;
+
+  // 확정된 건만 본다. 추천(SUGGESTED)은 아직 그 멘티가 고른 것이 아니라,
+  // 여기서 보여주면 오지도 않을 후배를 기다리게 만든다.
+  const { data: match, error: matchError } = await supabase
+    .from("matchings")
+    .select("mentee_id")
+    .eq("mentor_id", mentor.id)
+    .in("status", ["REQUESTED", "CONFIRMED"])
+    .maybeSingle();
+
+  if (matchError) logDbError("멘토의 확정 매칭 조회", matchError, { participationCode: code });
+  if (!match) return { mentorName: mentor.name as string };
+
+  const { data: mentee, error: menteeError } = await supabase
+    .from("users")
+    .select("name, contact, mentee_profiles(target_campus)")
+    .eq("id", match.mentee_id)
+    .maybeSingle();
+
+  if (menteeError) logDbError("연결된 멘티 조회", menteeError, { participationCode: code });
+  if (!mentee) return { mentorName: mentor.name as string };
+
+  const profile = mentee.mentee_profiles as { target_campus?: string[] } | null;
+  return {
+    mentorName: mentor.name as string,
+    mentee: {
+      name: mentee.name as string,
+      contact: mentee.contact as string,
+      campus: profile?.target_campus?.[0],
+    },
+  };
+}
+
 /**
  * 매칭 후보가 되는 멘토.
  *
@@ -371,13 +474,15 @@ export async function listMentors(): Promise<Mentor[]> {
 
   const { data, error } = await supabase
     .from("users")
-    .select("*, mentor_profiles!inner(*)")
+    // !inner 로 두면 멘토링을 신청하지 않은 등록자가 표에서 통째로 사라진다.
+    .select("*, mentor_profiles(*)")
     .eq("role", "MENTOR");
 
+  if (error) logDbError("멘토 목록 조회", error);
   if (error || !data) return [];
 
   return data.map((row) => {
-    const { mentor_profiles, ...user } = row as UserRow & { mentor_profiles: MentorRow };
+    const { mentor_profiles, ...user } = row as UserRow & { mentor_profiles: MentorRow | null };
     return toMentor(user, mentor_profiles);
   });
 }
@@ -392,14 +497,24 @@ export async function findMenteeByCode(code: string): Promise<Mentee | null> {
 
   const { data, error } = await supabase
     .from("users")
-    .select("*, mentee_profiles!inner(*)")
+    /*
+     * !inner 를 쓰면 안 된다. 등록만 한 사람은 프로필이 없어 조인에서 빠지고,
+     * 호출부가 "등록 내역을 찾지 못했어요"(404)를 돌려주게 된다.
+     * 그러면 등록이 안 된 줄 알고 다시 등록한다 —
+     * 멘토링을 신청하지 않았다는 안내(409)를 하려면 사람은 찾아야 한다.
+     */
+    .select("*, mentee_profiles(*)")
     .eq("participation_code", code)
     .eq("role", "MENTEE")
     .maybeSingle();
 
+  // 코드가 없어서 못 찾은 것(정상)과 조회가 실패한 것은 다르다.
+  if (error) logDbError("참여코드로 멘티 조회", error);
   if (error || !data) return null;
 
-  const { mentee_profiles, ...user } = data as UserRow & { mentee_profiles: MenteeRow };
+  const { mentee_profiles, ...user } = data as UserRow & {
+    mentee_profiles: MenteeRow | null;
+  };
   return toMentee(user, mentee_profiles);
 }
 
@@ -437,6 +552,8 @@ export async function findCodeByNameAndContact(
     .eq("contact", contact)
     .maybeSingle();
 
+  // 못 찾은 것(정상)과 조회가 실패한 것은 다르다.
+  if (error) logDbError("이름·연락처로 코드 조회", error);
   if (error || !data) return null;
   return {
     code: data.participation_code as string,
@@ -465,6 +582,81 @@ export async function saveMatchings(
   );
 }
 
+/** 운영자 실행에서도 멘티 화면과 같은 수만 추천한다. */
+const MATCH_TOP_N = 3;
+
+export interface MatchRunResult {
+  /** 대상이 된 멘티 수 (멘토링을 신청한 사람만) */
+  applicants: number;
+  /** 이번에 추천을 새로 계산한 멘티 수 */
+  computed: number;
+  /** 이미 짝이 정해져 건드리지 않은 멘티 수 */
+  settled: number;
+  /** 조건에 맞는 선배가 없어 추천이 비어 있는 멘티 수 */
+  noCandidates: number;
+}
+
+/**
+ * 멘토링을 신청한 멘티 전원의 추천을 다시 계산한다.
+ *
+ * 왜 필요한가: 추천은 멘티가 결과 화면을 열어야 계산·저장된다. 신청만 하고
+ * 화면을 안 본 사람은 운영자 매칭 표에 한 줄도 없어서, 당일 짝 명단을
+ * 온전히 뽑을 수 없다. 이 함수가 그 빈칸을 채운다.
+ *
+ * 짝을 정하지는 않는다. 어디까지나 '추천'(SUGGESTED)만 만들고, 실제로 누구와
+ * 만날지는 멘티가 직접 고른다. 운영자가 임의로 맺어 준 짝은 당사자가
+ * 납득하기 어렵고, 1:1이라 한 번 정하면 되돌릴 수도 없다.
+ *
+ * 이미 '매칭하기'를 눌러 확정된 멘티는 통째로 건너뛴다. 다시 계산하면
+ * 그 사람이 고른 멘토가 후보에서 빠져 있어 배정이 흔들린다.
+ */
+export async function runMatchingForAll(): Promise<MatchRunResult> {
+  const supabase = getSupabase();
+  if (!supabase) return { applicants: 0, computed: 0, settled: 0, noCandidates: 0 };
+
+  const [mentees, mentors] = await Promise.all([listMentees(), listMentors()]);
+
+  // 멘토링을 신청한 사람만 대상이다. 등록만 한 분은 애초에 매칭 대상이 아니다.
+  const applicants = mentees.filter((m) => m.mentoringApplied);
+  const result: MatchRunResult = {
+    applicants: applicants.length,
+    computed: 0,
+    settled: 0,
+    noCandidates: 0,
+  };
+
+  for (const mentee of applicants) {
+    const settledMatch = await findSettledMatch(mentee.id);
+    if (settledMatch) {
+      result.settled++;
+      continue;
+    }
+
+    // 후보는 매번 다시 추린다. 앞선 멘티가 확정하면 그 멘토는 빠져야 한다.
+    const currentlyTaken = await listTakenMentorIds();
+    const available = mentors.filter(
+      (m) => m.mentoringApplied && !currentlyTaken.has(m.id),
+    );
+
+    const rows = matchMentors(mentee, available, MATCH_TOP_N).map((r, i) => ({
+      mentorId: r.mentor.id,
+      score: r.score,
+      breakdown: r.breakdown as unknown,
+      rank: i + 1,
+    }));
+
+    if (rows.length === 0) {
+      result.noCandidates++;
+      continue;
+    }
+
+    await saveMatchings(mentee.id, rows);
+    result.computed++;
+  }
+
+  return result;
+}
+
 /** 운영자 표에 쓰는 멘티 전체. */
 export async function listMentees(): Promise<Mentee[]> {
   const supabase = getSupabase();
@@ -472,14 +664,16 @@ export async function listMentees(): Promise<Mentee[]> {
 
   const { data, error } = await supabase
     .from("users")
-    .select("*, mentee_profiles!inner(*)")
+    // 등록만 한 멘티도 운영자 표에는 보여야 한다.
+    .select("*, mentee_profiles(*)")
     .eq("role", "MENTEE")
     .order("created_at", { ascending: false });
 
+  if (error) logDbError("멘티 목록 조회", error);
   if (error || !data) return [];
 
   return data.map((row) => {
-    const { mentee_profiles, ...user } = row as UserRow & { mentee_profiles: MenteeRow };
+    const { mentee_profiles, ...user } = row as UserRow & { mentee_profiles: MenteeRow | null };
     return toMentee(user, mentee_profiles);
   });
 }
@@ -517,6 +711,7 @@ export async function listMatchings(): Promise<MatchingRow[]> {
     )
     .order("rank", { ascending: true });
 
+  if (error) logDbError("매칭 목록 조회", error);
   if (error || !data) return [];
 
   return (data as unknown[]).map((raw) => {

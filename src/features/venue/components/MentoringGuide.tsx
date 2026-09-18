@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRef } from "react";
-import { VENUE } from "@/shared/constants/venue";
+import { EVENT_DATE_LABEL, isAfterEvent, VENUE } from "@/shared/constants/venue";
 import { useStaggerReveal } from "@/shared/hooks/useStaggerReveal";
 
 /**
@@ -22,18 +22,22 @@ interface Step {
 const STEPS: Step[] = [
   {
     emoji: "💬",
-    title: "먼저 채팅으로 인사해요",
+    title: "먼저 문자로 인사해요",
     detail:
       "전화보다 부담이 적어요. 이름과 어떻게 매칭됐는지만 밝혀도 충분해요.",
   },
   {
     emoji: "📅",
     title: "만날 시간과 장소를 정해요",
-    detail: "행사 당일 몇 시에, 교회 어디에서 볼지 미리 정해두면 편해요.",
+    detail: isAfterEvent()
+      ? "언제 어디서 볼지 미리 정해두면 당일에 헤매지 않아요."
+      : `${EVENT_DATE_LABEL} 몇 시에, 교회 어디에서 볼지 미리 정해두면 편해요.`,
   },
   {
     emoji: "⛪",
-    title: `행사 당일 ${VENUE.name}에서 만나요`,
+    title: isAfterEvent()
+      ? `${VENUE.name}에서 만나요`
+      : `${EVENT_DATE_LABEL} ${VENUE.name}에서 만나요`,
     detail: "직접 얼굴 보고 나누는 이야기가 제일 오래 남아요.",
   },
 ];

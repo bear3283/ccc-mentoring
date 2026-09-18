@@ -92,10 +92,9 @@ async function probeOneToOne(): Promise<boolean> {
     available_times: ["WEEKDAY_EVENING"],
     consented_at: new Date().toISOString(),
     consent_version: "check",
-    current_campus: "연세대",
   };
 
-  async function add(role: string, code: string, n: number): Promise<string | undefined> {
+  async function add(role: string, code: string, n: number): Promise<string> {
     const res = await fetch(`${url}/rest/v1/users`, {
       method: "POST",
       headers: { ...headers, Prefer: "return=representation" },
@@ -107,45 +106,47 @@ async function probeOneToOne(): Promise<boolean> {
         contact: `${CHECK_CONTACT}`.slice(0, -1) + n,
       }),
     });
-    if (!res.ok) return undefined;
+    if (!res.ok) throw new Error(`검사용 ${role} 생성 실패 — ${await res.text()}`);
     const [row] = (await res.json()) as { id: string }[];
     return row.id;
   }
 
-  async function link(menteeId: string, mentorId: string): Promise<boolean> {
-    const res = await fetch(`${url}/rest/v1/matchings`, {
+  async function link(menteeId: string, mentorId: string): Promise<Response> {
+    return fetch(`${url}/rest/v1/matchings`, {
       method: "POST",
       headers,
       body: JSON.stringify({
         mentee_id: menteeId,
         mentor_id: mentorId,
         score: 50,
+        // breakdown 은 NOT NULL 이다. 빼면 제약과 무관하게 삽입이 실패한다.
+        breakdown: {},
         rank: 1,
         status: "REQUESTED",
       }),
     });
-    return res.ok;
   }
 
   const cleanup = () =>
     fetch(`${url}/rest/v1/users?contact=like.010-0000-900*`, { method: "DELETE", headers });
 
   await cleanup();
-  const menteeA = await add("MENTEE", "CHK1TA", 4);
-  const menteeB = await add("MENTEE", "CHK1TB", 5);
-  const mentor = await add("MENTOR", "CHK1TC", 6);
+  try {
+    // 참여코드는 0·1·I·L·O 를 뺀 알파벳만 쓴다. 그 밖의 글자를 넣으면
+    // users_participation_code_check 에 걸려 검사 자체가 성립하지 않는다.
+    const menteeA = await add("MENTEE", "CHKQTA", 4);
+    const menteeB = await add("MENTEE", "CHKQTB", 5);
+    const mentor = await add("MENTOR", "CHKQTC", 6);
 
-  if (!menteeA || !menteeB || !mentor) {
+    const first = await link(menteeA, mentor);
+    if (!first.ok) throw new Error(`첫 매칭이 저장되지 않음 — ${await first.text()}`);
+
+    // 같은 멘토를 다른 멘티가 가져가려 하면 거부되어야 한다.
+    const second = await link(menteeB, mentor);
+    return !second.ok;
+  } finally {
     await cleanup();
-    return false;
   }
-
-  const first = await link(menteeA, mentor);
-  // 같은 멘토를 다른 멘티가 가져가려 하면 거부되어야 한다.
-  const second = await link(menteeB, mentor);
-
-  await cleanup();
-  return first && !second;
 }
 
 const EVENT_SQL = `alter table public.users
@@ -164,11 +165,57 @@ alter table public.users
   alter column available_times drop not null,
   alter column available_times set default '{}';`;
 
+const PERSONA_SQL = `alter type persona_type add value if not exists 'NEHEMIAH';
+alter type persona_type add value if not exists 'DANIEL';
+alter type persona_type add value if not exists 'RUTH';
+alter type persona_type add value if not exists 'DEBORAH';`;
+
+/**
+ * 넓힌 성경 인물이 DB enum 에도 들어갔는지 본다.
+ *
+ * 코드만 배포하고 SQL 을 잊으면, 새 유형을 고른 사람의 신청이 저장 단계에서
+ * 통째로 실패한다. 화면에는 선택지가 멀쩡히 보이므로 원인을 찾기 어렵다.
+ */
+async function probeNewPersona(): Promise<boolean> {
+  const res = await fetch(`${url}/rest/v1/users`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      role: "MENTEE",
+      participation_code: "CHKPSA",
+      name: "성향확인",
+      gender: "FEMALE",
+      contact: "010-0000-9007",
+      persona_type: "DEBORAH",
+      available_times: ["WEEKDAY_EVENING"],
+      consented_at: new Date().toISOString(),
+      consent_version: "check",
+    }),
+  });
+  if (res.ok) {
+    await fetch(`${url}/rest/v1/users?contact=eq.010-0000-9007`, {
+      method: "DELETE",
+      headers,
+    });
+    return true;
+  }
+  const body = await res.text();
+  // enum 에 없는 값이면 22P02(invalid input value). 그 밖의 실패는 검사 오류다.
+  if (body.includes("22P02") || body.includes("invalid input value")) return false;
+  throw new Error(`검사용 행 생성 실패 — ${body}`);
+}
+
 const requirements: Requirement[] = [
   {
     name: "행사 등록 컬럼 (church, is_new_friend, mentoring_applied)",
     column: { table: "users", column: "church,is_new_friend,mentoring_applied" },
     sql: EVENT_SQL,
+  },
+  {
+    name: "성경 인물 8종 (느헤미야·다니엘·룻·드보라)",
+    requires: "행사 등록 컬럼 (church, is_new_friend, mentoring_applied)",
+    probe: probeNewPersona,
+    sql: PERSONA_SQL,
   },
   {
     name: "동의 컬럼 (consented_at, consent_version)",
@@ -250,9 +297,19 @@ async function main() {
       continue;
     }
 
-    const ok = req.column
-      ? await hasColumn(req.column.table, req.column.column)
-      : await req.probe!();
+    // probe 가 준비 단계에서 터지면 "제약이 없다"와 구분되지 않는다.
+    // 둘을 같이 취급하면 이미 적용된 SQL을 계속 실행하라고 안내하게 된다.
+    let ok: boolean;
+    try {
+      ok = req.column
+        ? await hasColumn(req.column.table, req.column.column)
+        : await req.probe!();
+    } catch (e) {
+      console.log(`  ! ${req.name}  (검사 실패 — ${e instanceof Error ? e.message : e})`);
+      console.log(`    이 결과는 제약의 유무를 뜻하지 않습니다. 검사 코드를 먼저 고치세요.`);
+      missing.push(req);
+      continue;
+    }
 
     console.log(`  ${ok ? "✓" : "✗"} ${req.name}`);
     if (ok) passed.add(req.name);

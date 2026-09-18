@@ -10,6 +10,7 @@ import type { MatchDiagnosis, PublicMatchResult } from "@/features/matching/mode
 import { loadDraft } from "@/features/onboarding/lib/draftStore";
 import { PERSONAS, type PersonaType } from "@/shared/constants/persona";
 import { useStaggerReveal } from "@/shared/hooks/useStaggerReveal";
+import { objectParticle } from "@/shared/lib/particle";
 
 interface MenteeSummary {
   name: string;
@@ -164,6 +165,7 @@ export default function MatchingResultPage() {
   }
 
   const { mentee, results, diagnosis } = state;
+  const areas = mentee.desiredAreas.join(", ");
   // 서버가 확정된 매칭을 알려주면 그걸 따른다.
   // 화면을 새로 열면 revealed 는 비어 있으므로 이것만으로는 판단할 수 없다.
   const hasMatched = !!state.settledMentorId || Object.keys(revealed).length > 0;
@@ -171,17 +173,33 @@ export default function MatchingResultPage() {
   return (
     <div className="mx-auto min-h-dvh w-full max-w-[430px] bg-gray-100">
       <header className="bg-white px-6 pt-[max(20px,env(safe-area-inset-top))] pb-6">
-        <p className="text-[14px] font-medium text-brand">매칭 완료</p>
+        {/*
+          아직 짝이 없을 때 "0명을 찾았어요"로 맞이하면 실패를 선언하는 꼴이 된다.
+          아래 카드는 "조금만 기다려주세요"라고 하는데 제목만 반대로 말하고 있었다.
+        */}
+        <p className="text-[14px] font-medium text-brand">
+          {results.length === 0 ? "멘토링 신청 완료" : "매칭 완료"}
+        </p>
         <h1 className="mt-2 text-[22px] leading-[1.35] font-bold tracking-[-0.02em] text-gray-900">
-          <Name replayKey={mentee.participationCode}>{mentee.name}</Name>님과 잘 맞는
-          <br />
-          선배 {results.length}명을 찾았어요
+          {results.length === 0 ? (
+            <>
+              <Name replayKey={mentee.participationCode}>{mentee.name}</Name>님,
+              <br />
+              선배를 찾고 있어요
+            </>
+          ) : (
+            <>
+              <Name replayKey={mentee.participationCode}>{mentee.name}</Name>님과 잘 맞는
+              <br />
+              선배 {results.length}명을 찾았어요
+            </>
+          )}
         </h1>
         <p className="mt-3 text-[14px] leading-relaxed text-gray-500">
           {mentee.targetCampus.join(" · ")} 중에서
           <br />
-          {mentee.desiredAreas.join(", ")}을(를) 도와줄{" "}
-          {PERSONAS[mentee.personaType].name}형 멘티 기준
+          {areas}
+          {objectParticle(areas)} 도와줄 {PERSONAS[mentee.personaType].name}형 멘티 기준
         </p>
 
         <div className="mt-5">
@@ -205,6 +223,7 @@ export default function MatchingResultPage() {
               result={result}
               onMatch={handleMatch}
               revealedContact={revealed[result.mentor.id]}
+              myName={mentee.name}
               busy={requesting === result.mentor.id}
               // 한 명과 매칭했으면 나머지는 고를 수 없다.
               locked={hasMatched && result.mentor.id !== state.settledMentorId && !revealed[result.mentor.id]}

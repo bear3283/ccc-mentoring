@@ -14,6 +14,32 @@ export interface TransitRoute {
   detail: string;
 }
 
+/**
+ * 고3채플 날짜. 2026년 11월 26일 목요일.
+ *
+ * 월은 0부터 센다 — 10 이 11월이다.
+ * 시각을 자정으로 두는 이유: 당일에는 아직 '지난 행사'가 아니어야 한다.
+ */
+export const EVENT_DATE = new Date(2026, 10, 26);
+
+/** "11월 26일 (목)" — 화면에 그대로 쓴다. */
+export const EVENT_DATE_LABEL = "11월 26일 (목)";
+
+/**
+ * 채플이 지났는지.
+ *
+ * 멘토링 신청은 행사 뒤에도 계속 열어 둔다. 다만 "채플 당일에 만나요" 같은
+ * 문구를 그대로 두면 이미 지난 날을 기다리라고 안내하는 꼴이라,
+ * 날짜를 전제하는 문장만 이 값으로 갈라 준다.
+ *
+ * 서버와 브라우저가 같은 답을 내야 화면이 깜빡이지 않으므로 날짜까지만 본다.
+ */
+export function isAfterEvent(now: Date = new Date()): boolean {
+  const endOfEventDay = new Date(EVENT_DATE);
+  endOfEventDay.setHours(23, 59, 59, 999);
+  return now > endOfEventDay;
+}
+
 export const VENUE = {
   name: "신길교회",
 

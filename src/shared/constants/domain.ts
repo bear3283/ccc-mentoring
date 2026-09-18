@@ -9,8 +9,6 @@ export {
   MAJOR_FIELDS,
   FIELD_EMOJI,
   COMMON_MAJORS,
-  CAMPUS_MAJORS,
-  majorsByField,
   fieldOf,
   regionOf,
   isCampus,

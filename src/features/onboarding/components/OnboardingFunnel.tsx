@@ -108,9 +108,11 @@ export function OnboardingFunnel({
         {/* key가 없으면 React가 스텝 간에 DOM 노드와 내부 상태를 재사용한다.
             이전 스텝의 스크롤 위치가 남아 첫 선택지가 잘려 보이고,
             같은 컴포넌트를 쓰는 스텝끼리는 선택값까지 새어 나온다. */}
+        {/* 1단계에서는 역할을 스텝 안에서 고른다. 고른 즉시 뒤 스텝에 반영되어야
+            "고3인데 재학 캠퍼스를 묻는" 식으로 어긋나지 않는다. */}
         <StepComponent
           key={step}
-          role={role}
+          role={draft.role ?? role}
           draft={draft}
           onNext={handleNext}
           onChange={update}

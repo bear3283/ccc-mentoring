@@ -12,11 +12,30 @@ interface MentorCardProps {
   onMatch: (result: PublicMatchResult) => void;
   /** 매칭을 요청해 공개된 전체 연락처. 없으면 가린 번호만 보인다. */
   revealedContact?: string;
+  /** 문자 첫 인사에 넣을 내 이름. 받는 사람이 누구인지 바로 알 수 있어야 한다. */
+  myName?: string;
   busy?: boolean;
   /** 이미 다른 선배와 매칭해서 고를 수 없는 상태. */
   locked?: boolean;
   /** 이 선배가 바로 내가 매칭한 상대. */
   settled?: boolean;
+}
+
+/**
+ * 문자 앱을 열면서 첫 문장을 채워 넣는 링크.
+ *
+ * 가장 큰 장벽은 번호를 모르는 게 아니라 "뭐라고 보내지?" 다.
+ * 처음 보는 선배에게 전화를 거는 건 고3에게 부담이 커서, 문자를 기본으로 둔다.
+ *
+ * body 구분자를 `?&` 로 쓰는 이유: 안드로이드는 `?`, iOS는 `&` 를 기대해
+ * 둘 다 통과시키려면 이 형태여야 한다. 실기기 확인이 필요한 부분이다.
+ */
+function smsHref(contact: string, myName?: string): string {
+  const number = contact.replace(/-/g, "");
+  const greeting = myName
+    ? `안녕하세요! 고3채플에서 매칭된 ${myName}입니다 :)`
+    : "안녕하세요! 고3채플에서 매칭되어 연락드려요 :)";
+  return `sms:${number}?&body=${encodeURIComponent(greeting)}`;
 }
 
 /**
@@ -29,6 +48,7 @@ export function MentorCard({
   result,
   onMatch,
   revealedContact,
+  myName,
   busy,
   locked,
   settled,
@@ -133,14 +153,45 @@ export function MentorCard({
           // 요청이 기록된 뒤에만 전체 번호가 내려온다.
           <div className="mt-4 rounded-2xl bg-brand-soft px-4 py-4">
             <p className="text-[13px] font-semibold text-brand">연락처</p>
+            <p className="mt-1 font-mono text-[20px] font-bold tracking-wide text-gray-900">
+              {revealedContact}
+            </p>
+
+            {/* 문자를 기본 행동으로 둔다. 전화는 부담이 커서 첫 연락으로는 잘 쓰이지 않는다. */}
+            <a
+              href={smsHref(revealedContact, myName)}
+              className="mt-3 flex h-[50px] w-full items-center justify-center gap-1.5 rounded-2xl bg-brand text-[16px] font-bold text-white active:bg-brand-dark"
+            >
+              문자로 인사하기
+              <span className="text-[17px]" aria-hidden>
+                →
+              </span>
+            </a>
+            <p className="mt-2 text-center text-[12px] text-gray-500">
+              첫 인사말은 미리 적어뒀어요. 그대로 보내도 괜찮아요.
+            </p>
+
             <a
               href={`tel:${revealedContact.replace(/-/g, "")}`}
-              className="mt-1 block font-mono text-[20px] font-bold tracking-wide text-gray-900"
+              className="mt-3 block text-center text-[13px] font-semibold text-gray-500 active:text-gray-700"
             >
-              {revealedContact}
+              전화 걸기
             </a>
-            <p className="mt-2 text-[12px] leading-relaxed text-gray-500">
-              먼저 인사를 건네보세요. 연락처는 이 화면에서만 보여요.
+
+            <p className="mt-3 text-[12px] leading-relaxed text-gray-500">
+              이 번호로 카카오톡 친구 추가도 돼요. 연락처는 이 화면에서만 보여요.
+            </p>
+
+            {/*
+              선배에게는 매칭됐다는 알림이 가지 않는다. 후배가 문자를 보내야
+              비로소 발신번호로 이름과 번호가 함께 도착한다. 그 전까지 선배는
+              기다리고만 있으므로, 먼저 보내야 한다는 것을 분명히 알린다.
+            */}
+            <p className="mt-3 rounded-xl bg-amber-50 px-3.5 py-3 text-[12px] leading-relaxed text-amber-900">
+              <strong className="font-bold">지금 바로 문자를 보내주세요.</strong>
+              <br />
+              선배님께는 매칭 알림이 가지 않아요. 먼저 인사를 건네야 선배님이
+              후배가 생긴 걸 알 수 있어요.
             </p>
           </div>
         ) : (

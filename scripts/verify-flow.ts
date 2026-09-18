@@ -59,7 +59,7 @@ const empty = {
   careerPaths: [],
 };
 
-/** 1단계 — 행사 등록에 필요한 것만. */
+/** 1단계 — 고3채플 등록에 필요한 것만. 캠퍼스는 2단계로 옮겼다. */
 function mentor(n: number, over: Record<string, unknown> = {}) {
   return {
     ...empty,
@@ -68,8 +68,6 @@ function mentor(n: number, over: Record<string, unknown> = {}) {
     contact: `${TEST_PREFIX}${String(1000 + n).slice(-4)}`,
     church: "신길교회",
     isNewFriend: false,
-    currentCampus: "연세대",
-    admissionYear: 2023,
     ...over,
   };
 }
@@ -80,6 +78,8 @@ function mentorMentoring(over: Record<string, unknown> = {}) {
     ...empty,
     personaType: "SOLOMON",
     mbti: "INTJ",
+    currentCampus: "연세대",
+    admissionYear: 2023,
     mentoringArea: ["학점관리"],
     currentMajors: ["경영학과"],
     careerPaths: ["금융권"],
@@ -96,7 +96,6 @@ function mentee(over: Record<string, unknown> = {}) {
     contact: `${TEST_PREFIX}0001`,
     church: "신길교회",
     isNewFriend: false,
-    targetCampus: ["연세대"],
     ...over,
   };
 }
@@ -106,6 +105,7 @@ function menteeMentoring(over: Record<string, unknown> = {}) {
     ...empty,
     personaType: "ESTHER",
     mbti: "ENFP",
+    targetCampus: ["연세대"],
     desiredAreas: ["학점관리"],
     targetMajors: ["경영학과"],
     targetCareers: ["금융권"],
@@ -184,6 +184,19 @@ async function main() {
     participationCode: menteeCode,
   });
   check("역할이 다른 코드로 신청 거부", wrongRole.status === 400, String(wrongRole.json.error ?? ""));
+
+  // 서버가 막지 않으면 DB 제약까지 내려가 "저장하지 못했어요"만 보게 된다.
+  // 무엇이 잘못됐는지 알 수 없는 문구라, 읽히는 메시지가 돌아와야 한다.
+  const badMbti = await post("/api/mentoring", {
+    role: "MENTEE",
+    draft: menteeMentoring({ mbti: "ZZZZ" }),
+    participationCode: menteeCode,
+  });
+  check(
+    "형식이 틀린 MBTI는 읽히는 메시지로 거부",
+    badMbti.status === 400 && String(badMbti.json.error ?? "").includes("MBTI"),
+    String(badMbti.json.error ?? ""),
+  );
 
   console.log("\n[2] 입력 검증 (서버가 다시 막는가)");
   const badPhone = await post("/api/signup", {

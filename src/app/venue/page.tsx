@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { MeetingSpots } from "@/features/venue/components/MeetingSpots";
 import { VenueMap } from "@/features/venue/components/VenueMap";
-import { VENUE } from "@/shared/constants/venue";
+import { VENUE, EVENT_DATE_LABEL, isAfterEvent } from "@/shared/constants/venue";
 
 /**
  * 행사 장소 안내.
@@ -30,12 +30,12 @@ export default function VenuePage() {
       </header>
 
       <div className="px-5 pb-5">
-        <p className="text-[14px] font-medium text-brand">행사 장소</p>
+        <p className="text-[14px] font-medium text-brand">고3채플 장소</p>
         <h1 className="mt-1.5 text-[24px] leading-[1.35] font-bold tracking-[-0.02em] text-gray-900">
           {VENUE.name}에서 만나요
         </h1>
         <p className="mt-2 text-[14px] leading-relaxed text-gray-500">
-          매칭된 선배·후배와 채팅으로 먼저 인사하고, 행사 당일 여기서 만나
+          매칭된 선배·후배와 문자로 먼저 인사하고, {isAfterEvent() ? "여기서" : `${EVENT_DATE_LABEL} 여기서`} 만나
           이야기를 나눠요.
         </p>
       </div>

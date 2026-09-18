@@ -2,7 +2,13 @@ node_modules/
 .next/
 out/
 build/
+# .env*.local 은 .local 로 끝나는 이름만 잡는다.
+# .env.local.bak-2026... 같은 백업이 빠져나가면 서비스 키가 통째로 커밋된다.
 .env*.local
+.env*.local.*
 .DS_Store
 *.tsbuildinfo
 next-env.d.ts
+
+# 학과 생성 스크립트가 받아두는 공시자료 원본 (5.9MB)
+scripts/.cache-majors.xlsx

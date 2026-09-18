@@ -49,7 +49,7 @@ export const WEIGHT_TOTAL = Object.values(WEIGHTS).reduce((sum, w) => sum + w, 0
  */
 export const UNSCORED_FIELDS = ["highSchool", "referrer"] as const;
 
-/** 학과·진로 15점 안에서 둘이 나눠 갖는 비율. */
+/** WEIGHTS.majorAndCareer 안에서 학과와 진로가 나눠 갖는 비율. */
 const MAJOR_RATIO = 0.6;
 const CAREER_RATIO = 0.4;
 
@@ -67,7 +67,7 @@ export function scoreCampus(mentee: Mentee, mentor: Mentor): number {
 }
 
 /**
- * 원하는 영역 (15점).
+ * 원하는 영역 (WEIGHTS.area).
  * 멘티가 여러 영역을 고를 수 있으므로 "몇 개나 겹치는가"의 비율로 계산한다.
  * 3개 중 3개가 맞는 멘토가 1개만 맞는 멘토보다 위로 와야 한다.
  */
@@ -112,7 +112,7 @@ export function scoreMbti(mentee: Mentee, mentor: Mentor): number {
 }
 
 /**
- * 학과 / 진로 (15점).
+ * 학과 / 진로 (WEIGHTS.majorAndCareer).
  * 양쪽 다 최대 3개까지 고를 수 있으므로 교집합이 하나라도 있으면 인정한다.
  * 겹치는 개수가 많을수록 점수가 오르되, 하나만 겹쳐도 절반은 준다.
  */
@@ -133,7 +133,7 @@ export function scoreMajorAndCareer(mentee: Mentee, mentor: Mentor): number {
 }
 
 /**
- * 시간대 (15점).
+ * 시간대 (WEIGHTS.schedule).
  *
  * 멘티가 고른 시간 중 몇 개가 겹치는지의 비율.
  * 하나도 안 겹치면 0점이지만 후보에서 빠지지는 않는다.

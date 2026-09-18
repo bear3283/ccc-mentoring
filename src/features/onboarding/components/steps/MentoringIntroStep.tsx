@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef } from "react";
-import { VENUE } from "@/shared/constants/venue";
+import { EVENT_DATE_LABEL, isAfterEvent, VENUE } from "@/shared/constants/venue";
 import { useStaggerReveal } from "@/shared/hooks/useStaggerReveal";
 import { StepLayout } from "../StepLayout";
 import type { StepProps } from "../../model/types";
@@ -21,13 +21,18 @@ const FLOW = [
   },
   {
     emoji: "💬",
-    title: "매칭되면 채팅으로 인사해요",
+    title: "매칭되면 문자로 인사해요",
     detail: "전화보다 부담이 적어요. 편한 시간에 천천히 이야기 나눠요.",
   },
   {
     emoji: "⛪",
-    title: `행사 당일 ${VENUE.name}에서 만나요`,
-    detail: "미리 정한 장소에서 얼굴 보고 이야기하면 훨씬 깊어져요.",
+    // 채플이 지난 뒤에 신청한 사람에게 지난 날짜를 안내할 수는 없다.
+    title: isAfterEvent()
+      ? `${VENUE.name}에서 만나요`
+      : `${EVENT_DATE_LABEL} ${VENUE.name}에서 만나요`,
+    detail: isAfterEvent()
+      ? "서로 편한 때를 정해 얼굴 보고 이야기하면 훨씬 깊어져요."
+      : "미리 정한 장소에서 얼굴 보고 이야기하면 훨씬 깊어져요.",
   },
 ];
 
@@ -67,7 +72,7 @@ export function MentoringIntroStep({ role, onNext }: StepProps) {
       </div>
 
       <p className="mt-5 rounded-2xl bg-gray-50 px-4 py-3.5 text-[13px] leading-relaxed text-gray-500">
-        신청하지 않아도 행사에는 오실 수 있어요. 등록은 이미 끝났어요.
+        신청하지 않아도 채플에는 오실 수 있어요. 등록은 이미 끝났어요.
       </p>
     </StepLayout>
   );
