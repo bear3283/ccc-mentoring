@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { MentoringGuide } from "@/features/venue/components/MentoringGuide";
 import { useEffect, useRef, useState } from "react";
 import { CodeBadge } from "@/components/ui/CodeBadge";
@@ -34,6 +35,7 @@ type State =
   | { kind: "error"; message: string };
 
 export default function MatchingResultPage() {
+  const router = useRouter();
   const [state, setState] = useState<State>({ kind: "loading" });
 
   useEffect(() => {
@@ -93,8 +95,6 @@ export default function MatchingResultPage() {
     replayKey: state.kind === "ready" ? state.mentee.participationCode : "none",
   });
 
-  // 요청해서 공개된 연락처. 멘토 id -> 전체 번호
-  const [revealed, setRevealed] = useState<Record<string, string>>({});
   const [requesting, setRequesting] = useState<string>();
 
   const [pending, setPending] = useState<PublicMatchResult>();
@@ -124,7 +124,9 @@ export default function MatchingResultPage() {
       });
       const body = (await res.json()) as { contact?: string; error?: string };
       if (res.ok && body.contact) {
-        setRevealed((prev) => ({ ...prev, [result.mentor.id]: body.contact! }));
+        // 연락처를 이 목록 안에서 펼치지 않고 전용 화면으로 보낸다.
+        // 여기서는 "고르는 일"이 끝났고, 다음은 "연락하는 일"이라 화면을 나눈다.
+        router.push("/matching/settled");
       } else {
         setMatchError(body.error ?? "요청하지 못했어요. 잠시 후 다시 시도해주세요.");
       }
@@ -166,9 +168,8 @@ export default function MatchingResultPage() {
 
   const { mentee, results, diagnosis } = state;
   const areas = mentee.desiredAreas.join(", ");
-  // 서버가 확정된 매칭을 알려주면 그걸 따른다.
-  // 화면을 새로 열면 revealed 는 비어 있으므로 이것만으로는 판단할 수 없다.
-  const hasMatched = !!state.settledMentorId || Object.keys(revealed).length > 0;
+  // 확정 여부는 서버가 알려주는 값 하나로만 판단한다.
+  const hasMatched = !!state.settledMentorId;
 
   return (
     <div className="mx-auto min-h-dvh w-full max-w-[430px] bg-gray-100">
@@ -213,6 +214,24 @@ export default function MatchingResultPage() {
         </p>
       )}
 
+      {/*
+        이미 고른 사람은 목록을 다시 볼 이유가 없다. 할 일은 "연락하기" 하나뿐이라
+        그 화면으로 가는 길을 맨 위에 둔다.
+      */}
+      {state.settledMentorId && (
+        <div className="px-5 pt-5">
+          <Link
+            href="/matching/settled"
+            className="flex h-[56px] w-full items-center justify-center gap-2 rounded-2xl bg-brand text-[17px] font-bold text-white active:bg-brand-dark"
+          >
+            연결된 선배에게 문자 보내기
+            <span className="text-[19px]" aria-hidden>
+              →
+            </span>
+          </Link>
+        </div>
+      )}
+
       <div ref={listRef} className="flex flex-col gap-4 px-5 py-6">
         {results.length === 0 ? (
           <EmptyResult diagnosis={diagnosis} targetCampus={mentee.targetCampus} />
@@ -222,19 +241,21 @@ export default function MatchingResultPage() {
               key={result.mentor.id}
               result={result}
               onMatch={handleMatch}
-              revealedContact={revealed[result.mentor.id]}
-              myName={mentee.name}
               busy={requesting === result.mentor.id}
               // 한 명과 매칭했으면 나머지는 고를 수 없다.
-              locked={hasMatched && result.mentor.id !== state.settledMentorId && !revealed[result.mentor.id]}
+              locked={hasMatched && result.mentor.id !== state.settledMentorId}
               settled={result.mentor.id === state.settledMentorId}
             />
           ))
         )}
       </div>
 
-      {/* 매칭 결과가 있을 때만. 0명인 화면에 만남 안내를 붙이면 공허하다. */}
-      {results.length > 0 && (
+      {/*
+        매칭 결과가 있을 때만. 0명인 화면에 만남 안내를 붙이면 공허하다.
+        이미 확정한 사람에게는 연결 화면에서 같은 안내를 "지금 할 일"과 함께 보여주므로
+        여기서 또 보여주지 않는다.
+      */}
+      {results.length > 0 && !state.settledMentorId && (
         <div className="mt-6 mb-10">
           <MentoringGuide />
         </div>
