@@ -14,12 +14,11 @@ import { useStaggerReveal } from "@/shared/hooks/useStaggerReveal";
  * 고3인지 대학생인지는 등록 안에서 한 번 물어본다.
  */
 
-/** 등록에서 실제로 묻는 것. 미리 알려주면 "얼마나 걸리지?"를 재지 않는다. */
-const ASKS = [
-  { emoji: "🙋", text: "이름과 연락처" },
-  { emoji: "🎓", text: "고3인지, CCC 대학생인지" },
-  { emoji: "⛪", text: "출석하는 교회 (없어도 괜찮아요)" },
-] as const;
+/**
+ * 등록에서 실제로 묻는 것. 미리 알려주면 "얼마나 걸리지?"를 재지 않는다.
+ * 한 줄에 이어 붙이므로 각 항목은 짧아야 한다.
+ */
+const ASKS = ["이름", "연락처", "고3인지 대학생인지", "출석 교회"] as const;
 
 // 운영자 화면(/admin)은 여기에 두지 않는다.
 // 이 화면은 QR을 스캔한 참가자가 보는 곳이라, 관리자 링크가 노출되면 안 된다.
@@ -31,41 +30,52 @@ export default function HomePage() {
   useStaggerReveal(bodyRef, { selector: "[data-reveal]", startDelay: 200 });
 
   return (
-    <div className="mx-auto flex min-h-dvh w-full max-w-[430px] flex-col bg-white px-6">
-      <div ref={bodyRef} className="flex-1">
+    // h-dvh 여야 본문이 스크롤되고 하단 CTA가 화면에 붙어 있을 수 있다.
+    // min-h-dvh 로 두면 내용이 길어질 때 버튼이 아래로 밀려 내려간다.
+    <div className="mx-auto flex h-dvh w-full max-w-[430px] flex-col bg-white">
+      <div ref={bodyRef} className="flex min-h-0 flex-1 flex-col px-6">
         {/*
-          포스터가 첫 화면의 시각적 앵커가 된다. 글보다 "무슨 행사인지"가 빨리 읽힌다.
-          아직 없으면 개발 중에만 자리를 점선으로 보여준다.
+          제목·날짜·장소를 한 줄에 담는다. 크기로 위계를 주면 줄을 나누지 않아도
+          무엇이 행사 이름이고 무엇이 부가 정보인지 읽힌다. 줄 수를 줄인 만큼
+          포스터에 쓸 수 있는 높이가 늘어난다.
+        */}
+        <header className="shrink-0 pt-7" data-reveal>
+          <h1 className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
+            <span className="text-[28px] leading-none font-bold tracking-[-0.03em] text-gray-900">
+              고3채플
+            </span>
+            <span className="text-[15px] font-semibold text-gray-500">
+              {EVENT_DATE_LABEL} · {VENUE.name}
+            </span>
+          </h1>
+        </header>
+
+        {/*
+          포스터가 남는 높이를 전부 가져간다. 스크롤을 두지 않으므로
+          기기가 작든 크든 한 화면에 들어오고, object-contain 이라 잘리지 않는다.
+          자세히 보려는 사람은 눌러서 원본을 열 수 있다.
         */}
         {EVENT_POSTER ? (
-          /*
-            높이를 화면의 1/3 로 묶는다. 묶지 않으면 세로 포스터가 첫 화면을
-            통째로 차지해 "등록 시작하기"가 스크롤 아래로 밀린다.
-            잘라내지 않고(object-contain) 줄이므로 포스터 글자가 잘리지 않는다.
-            자세히 보려는 사람을 위해 눌러서 원본을 열 수 있게 한다.
-          */
           <a
             data-reveal
             href={EVENT_POSTER.src}
             target="_blank"
             rel="noopener noreferrer"
-            className="mt-8 block"
+            className="flex min-h-0 flex-1 items-center justify-center py-4"
             aria-label={`${EVENT_POSTER.alt} (눌러서 크게 보기)`}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={EVENT_POSTER.src}
               alt={EVENT_POSTER.alt}
-              style={{ aspectRatio: EVENT_POSTER.ratio }}
-              className="mx-auto max-h-[33vh] w-auto max-w-full rounded-2xl bg-gray-50 object-contain"
+              className="max-h-full max-w-full rounded-2xl bg-gray-50 object-contain"
             />
           </a>
         ) : (
           process.env.NODE_ENV === "development" && (
             <div
               data-reveal
-              style={{ aspectRatio: "3 / 4" }}
-              className="mx-auto mt-8 flex max-h-[33vh] w-auto max-w-full flex-col items-center justify-center gap-1.5 rounded-2xl border-2 border-dashed border-gray-200 px-6 text-center"
+              className="my-4 flex min-h-0 flex-1 flex-col items-center justify-center gap-1.5 rounded-2xl border-2 border-dashed border-gray-200 px-6 text-center"
             >
               <p className="text-[15px] font-bold text-gray-400">포스터 자리</p>
               <p className="text-[12px] leading-relaxed text-gray-400">
@@ -79,37 +89,20 @@ export default function HomePage() {
           )
         )}
 
-        <header className="pt-8 pb-8" data-reveal>
-          {/* 언제·어디서인지가 첫 화면에 없으면 등록하고도 "그래서 언제지?"가 남는다. */}
-          <p className="text-[14px] font-medium text-brand">
-            고3채플 · {EVENT_DATE_LABEL} {VENUE.name}
-          </p>
-          <h1 className="mt-1.5 text-[26px] leading-[1.35] font-bold tracking-[-0.02em] text-gray-900">
-            먼저 등록부터
-            <br />
-            할게요
-          </h1>
-          <p className="mt-2 text-[14px] leading-relaxed text-gray-500">
-            2분이면 끝나요. 선배와 만나는 멘토링은 등록한 뒤에 신청할 수 있어요.
-          </p>
-        </header>
-
-        <ul className="flex flex-col gap-2.5" data-reveal>
-          {ASKS.map((ask) => (
-            <li
-              key={ask.text}
-              className="flex items-center gap-3.5 rounded-2xl bg-gray-50 px-4 py-3.5"
-            >
-              <span className="text-[20px]" aria-hidden>
-                {ask.emoji}
-              </span>
-              <span className="text-[15px] font-medium text-gray-700">{ask.text}</span>
-            </li>
-          ))}
-        </ul>
+        {/*
+          무엇을 묻는지 미리 알려 "얼마나 걸리지?"를 재지 않게 한다.
+          카드로 쌓으면 높이를 많이 먹어서, 한 줄로 줄이고 그만큼을 포스터에 준다.
+        */}
+        <p data-reveal className="shrink-0 pb-4 text-[13px] leading-relaxed text-gray-500">
+          {ASKS.join(" · ")}만 여쭤봐요.
+          <br />
+          선배와 이어지는 멘토링은 등록한 뒤에 신청할 수 있어요.
+        </p>
       </div>
 
-      <div className="flex flex-col gap-2 pb-[max(24px,env(safe-area-inset-bottom))]">
+      {/* 스크롤과 무관하게 늘 보인다. 포스터가 아무리 길어도 버튼을 찾아 헤매지 않는다. */}
+      <div className="shrink-0 border-t border-gray-100 bg-white px-6 pt-3 pb-[max(20px,env(safe-area-inset-bottom))]">
+        <div className="flex flex-col gap-2">
         <Link
           href="/onboarding/register"
           className="flex h-[54px] w-full items-center justify-center gap-1.5 rounded-2xl bg-brand text-[17px] font-bold text-white active:bg-brand-dark"
@@ -132,6 +125,7 @@ export default function HomePage() {
           이미 등록했어요
           <span className="font-bold text-brand">참여코드 조회</span>
         </Link>
+        </div>
       </div>
     </div>
   );
