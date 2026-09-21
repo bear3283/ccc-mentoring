@@ -26,6 +26,27 @@ export const EVENT_DATE = new Date(2026, 10, 26);
 export const EVENT_DATE_LABEL = "11월 26일 (목)";
 
 /**
+ * 행사 포스터.
+ *
+ * 넣는 법: 이미지를 public/ 에 두고 아래 주석을 풀어 경로와 설명을 적습니다.
+ *   public/poster.jpg  ->  { src: "/poster.jpg", alt: "...", ratio: "3 / 4" }
+ *
+ * null 이면 랜딩에 아무것도 그리지 않습니다. 개발 중에는 자리만 점선으로
+ * 표시해 어디에 들어가는지 보입니다(운영 빌드에서는 나오지 않습니다).
+ *
+ * alt 는 비워두지 마세요. 포스터에는 날짜·장소가 그림으로만 들어가는 경우가
+ * 많아, 화면을 읽어 주는 기기를 쓰는 사람에게는 그 정보가 통째로 사라집니다.
+ * ratio 는 포스터 비율("3 / 4", "1 / 1" 등). 넣어 두면 이미지를 받기 전에도
+ * 자리가 잡혀 화면이 덜컥 움직이지 않습니다.
+ */
+export const EVENT_POSTER: { src: string; alt: string; ratio: string } | null = null;
+// export const EVENT_POSTER = {
+//   src: "/poster.jpg",
+//   alt: "고3채플 포스터. 2026년 11월 26일 목요일 신길교회에서 열립니다.",
+//   ratio: "3 / 4",
+// };
+
+/**
  * 채플이 지났는지.
  *
  * 멘토링 신청은 행사 뒤에도 계속 열어 둔다. 다만 "채플 당일에 만나요" 같은
