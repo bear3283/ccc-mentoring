@@ -39,12 +39,15 @@ export const EVENT_DATE_LABEL = "11월 26일 (목)";
  * ratio 는 포스터 비율("3 / 4", "1 / 1" 등). 넣어 두면 이미지를 받기 전에도
  * 자리가 잡혀 화면이 덜컥 움직이지 않습니다.
  */
-export const EVENT_POSTER: { src: string; alt: string; ratio: string } | null = null;
-// export const EVENT_POSTER = {
-//   src: "/poster.jpg",
-//   alt: "고3채플 포스터. 2026년 11월 26일 목요일 신길교회에서 열립니다.",
-//   ratio: "3 / 4",
-// };
+export const EVENT_POSTER: { src: string; alt: string; ratio: string } | null = {
+  src: "/poster.jpg",
+  // 포스터의 글자는 그림이라 읽어 주는 기기에 전달되지 않는다. 여기에 옮겨 적는다.
+  alt:
+    "CCC 서울지구 고3 초청채플 'line number 27' 포스터. " +
+    "일시 11월 26일 오후 7시, 박람회는 오후 12시부터. " +
+    "대상 예비 27학번. 장소 신길교회.",
+  ratio: "1000 / 1278",
+};
 
 /**
  * 채플이 지났는지.

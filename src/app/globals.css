@@ -1,37 +1,57 @@
 @import "tailwindcss";
 
-/* 토스 스타일의 구조 + 레퍼런스의 바이올렛 액센트. Tailwind v4는 CSS에서 테마를 정의한다. */
+/*
+ * 색은 행사 포스터("line number 27")에서 뽑았다.
+ * 포스터는 노선도다 — 따뜻한 종이 위에 먹색 숫자, 그 위를 지나는 색 노선들.
+ * 그래서 이 앱도 같은 규칙을 쓴다:
+ *   종이 = 화면 바탕 / 먹 = 글자 / 노선색 = 길을 가리키는 곳에만
+ * 노선색을 장식으로 흩뿌리지 않는다. 뜻이 있는 자리에만 쓴다.
+ */
 @theme {
-  /* 레퍼런스 이미지의 보라 계열. 액센트는 이 세 단계만 쓴다. */
-  --color-brand: #6c5ce7;
-  --color-brand-dark: #5546c9;
-  /* 선택된 항목 배경, 화면 배경 등 아주 옅은 라벤더 */
-  --color-brand-soft: #eeebff;
+  /* ── 액션 색. 포스터의 빨간 기차에서 왔다 ──
+     포스터 원색(#d9604f)은 흰 글자를 올리면 3.7:1 이라 17px 굵은 글씨가
+     읽히지 않는다. 채도는 살리고 명도만 내려 4.99:1 을 확보했다. */
+  --color-brand: #c2453a;
+  --color-brand-dark: #a3372e;
+  /* 선택된 항목 배경. 종이보다 조금 더 분홍 쪽으로 기운 아주 옅은 톤 */
+  --color-brand-soft: #fae9e6;
 
-  /* 이름 강조용. 바이올렛 위에 바이올렛을 겹치면 묻히므로 보색 쪽 라임을 쓴다. */
-  --color-accent-lime: #d4f34a;
-  /* 그라디언트 이름의 반대쪽 끝 색 */
-  --color-accent-pink: #ff6b9d;
+  /* ── 노선색. 성향·구간처럼 "무엇인지 구분해야 하는" 자리에만 쓴다 ── */
+  --color-line-coral: #d9604f;
+  --color-line-rose: #d78f92;
+  --color-line-gold: #d9a84e;
+  --color-line-sage: #5aa06d;
+  --color-line-steel: #4a7e94;
+  --color-line-navy: #1d4e5f;
+  --color-line-olive: #a8a244;
+  --color-line-clay: #b4705a;
 
-  /* 페르소나별 카드 헤더 그라디언트 (레퍼런스 프로필 카드의 상단 밴드) */
-  --color-persona-david: #f2705f;
-  --color-persona-solomon: #6c5ce7;
-  --color-persona-esther: #f0a04b;
-  --color-persona-noah: #38b48b;
+  /* 이름 강조용 형광펜. 포스터에서 '일시' 라벨이 쓰는 노란색이다.
+     코랄 위에 코랄을 겹치면 묻히므로 강조는 노란 쪽을 쓴다. */
+  --color-accent-lime: #f2d98a;
+  --color-accent-pink: #d78f92;
 
-  --color-gray-50: #f9fafb;
-  --color-gray-100: #f2f4f6;
-  --color-gray-200: #e5e8eb;
-  --color-gray-300: #d1d6db;
-  --color-gray-400: #b0b8c1;
-  --color-gray-500: #8b95a1;
-  --color-gray-600: #6b7684;
-  --color-gray-700: #4e5968;
-  --color-gray-800: #333d4b;
-  --color-gray-900: #191f28;
+  /* 페르소나 카드 헤더. 8명을 노선도 범례처럼 서로 다른 노선색에 배정한다. */
+  --color-persona-david: #d9604f;
+  --color-persona-solomon: #4a7e94;
+  --color-persona-esther: #d9a84e;
+  --color-persona-noah: #5aa06d;
 
-  --color-red-500: #f04452;
-  --color-green-500: #15c47e;
+  /* 종이 위에 놓이는 회색이라 살짝 따뜻한 쪽으로 기울였다.
+     차가운 청회색을 그대로 쓰면 크림 배경 위에서 탁해 보인다. */
+  --color-gray-50: #faf8f6;
+  --color-gray-100: #f7f2ee;
+  --color-gray-200: #e8e2dc;
+  --color-gray-300: #d6cec6;
+  --color-gray-400: #b3aaa2;
+  --color-gray-500: #8d847c;
+  --color-gray-600: #6d645d;
+  --color-gray-700: #4f4842;
+  --color-gray-800: #332f2b;
+  --color-gray-900: #17171b;
+
+  --color-red-500: #c8412f;
+  --color-green-500: #2f8f5b;
 
   --font-sans: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont,
     system-ui, "Apple SD Gothic Neo", sans-serif;
@@ -43,6 +63,7 @@ body {
 }
 
 body {
+  /* 포스터의 종이색. 흰 카드를 그 위에 얹으면 노선도 위의 안내판처럼 읽힌다. */
   background-color: var(--color-gray-100);
   color: var(--color-gray-900);
   font-family: var(--font-sans);

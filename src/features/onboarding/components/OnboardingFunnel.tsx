@@ -96,7 +96,7 @@ export function OnboardingFunnel({
         </button>
 
         <div className="flex-1">
-          <ProgressBar value={progress} />
+          <ProgressBar value={progress} steps={steps.length} />
         </div>
 
         <span className="w-10 text-right text-[13px] font-medium tabular-nums text-gray-400">
