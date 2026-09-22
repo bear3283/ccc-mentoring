@@ -84,6 +84,33 @@ export default function LookupPage() {
             <CodeBadge code={result.entry.code} />
           </div>
 
+          {/*
+            코드만 돌려주고 끝내면 "그래서 뭘 하지?"가 남는다.
+            역할마다 다음에 할 일이 다르므로 그 길을 바로 열어 준다.
+            선배에게는 알림이 가지 않아, 직접 확인하러 오는 통로가 특히 필요하다.
+          */}
+          {result.entry.role === "MENTOR" ? (
+            <Link
+              href="/mentor/match"
+              className="mt-4 flex h-[54px] w-full items-center justify-center gap-1.5 rounded-2xl bg-brand text-[17px] font-bold text-white active:bg-brand-dark"
+            >
+              매칭 확인하기
+              <span className="text-[18px]" aria-hidden>
+                →
+              </span>
+            </Link>
+          ) : (
+            <Link
+              href="/matching/result"
+              className="mt-4 flex h-[54px] w-full items-center justify-center gap-1.5 rounded-2xl bg-brand text-[17px] font-bold text-white active:bg-brand-dark"
+            >
+              매칭 결과 보기
+              <span className="text-[18px]" aria-hidden>
+                →
+              </span>
+            </Link>
+          )}
+
           <button
             type="button"
             onClick={() => {
@@ -91,7 +118,7 @@ export default function LookupPage() {
               setName("");
               setPhone("");
             }}
-            className="mt-4 h-[54px] w-full rounded-2xl bg-gray-100 text-[17px] font-bold text-gray-700"
+            className="mt-2 h-[52px] w-full rounded-2xl bg-gray-100 text-[16px] font-bold text-gray-700"
           >
             다른 사람 조회하기
           </button>

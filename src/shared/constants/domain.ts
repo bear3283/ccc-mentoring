@@ -33,15 +33,51 @@ export type MentoringArea = (typeof MENTORING_AREAS)[number];
  * 3열 그리드에서는 설명을 넣을 폭이 없다.
  * 이모지가 설명을 대신해 항목을 빠르게 구분해 준다.
  */
-export const AREA_META: Record<MentoringArea, { emoji: string; hint: string }> = {
-  학점관리: { emoji: "📚", hint: "수강신청, 시험 준비, 과제 요령" },
-  탐방: { emoji: "🚶", hint: "캠퍼스 투어, 학교 분위기 미리보기" },
-  동아리: { emoji: "🎪", hint: "동아리 선택과 활동 이야기" },
-  대외활동: { emoji: "🏆", hint: "공모전, 서포터즈, 인턴" },
-  전공공부: { emoji: "🔬", hint: "전공 커리큘럼과 공부법" },
-  진로설계: { emoji: "🧭", hint: "졸업 후 진로 고민 상담" },
-  교환학생: { emoji: "✈️", hint: "지원 준비와 현지 생활" },
-  자취생활: { emoji: "🏠", hint: "방 구하기, 생활비, 살림" },
+export const AREA_META: Record<
+  MentoringArea,
+  { emoji: string; hint: string; ask: string }
+> = {
+  // ask: 첫 문자에 그대로 붙여 쓸 수 있는 질문. 고3이 "뭘 물어보지"에서 막히는 걸 덜어준다.
+  학점관리: {
+    emoji: "📚",
+    hint: "수강신청, 시험 준비, 과제 요령",
+    ask: "1학년 때 수강신청은 어떻게 하셨어요?",
+  },
+  탐방: {
+    emoji: "🚶",
+    hint: "캠퍼스 투어, 학교 분위기 미리보기",
+    ask: "학교 분위기는 어떤 편이에요?",
+  },
+  동아리: {
+    emoji: "🎪",
+    hint: "동아리 선택과 활동 이야기",
+    ask: "동아리는 어떻게 고르셨어요?",
+  },
+  대외활동: {
+    emoji: "🏆",
+    hint: "공모전, 서포터즈, 인턴",
+    ask: "대외활동은 언제부터 시작하는 게 좋을까요?",
+  },
+  전공공부: {
+    emoji: "🔬",
+    hint: "전공 커리큘럼과 공부법",
+    ask: "전공 공부는 고등학교 때랑 많이 다른가요?",
+  },
+  진로설계: {
+    emoji: "🧭",
+    hint: "졸업 후 진로 고민 상담",
+    ask: "진로는 언제쯤 정하게 되셨어요?",
+  },
+  교환학생: {
+    emoji: "✈️",
+    hint: "지원 준비와 현지 생활",
+    ask: "교환학생은 어떻게 준비하는 거예요?",
+  },
+  자취생활: {
+    emoji: "🏠",
+    hint: "방 구하기, 생활비, 살림",
+    ask: "자취는 할 만한가요?",
+  },
 };
 
 /**
