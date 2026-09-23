@@ -113,6 +113,38 @@ export function MajorStep({ role, draft, onNext, onChange }: StepProps) {
 
   const complete = majors.length > 0 && careers.length > 0;
 
+  /*
+   * 무엇이 빠졌는지 짚어 준다.
+   * 진로 칸은 학과 목록(학교에 따라 100개가 넘는다) 아래라 화면 밖에 있다.
+   * "학과와 진로를 골라주세요" 만 띄우면, 학과를 고른 사람은 다 골랐다고
+   * 믿고 있어서 버튼이 왜 안 열리는지 알 수 없다.
+   */
+  const ctaLabel = complete
+    ? "다음"
+    : majors.length === 0 && careers.length === 0
+      ? "학과와 진로를 골라주세요"
+      : majors.length === 0
+        ? "학과도 골라주세요"
+        : "진로도 골라주세요";
+
+  /*
+   * 학과를 처음 고른 순간 진로 칸을 화면 안으로 데려온다.
+   * 한 번만 움직인다 — 고를 때마다 튀면 목록을 훑는 것을 방해한다.
+   */
+  const careerRef = useRef<HTMLElement>(null);
+  const nudgedRef = useRef(false);
+  useEffect(() => {
+    if (nudgedRef.current) return;
+    if (majors.length === 0 || careers.length > 0) return;
+    nudgedRef.current = true;
+
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    careerRef.current?.scrollIntoView({
+      behavior: reduce ? "auto" : "smooth",
+      block: "nearest",
+    });
+  }, [majors.length, careers.length]);
+
   return (
     <StepLayout
       eyebrow="거의 다 왔어요"
@@ -124,7 +156,7 @@ export function MajorStep({ role, draft, onNext, onChange }: StepProps) {
             ? "같은 길을 먼저 걸어본 선배를 찾아드려요."
             : "같은 길을 준비하는 후배와 이어드려요."
       }
-      ctaLabel={complete ? "다음" : "학과와 진로를 골라주세요"}
+      ctaLabel={ctaLabel}
       ctaDisabled={!complete}
       onCta={handleNext}
     >
@@ -232,7 +264,7 @@ export function MajorStep({ role, draft, onNext, onChange }: StepProps) {
           )}
         </section>
 
-        <section data-group>
+        <section data-group ref={careerRef}>
           <GroupTitle
             label={isMentee ? "희망 진로" : "준비 중인 진로"}
             count={careers.length}

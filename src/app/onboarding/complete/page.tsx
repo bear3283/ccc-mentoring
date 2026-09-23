@@ -82,7 +82,7 @@ export default function OnboardingCompletePage() {
           { emoji: "💬", text: "전공·입시 뒤의 생활, 궁금한 걸 편하게 물어봐요" },
           { emoji: "⛪", text: meetingPoint },
         ],
-        cta: "선배 만나러 가기",
+        cta: "멘토링 신청하기",
       }
     : {
         title: "후배와 이어드릴까요?",
@@ -93,7 +93,7 @@ export default function OnboardingCompletePage() {
           { emoji: "💬", text: "먼저 겪어본 이야기를 들려주세요" },
           { emoji: "⛪", text: meetingPoint },
         ],
-        cta: "후배 만나러 가기",
+        cta: "멘토링 신청하기",
       };
 
   return (
