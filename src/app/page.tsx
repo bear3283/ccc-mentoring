@@ -32,20 +32,24 @@ export default function HomePage() {
   return (
     // h-dvh 여야 본문이 스크롤되고 하단 CTA가 화면에 붙어 있을 수 있다.
     // min-h-dvh 로 두면 내용이 길어질 때 버튼이 아래로 밀려 내려간다.
-    <div className="mx-auto flex h-dvh w-full max-w-[430px] flex-col bg-white">
+    // 바탕은 포스터처럼 위는 크림, 아래로 갈수록 살구가 번진다. 아주 옅게만 칠해
+    // 포스터보다 앞에 나서지 않는다.
+    <div className="mx-auto flex h-dvh w-full max-w-[430px] flex-col bg-gradient-to-b from-gray-50 via-gray-100 to-brand-soft">
       <div ref={bodyRef} className="flex min-h-0 flex-1 flex-col px-6">
         {/*
-          제목·날짜·장소를 한 줄에 담는다. 크기로 위계를 주면 줄을 나누지 않아도
+          행사 이름·날짜·장소를 한 줄에 담는다. 크기로 위계를 주면 줄을 나누지 않아도
           무엇이 행사 이름이고 무엇이 부가 정보인지 읽힌다. 줄 수를 줄인 만큼
           포스터에 쓸 수 있는 높이가 늘어난다.
+          RE:CHILL 은 포스터와 같은 세리프로 써서, 포스터를 보고 온 사람이
+          같은 행사라는 걸 글자 모양으로 먼저 알아본다.
         */}
         <header className="shrink-0 pt-7" data-reveal>
           <h1 className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
-            <span className="text-[28px] leading-none font-bold tracking-[-0.03em] text-gray-900">
-              고3채플
+            <span className="font-display text-[30px] leading-none tracking-[0.01em] text-gray-900">
+              RE:CHILL
             </span>
             <span className="text-[15px] font-semibold text-gray-500">
-              {EVENT_DATE_LABEL} · {VENUE.name}
+              고3채플 · {EVENT_DATE_LABEL} · {VENUE.name}
             </span>
           </h1>
         </header>
@@ -68,7 +72,7 @@ export default function HomePage() {
             <img
               src={EVENT_POSTER.src}
               alt={EVENT_POSTER.alt}
-              className="max-h-full max-w-full rounded-2xl bg-gray-50 object-contain"
+              className="max-h-full max-w-full rounded-2xl bg-gray-50 object-contain shadow-[0_8px_28px_rgba(191,78,43,0.14)]"
             />
           </a>
         ) : (
@@ -101,7 +105,7 @@ export default function HomePage() {
       </div>
 
       {/* 스크롤과 무관하게 늘 보인다. 포스터가 아무리 길어도 버튼을 찾아 헤매지 않는다. */}
-      <div className="shrink-0 border-t border-gray-100 bg-white px-6 pt-3 pb-[max(20px,env(safe-area-inset-bottom))]">
+      <div className="shrink-0 px-6 pt-3 pb-[max(20px,env(safe-area-inset-bottom))]">
         <div className="flex flex-col gap-2">
         <Link
           href="/onboarding/register"
@@ -120,7 +124,7 @@ export default function HomePage() {
         */}
         <Link
           href="/lookup"
-          className="flex h-[52px] w-full items-center justify-center gap-1.5 rounded-2xl bg-gray-50 text-[15px] font-semibold text-gray-700 active:bg-gray-100"
+          className="flex h-[52px] w-full items-center justify-center gap-1.5 rounded-2xl bg-white/80 text-[15px] font-semibold text-gray-700 active:bg-white"
         >
           이미 등록했어요
           <span className="font-bold text-brand">참여코드 조회</span>

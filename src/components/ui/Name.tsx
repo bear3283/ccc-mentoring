@@ -19,8 +19,8 @@ interface NameProps {
 
 /**
  * 사람 이름 강조.
- * 문장 안에 섞인 이름 뒤로 라임색 형광펜이 지나가듯 그어진다.
- * 바이올렛 위에 바이올렛을 겹치면 묻히기 때문에 보색 쪽 라임을 쓴다.
+ * 문장 안에 섞인 이름 뒤로 민트색 형광펜이 붓질처럼 그어진다.
+ * 주황 화면 위에 주황을 겹치면 묻히기 때문에 포스터의 맞은편 색인 민트를 쓴다.
  */
 export function Name({ children, replayKey, className }: NameProps) {
   const strokeRef = useRef<HTMLSpanElement>(null);
@@ -53,7 +53,7 @@ export function Name({ children, replayKey, className }: NameProps) {
       <span
         ref={strokeRef}
         aria-hidden
-        className="absolute inset-x-[-0.1em] bottom-[0.13em] h-[0.46em] origin-left rounded-[0.08em] bg-accent-lime"
+        className="absolute inset-x-[-0.1em] bottom-[0.13em] h-[0.46em] origin-left rounded-[0.08em] bg-highlight"
         style={{ transform: "scaleX(0)" }}
       />
       {/* 형광펜 위로 글자가 올라오도록 별도 레이어로 감싼다. */}

@@ -1,57 +1,55 @@
 @import "tailwindcss";
 
 /*
- * 색은 행사 포스터("line number 27")에서 뽑았다.
- * 포스터는 노선도다 — 따뜻한 종이 위에 먹색 숫자, 그 위를 지나는 색 노선들.
- * 그래서 이 앱도 같은 규칙을 쓴다:
- *   종이 = 화면 바탕 / 먹 = 글자 / 노선색 = 길을 가리키는 곳에만
- * 노선색을 장식으로 흩뿌리지 않는다. 뜻이 있는 자리에만 쓴다.
+ * 색은 행사 포스터("RE:CHILL — 다시 '칠'하다")에서 뽑았다.
+ * 포스터는 물감이다 — 크림색 캔버스 위로 살구·주황 붓질이 번지고,
+ * 사이사이 민트가 스친다. 그래서 이 앱도 같은 규칙을 쓴다:
+ *   캔버스 = 화면 바탕 / 먹 = 글자 / 주황 = 눌러야 하는 곳 / 민트 = 짚어 주는 곳
+ * 물감색을 장식으로 흩뿌리지 않는다. 뜻이 있는 자리에만 칠한다.
  */
 @theme {
-  /* ── 액션 색. 포스터의 빨간 기차에서 왔다 ──
-     포스터 원색(#d9604f)은 흰 글자를 올리면 3.7:1 이라 17px 굵은 글씨가
-     읽히지 않는다. 채도는 살리고 명도만 내려 4.99:1 을 확보했다. */
-  --color-brand: #c2453a;
-  --color-brand-dark: #a3372e;
-  /* 선택된 항목 배경. 종이보다 조금 더 분홍 쪽으로 기운 아주 옅은 톤 */
-  --color-brand-soft: #fae9e6;
+  /* ── 액션 색. 포스터 아래쪽에 가장 짙게 고인 주황(#d86840)에서 왔다 ──
+     원색은 흰 글자를 올리면 3.5:1 이라 17px 굵은 글씨가 읽히지 않는다.
+     색상은 그대로 두고 명도만 내려 4.84:1 을 확보했다. */
+  --color-brand: #bf4e2b;
+  --color-brand-dark: #a3401f;
+  /* 선택된 항목 배경. 포스터 가운데 번진 살구색을 아주 옅게 푼 톤 */
+  --color-brand-soft: #fbe8dd;
 
-  /* ── 노선색. 성향·구간처럼 "무엇인지 구분해야 하는" 자리에만 쓴다 ── */
-  --color-line-coral: #d9604f;
-  --color-line-rose: #d78f92;
-  --color-line-gold: #d9a84e;
-  --color-line-sage: #5aa06d;
-  --color-line-steel: #4a7e94;
-  --color-line-navy: #1d4e5f;
-  --color-line-olive: #a8a244;
-  --color-line-clay: #b4705a;
+  /* ── 물감색. 성향·구간처럼 "무엇인지 구분해야 하는" 자리에만 쓴다 ── */
+  --color-paint-tangerine: #de744e;
+  --color-paint-peach: #e4a985;
+  --color-paint-ochre: #d9b064;
+  --color-paint-sand: #d5ab7c;
+  --color-paint-mint: #a8ccba;
+  --color-paint-sage: #b0c0a8;
 
-  /* 이름 강조용 형광펜. 포스터에서 '일시' 라벨이 쓰는 노란색이다.
-     코랄 위에 코랄을 겹치면 묻히므로 강조는 노란 쪽을 쓴다. */
-  --color-accent-lime: #f2d98a;
-  --color-accent-pink: #d78f92;
+  /* 날짜·초대 문구처럼 포스터에서 민트로 쓴 글자. 원색 민트는 흰 바탕에서
+     읽히지 않아 같은 계열의 짙은 청록으로 내렸다(흰 바탕 5.8:1). */
+  --color-mint-ink: #2f6f68;
 
-  /* 페르소나 카드 헤더. 8명을 노선도 범례처럼 서로 다른 노선색에 배정한다. */
-  --color-persona-david: #d9604f;
-  --color-persona-solomon: #4a7e94;
-  --color-persona-esther: #d9a84e;
-  --color-persona-noah: #5aa06d;
+  /* 이름 강조용 형광펜. 포스터 하단의 민트 글자색이다.
+     주황 화면 위에 주황을 겹치면 묻히므로 강조는 맞은편 민트로 긋는다. */
+  --color-highlight: #c4e3d5;
 
-  /* 종이 위에 놓이는 회색이라 살짝 따뜻한 쪽으로 기울였다.
-     차가운 청회색을 그대로 쓰면 크림 배경 위에서 탁해 보인다. */
-  --color-gray-50: #faf8f6;
-  --color-gray-100: #f7f2ee;
-  --color-gray-200: #e8e2dc;
-  --color-gray-300: #d6cec6;
-  --color-gray-400: #b3aaa2;
-  --color-gray-500: #8d847c;
-  --color-gray-600: #6d645d;
-  --color-gray-700: #4f4842;
-  --color-gray-800: #332f2b;
-  --color-gray-900: #17171b;
+  /* 크림 캔버스 위에 놓이는 회색이라 살구 쪽으로 기울였다.
+     차가운 청회색을 그대로 쓰면 따뜻한 바탕 위에서 탁해 보인다. */
+  --color-gray-50: #fcf7f2;
+  --color-gray-100: #f8efe6;
+  --color-gray-200: #ece0d4;
+  --color-gray-300: #dccdbf;
+  --color-gray-400: #b9a99b;
+  --color-gray-500: #918275;
+  --color-gray-600: #706357;
+  --color-gray-700: #514840;
+  --color-gray-800: #352f2a;
+  --color-gray-900: #1d1a18;
 
   --color-red-500: #c8412f;
   --color-green-500: #2f8f5b;
+
+  /* 포스터의 RE:CHILL 은 획 굵기 차가 큰 디도네 세리프다. 행사 이름에만 쓴다. */
+  --font-display: var(--font-bodoni), "Bodoni 72", "Didot", serif;
 
   --font-sans: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont,
     system-ui, "Apple SD Gothic Neo", sans-serif;
@@ -63,7 +61,7 @@ body {
 }
 
 body {
-  /* 포스터의 종이색. 흰 카드를 그 위에 얹으면 노선도 위의 안내판처럼 읽힌다. */
+  /* 포스터의 캔버스색. 흰 카드를 그 위에 얹으면 물감 사이에 놓인 쪽지처럼 읽힌다. */
   background-color: var(--color-gray-100);
   color: var(--color-gray-900);
   font-family: var(--font-sans);

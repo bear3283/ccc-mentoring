@@ -35,7 +35,10 @@ export interface Persona {
   description: string;
   /** 프로필 카드에서 강조할 성향 키워드 */
   keywords: [string, string];
-  /** 결과 카드 상단 밴드. 포스터 노선색에서 한 명씩 배정해 범례처럼 읽히게 한다. */
+  /**
+   * 결과 카드 상단 밴드. 포스터의 물감색을 한 명씩 배정해 카드가 쌓여도 구분된다.
+   * 앞 색 위에 흰 이니셜이 올라가므로 앞 색은 짙게, 뒤 색은 포스터처럼 옅게 풀었다.
+   */
   gradient: readonly [string, string];
 }
 
@@ -47,7 +50,7 @@ export const PERSONAS: Record<PersonaType, Persona> = {
     hashtag: "#다윗형",
     description: "겁 없이 부딪히며 배우는 도전파",
     keywords: ["도전", "열정"],
-    gradient: ["#d9604f", "#e8917c"],
+    gradient: ["#c95a35", "#eea27c"],
   },
   SOLOMON: {
     type: "SOLOMON",
@@ -56,7 +59,7 @@ export const PERSONAS: Record<PersonaType, Persona> = {
     hashtag: "#솔로몬형",
     description: "깊이 파고들어 답을 찾는 탐구파",
     keywords: ["지혜", "학업"],
-    gradient: ["#4a7e94", "#7aabbd"],
+    gradient: ["#2f6f68", "#8fbfb0"],
   },
   ESTHER: {
     type: "ESTHER",
@@ -65,7 +68,7 @@ export const PERSONAS: Record<PersonaType, Persona> = {
     hashtag: "#에스더형",
     description: "사람을 먼저 챙기는 공동체파",
     keywords: ["관계", "섬김"],
-    gradient: ["#d9a84e", "#ecc784"],
+    gradient: ["#d4794f", "#f2c4a6"],
   },
   NOAH: {
     type: "NOAH",
@@ -74,7 +77,7 @@ export const PERSONAS: Record<PersonaType, Persona> = {
     hashtag: "#노아형",
     description: "묵묵히 오래 쌓아가는 성실파",
     keywords: ["성실", "꾸준함"],
-    gradient: ["#5aa06d", "#8cc49a"],
+    gradient: ["#6f9460", "#c0d0b0"],
   },
   NEHEMIAH: {
     type: "NEHEMIAH",
@@ -83,7 +86,7 @@ export const PERSONAS: Record<PersonaType, Persona> = {
     hashtag: "#느헤미야형",
     description: "계획을 세워 끝까지 해내는 완성파",
     keywords: ["기획", "추진"],
-    gradient: ["#1d4e5f", "#41798c"],
+    gradient: ["#a87545", "#e3c49a"],
   },
   DANIEL: {
     type: "DANIEL",
@@ -92,7 +95,7 @@ export const PERSONAS: Record<PersonaType, Persona> = {
     hashtag: "#다니엘형",
     description: "흔들리지 않고 소신을 지키는 신념파",
     keywords: ["소신", "절제"],
-    gradient: ["#b4705a", "#d19b86"],
+    gradient: ["#b88a30", "#e6c97f"],
   },
   RUTH: {
     type: "RUTH",
@@ -101,7 +104,7 @@ export const PERSONAS: Record<PersonaType, Persona> = {
     hashtag: "#룻형",
     description: "곁을 지키며 함께 걷는 동행파",
     keywords: ["신의", "동행"],
-    gradient: ["#d78f92", "#ecbabc"],
+    gradient: ["#c96f68", "#efbcb2"],
   },
   DEBORAH: {
     type: "DEBORAH",
@@ -110,7 +113,7 @@ export const PERSONAS: Record<PersonaType, Persona> = {
     hashtag: "#드보라형",
     description: "판을 읽고 앞에서 이끄는 리더파",
     keywords: ["결단", "리더십"],
-    gradient: ["#a8a244", "#c6c076"],
+    gradient: ["#7f8a35", "#cfd38c"],
   },
 };
 
