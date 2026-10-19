@@ -95,8 +95,12 @@ async function main() {
     }
     const body = mentorNoticeText({ menteeName: "홍길동", mentorName: "시험", mentorCode: "TEST00" });
     sendViaMessages(toE164(testTo), body);
-    console.log(`시험 문자를 ${testTo} 로 보냈습니다. 휴대폰에서 받았는지 확인하세요.`);
-    console.log("받지 못했다면 아이폰의 '문자 메시지 전달'에서 이 맥이 켜져 있는지 확인하세요.");
+    // 메시지 앱에 넘긴 것까지만 알 수 있다. 아이폰을 거쳐 실제로 나갔는지는 모른다.
+    console.log(`시험 문자를 ${testTo} 앞으로 메시지 앱에 넘겼습니다.`);
+    console.log("실제로 나갔는지는 아래로 확인하세요:");
+    console.log("  · 받는 휴대폰에 문자가 왔는지");
+    console.log("  · 맥 메시지 앱의 그 말풍선에 빨간 느낌표(!)가 없는지");
+    console.log("안 갔다면 아이폰 → 설정 → 메시지 → 문자 메시지 전달에서 이 맥을 껐다 켜 보세요.");
     return;
   }
 
@@ -164,11 +168,14 @@ async function main() {
     }
     const recorded = await markNotified(p.id);
     sent++;
-    console.log(`  ✓ ${p.mentor!.name}${recorded ? "" : " (보냈지만 기록은 이미 있거나 실패 — 운영자 화면 확인)"}`);
+    console.log(`  → ${p.mentor!.name}${recorded ? "" : " (넘겼지만 기록은 이미 있거나 실패 — 운영자 화면 확인)"}`);
     if (i < batch.length - 1) await sleep(PAUSE_MS);
   }
 
-  console.log(`\n${sent}건 보냈습니다. 메시지 앱에서 전송 실패(빨간 느낌표)가 없는지 확인하세요.`);
+  // 기록은 "메시지 앱에 넘김" 기준이다. 실제 전송 실패는 메시지 앱에서만 보인다.
+  console.log(`\n${sent}건을 메시지 앱에 넘기고 "알림 보냄"으로 기록했습니다.`);
+  console.log("맥 메시지 앱에서 빨간 느낌표(!)가 붙은 말풍선이 있는지 꼭 확인하세요.");
+  console.log('느낌표가 있는 선배는 운영자 화면 "선배 알림" 탭에서 되돌리기 후 다시 보내면 됩니다.');
 }
 
 void main();
