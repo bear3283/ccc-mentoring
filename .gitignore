@@ -12,3 +12,7 @@ next-env.d.ts
 
 # 학과 생성 스크립트가 받아두는 공시자료 원본 (5.9MB)
 scripts/.cache-majors.xlsx
+# Vercel 프로젝트 연결 정보 (vercel link 가 만든다)
+.vercel
+.env*
+!.env.example
