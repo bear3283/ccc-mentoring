@@ -9,6 +9,13 @@
  * 실행:
  *   npx tsx scripts/reset-data.ts          # 무엇이 지워질지 확인만
  *   npx tsx scripts/reset-data.ts --yes    # 실제 삭제
+ *
+ * 리허설 신청만 지우기:
+ *   npx tsx scripts/reset-data.ts --since 2026-10-20T14:00+09:00         # 확인만
+ *   npx tsx scripts/reset-data.ts --since 2026-10-20T14:00+09:00 --yes   # 실제 삭제
+ *
+ * --since 는 그 시각 이후에 만들어진 신청만 고른다. 리허설 전에 있던 데이터
+ * (데모 멘토, 직접 넣어 둔 확인용 신청)를 함께 지우지 않기 위해서다.
  */
 import { readFileSync } from "node:fs";
 
@@ -37,6 +44,19 @@ if (!url || !key) {
 const headers = { apikey: key, Authorization: `Bearer ${key}` };
 const confirmed = process.argv.includes("--yes");
 
+const sinceArg = process.argv[process.argv.indexOf("--since") + 1];
+const since = process.argv.includes("--since") ? new Date(sinceArg ?? "") : undefined;
+// 잘못 적은 시각을 그냥 넘기면 조건 없이 전부 지우게 된다. 반드시 멈춘다.
+if (since && Number.isNaN(since.getTime())) {
+  console.error(`--since 시각을 읽지 못했습니다: ${sinceArg ?? "(없음)"}`);
+  console.error("예: --since 2026-10-20T14:00+09:00");
+  process.exit(1);
+}
+/** 지울 대상을 고르는 조건. 조회와 삭제가 반드시 같은 조건을 쓴다. */
+const scope = since
+  ? `created_at=gte.${encodeURIComponent(since.toISOString())}`
+  : "id=not.is.null";
+
 interface UserRow {
   participation_code: string;
   role: string;
@@ -46,7 +66,7 @@ interface UserRow {
 
 async function main() {
   const res = await fetch(
-    `${url}/rest/v1/users?select=participation_code,role,name,created_at&order=created_at.desc`,
+    `${url}/rest/v1/users?select=participation_code,role,name,created_at&${scope}&order=created_at.desc`,
     { headers },
   );
 
@@ -65,6 +85,7 @@ async function main() {
   const mentees = rows.filter((r) => r.role === "MENTEE").length;
   const mentors = rows.length - mentees;
 
+  if (since) console.log(`기준: ${since.toLocaleString("ko-KR")} 이후에 만들어진 신청만`);
   console.log(`삭제 대상: 총 ${rows.length}명 (멘티 ${mentees} / 멘토 ${mentors})`);
   console.log("─".repeat(56));
   for (const row of rows.slice(0, 15)) {
@@ -77,11 +98,11 @@ async function main() {
 
   if (!confirmed) {
     console.log("\n확인만 했습니다. 실제로 지우려면 --yes 를 붙이세요:");
-    console.log("  npx tsx scripts/reset-data.ts --yes");
+    console.log(`  npx tsx scripts/reset-data.ts${since ? ` --since ${sinceArg}` : ""} --yes`);
     return;
   }
 
-  const del = await fetch(`${url}/rest/v1/users?id=not.is.null`, { method: "DELETE", headers });
+  const del = await fetch(`${url}/rest/v1/users?${scope}`, { method: "DELETE", headers });
   if (!del.ok) {
     console.error(`삭제 실패: HTTP ${del.status}`);
     process.exit(1);
