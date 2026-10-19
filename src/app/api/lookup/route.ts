@@ -9,7 +9,7 @@ import { clientKey, rateLimit, tooManyRequestsMessage } from "@/shared/lib/secur
  * 이름과 번호를 바꿔가며 호출하면 특정인의 신청 여부를 캐낼 수 있으므로
  * 속도 제한을 다른 곳보다 빡빡하게 건다.
  */
-const MAX_LOOKUPS = 8;
+const MAX_LOOKUPS = 40;
 const WINDOW_MS = 10 * 60 * 1000;
 
 /** 입력한 대로 하이픈을 맞춰 DB의 저장 형식과 일치시킨다. */

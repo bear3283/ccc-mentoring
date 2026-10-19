@@ -117,8 +117,8 @@ function menteeMentoring(over: Record<string, unknown> = {}) {
 /**
  * 등록과 멘토링 신청을 한 번에. 매칭 대상 멘티가 필요할 때 쓴다.
  *
- * 등록 저장은 IP당 10분에 5건으로 제한된다(/api/signup). 검증 전체가 이 한도
- * 안에 들어야 해서 새로 등록하는 멘티 수를 늘리지 말고, 이미 등록한 멘티는
+ * 등록 저장은 IP당 10분 단위로 제한된다(/api/signup). 검증을 연달아 돌려도 한도에
+ * 닿지 않도록 새로 등록하는 멘티 수를 늘리지 말고, 이미 등록한 멘티는
  * applyAsMentee 로 재사용한다. 실패하면 조용히 넘어가지 않고 이유를 드러낸다 —
  * 그렇지 않으면 "후보 0명"처럼 엉뚱한 검사가 실패한 것으로 보인다.
  */
@@ -398,7 +398,7 @@ async function main() {
   check("두 번째 후배 연결 (2/2)", secondRequest.status === 200, String(secondRequest.json.error ?? ""));
 
   // ④ 정원이 찼으니 세 번째 후배의 후보에서는 빠진다.
-  //    등록 한도(5건) 때문에 [2]에서 등록한 새친구 멘티를 재사용한다.
+  //    등록 한도를 아끼려고 [2]에서 등록한 새친구 멘티를 재사용한다.
   const thirdCode = await applyAsMentee(
     "새친구검증",
     newFriend.json.participationCode as string | undefined,

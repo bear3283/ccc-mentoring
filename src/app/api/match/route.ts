@@ -27,7 +27,7 @@ import { clientKey, rateLimit, tooManyRequestsMessage } from "@/shared/lib/secur
 const TOP_N = 3;
 
 /** 코드를 바꿔가며 남의 매칭 결과를 훑는 것을 막는다. */
-const MAX_REQUESTS = 20;
+const MAX_REQUESTS = 200;
 const WINDOW_MS = 10 * 60 * 1000;
 
 export async function POST(request: Request) {

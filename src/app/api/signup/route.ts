@@ -23,8 +23,9 @@ import { validateRegistration } from "@/features/signup/lib/validate";
  *  - 요청 자체: 넉넉하게. 무한 호출만 막는다
  *  - 실제 저장: 빡빡하게. 여기가 계정이 생기는 지점이다
  */
-const MAX_ATTEMPTS = 30;
-const MAX_SIGNUPS = 5;
+// 둘 다 한 사람이 아니라 한 네트워크(같은 Wi-Fi) 기준이다. rateLimit.ts 참고.
+const MAX_ATTEMPTS = 200;
+const MAX_SIGNUPS = 60;
 const WINDOW_MS = 10 * 60 * 1000;
 
 /** 코드가 겹치면 다시 뽑는다. 31^6 조합이라 사실상 한 번에 끝난다. */

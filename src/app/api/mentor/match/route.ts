@@ -14,7 +14,7 @@ import { isSupabaseConfigured } from "@/shared/lib/supabase/server";
  * (31^6 ≈ 8.9억 조합)라 무작위로 맞히기는 어렵지만, 제한이 없으면
  * 시도 자체를 막을 수 없다.
  */
-const MAX_CHECKS = 10;
+const MAX_CHECKS = 60;
 const WINDOW_MS = 10 * 60 * 1000;
 
 export async function POST(request: Request) {

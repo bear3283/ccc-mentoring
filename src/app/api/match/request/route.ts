@@ -17,7 +17,7 @@ import { clientKey, rateLimit, tooManyRequestsMessage } from "@/shared/lib/secur
  */
 
 /** 한 멘티가 받는 상대는 3명뿐이므로 넉넉해도 이 정도면 충분하다. */
-const MAX_REQUESTS = 10;
+const MAX_REQUESTS = 60;
 const WINDOW_MS = 10 * 60 * 1000;
 
 export async function POST(request: Request) {

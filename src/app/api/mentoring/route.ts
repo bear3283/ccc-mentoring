@@ -17,7 +17,7 @@ import { isSupabaseConfigured } from "@/shared/lib/supabase/server";
  * 남의 등록에 멘토링을 붙일 수 있다.
  */
 
-const MAX_REQUESTS = 20;
+const MAX_REQUESTS = 150;
 const WINDOW_MS = 10 * 60 * 1000;
 
 export async function POST(request: Request) {
