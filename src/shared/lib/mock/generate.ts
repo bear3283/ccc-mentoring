@@ -4,6 +4,7 @@ import {
   GENDERS,
   MAJORS,
   MENTORING_AREAS,
+  MENTOR_CAPACITY_OPTIONS,
   TIME_SLOTS,
   type Campus,
   type TimeSlot,
@@ -122,6 +123,9 @@ export function generateMentors(count = 50, seed = 20260827): Mentor[] {
       highSchool: `${pick(random, HIGH_SCHOOL_PREFIX)}고등학교`,
       // 더미는 매칭 화면 확인용이라 멘토링까지 마친 상태로 만든다.
       mentoringApplied: true,
+      // random() 을 더 부르면 뒤 멘토들의 값이 전부 바뀌어 검증 기준이 흔들린다.
+      // 정원은 순번으로 돌려 1~3명을 고르게 섞는다.
+      capacity: MENTOR_CAPACITY_OPTIONS[i % MENTOR_CAPACITY_OPTIONS.length],
     };
   });
 }

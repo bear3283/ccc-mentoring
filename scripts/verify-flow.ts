@@ -114,6 +114,47 @@ function menteeMentoring(over: Record<string, unknown> = {}) {
   };
 }
 
+/**
+ * 등록과 멘토링 신청을 한 번에. 매칭 대상 멘티가 필요할 때 쓴다.
+ *
+ * 등록 저장은 IP당 10분에 5건으로 제한된다(/api/signup). 검증 전체가 이 한도
+ * 안에 들어야 해서 새로 등록하는 멘티 수를 늘리지 말고, 이미 등록한 멘티는
+ * applyAsMentee 로 재사용한다. 실패하면 조용히 넘어가지 않고 이유를 드러낸다 —
+ * 그렇지 않으면 "후보 0명"처럼 엉뚱한 검사가 실패한 것으로 보인다.
+ */
+async function registerAndApply(
+  name: string,
+  suffix: string,
+  over: Record<string, unknown> = {},
+): Promise<string | undefined> {
+  const reg = await post("/api/signup", {
+    role: "MENTEE",
+    draft: mentee({ name, contact: `${TEST_PREFIX}${suffix}` }),
+  });
+  const code = reg.json.participationCode as string | undefined;
+  if (!code) {
+    check(`${name} 등록`, false, `HTTP ${reg.status} ${String(reg.json.error ?? "")}`);
+    return undefined;
+  }
+  return applyAsMentee(name, code, over);
+}
+
+async function applyAsMentee(
+  name: string,
+  code: string | undefined,
+  over: Record<string, unknown> = {},
+): Promise<string | undefined> {
+  const res = await post("/api/mentoring", {
+    role: "MENTEE",
+    draft: menteeMentoring(over),
+    participationCode: code,
+  });
+  if (res.status !== 200) {
+    check(`${name} 멘토링 신청`, false, `HTTP ${res.status} ${String(res.json.error ?? "")}`);
+  }
+  return code;
+}
+
 async function cleanup() {
   await fetch(`${dbUrl}/rest/v1/users?contact=like.${TEST_PREFIX}*`, {
     method: "DELETE",
@@ -163,12 +204,24 @@ async function main() {
     `HTTP ${beforeApply.status}`,
   );
 
+  // 정원을 2명으로 받아, 두 번째 후배까지 연결되고 세 번째에서 막히는지 아래에서 본다.
   const mentorApply = await post("/api/mentoring", {
     role: "MENTOR",
-    draft: mentorMentoring(),
+    draft: mentorMentoring({ mentorCapacity: 2 }),
     participationCode: m1Code,
   });
-  check("멘토 멘토링 신청", mentorApply.status === 200, String(mentorApply.json.error ?? ""));
+  check("멘토 멘토링 신청 (정원 2명)", mentorApply.status === 200, String(mentorApply.json.error ?? ""));
+
+  const badCapacity = await post("/api/mentoring", {
+    role: "MENTOR",
+    draft: mentorMentoring({ mentorCapacity: 5 }),
+    participationCode: m1Code,
+  });
+  check(
+    "고를 수 없는 정원은 읽히는 메시지로 거부",
+    badCapacity.status === 400 && String(badCapacity.json.error ?? "").includes("후배 수"),
+    String(badCapacity.json.error ?? ""),
+  );
 
   const menteeApply = await post("/api/mentoring", {
     role: "MENTEE",
@@ -261,8 +314,40 @@ async function main() {
   const notFound = await post("/api/match", { participationCode: "XXXXXX" });
   check("없는 참여코드 (404)", notFound.status === 404, `HTTP ${notFound.status}`);
 
+  console.log("\n[4-1] 대체 후보");
+  // 지망 캠퍼스에 선배가 없으면 같은 학과 선배가 나와야 한다.
+  // 검증 멘토는 연세대 경영학과. 제주대에 실제 멘토가 있으면 이 검사는 의미가 없다.
+  const farMentee = await registerAndApply("검증멘티4", "0004", {
+    targetCampus: ["제주대"],
+    targetMajors: ["경영학과"],
+  });
+  const far = await post("/api/match", { participationCode: farMentee });
+  const farResults = (far.json.results ?? []) as {
+    mentor: { currentCampus: string };
+    fallback?: string;
+  }[];
+  check(
+    "지망 캠퍼스에 선배가 없으면 대체 후보를 표시해서 돌려줌",
+    far.status === 200 &&
+      farResults.length > 0 &&
+      farResults.every((r) => r.fallback && r.mentor.currentCampus !== "제주대"),
+    farResults.map((r) => `${r.mentor.currentCampus}:${r.fallback ?? "지망"}`).join(", ") ||
+      "후보 0명",
+  );
+  const near = await post("/api/match", { participationCode: menteeCode });
+  check(
+    "지망 캠퍼스 후보에는 대체 표시가 없음",
+    ((near.json.results ?? []) as { fallback?: string }[]).every((r) => !r.fallback),
+  );
+
+  // 실제 멘토가 섞여 있는 DB에서도 검증용 멘토만 건드린다.
+  // 실제 선배의 자리를 검증이 잠시라도 차지하면 안 된다.
+  const mentorId = results.find((r) => r.mentor.name === "검증멘토1")?.mentor.id as
+    | string
+    | undefined;
+  check("검증용 멘토가 후보에 있음", !!mentorId);
+
   console.log("\n[5] 연락처 공개");
-  const mentorId = results[0]?.mentor.id as string | undefined;
   const reveal = await post("/api/match/request", { participationCode: menteeCode, mentorId });
   check("매칭된 멘토에게 요청 시 공개", reveal.status === 200 && /^010-/.test(String(reveal.json.contact ?? "")));
   const fake = await post("/api/match/request", {
@@ -273,11 +358,14 @@ async function main() {
   const stolen = await post("/api/match/request", { participationCode: "ZZZZZZ", mentorId });
   check("남의 참여코드로 요청 거부", stolen.status === 400);
 
-  console.log("\n[5-1] 1:1 매칭");
-  // 방금 연락처를 공개했으므로 이 멘토는 배정이 끝났다.
+  console.log("\n[5-1] 멘토 정원");
+  // 검증 멘토의 정원은 2명. 방금 한 자리가 찼다.
 
-  // ① 멘티는 두 명과 매칭할 수 없다.
-  const secondMentorId = results[1]?.mentor.id as string | undefined;
+  // ① 멘티는 여전히 선배를 한 명만 고른다. 이미 골랐는지부터 보므로
+  //    다른 후보(실제 멘토일 수 있다)의 상태는 바뀌지 않는다.
+  const secondMentorId = results.find((r) => r.mentor.id !== mentorId)?.mentor.id as
+    | string
+    | undefined;
   if (secondMentorId) {
     const twoMentors = await post("/api/match/request", {
       participationCode: menteeCode,
@@ -293,21 +381,46 @@ async function main() {
   const again = await post("/api/match/request", { participationCode: menteeCode, mentorId });
   check("같은 멘토 재요청 시 연락처 재공개", again.status === 200 && /^010-/.test(String(again.json.contact ?? "")));
 
-  // ③ 배정된 멘토는 다른 멘티의 후보에서 사라진다.
-  const other = await post("/api/signup", {
-    role: "MENTEE",
-    draft: mentee({ name: "검증멘티2", contact: `${TEST_PREFIX}0002` }),
-  });
-  const otherCode = other.json.participationCode as string | undefined;
-  const otherMatch = await post("/api/match", { participationCode: otherCode });
-  const otherResults = (otherMatch.json.results ?? []) as { mentor: { id: string } }[];
+  // ③ 자리가 남았으니 두 번째 후배는 같은 선배를 고를 수 있다.
+  //    등록만 한 멘티로 시험하면 409로 후보가 0명이 되어 아무것도 확인하지 못한다.
+  const secondCode = await registerAndApply("검증멘티2", "0002");
+  const secondMatch = await post("/api/match", { participationCode: secondCode });
+  const secondResults = (secondMatch.json.results ?? []) as { mentor: { id: string } }[];
   check(
-    "배정된 멘토가 다른 멘티 후보에서 제외됨",
-    !otherResults.some((r) => r.mentor.id === mentorId),
-    `후보 ${otherResults.length}명`,
+    "정원이 남은 멘토는 다른 멘티 후보에 남음",
+    secondResults.some((r) => r.mentor.id === mentorId),
+    `후보 ${secondResults.length}명`,
+  );
+  const secondRequest = await post("/api/match/request", {
+    participationCode: secondCode,
+    mentorId,
+  });
+  check("두 번째 후배 연결 (2/2)", secondRequest.status === 200, String(secondRequest.json.error ?? ""));
+
+  // ④ 정원이 찼으니 세 번째 후배의 후보에서는 빠진다.
+  //    등록 한도(5건) 때문에 [2]에서 등록한 새친구 멘티를 재사용한다.
+  const thirdCode = await applyAsMentee(
+    "새친구검증",
+    newFriend.json.participationCode as string | undefined,
+  );
+  const thirdMatch = await post("/api/match", { participationCode: thirdCode });
+  const thirdResults = (thirdMatch.json.results ?? []) as { mentor: { id: string } }[];
+  check(
+    "정원이 찬 멘토가 다른 멘티 후보에서 제외됨",
+    thirdMatch.status === 200 && !thirdResults.some((r) => r.mentor.id === mentorId),
+    `후보 ${thirdResults.length}명`,
   );
 
-  // ④ 매칭을 마친 멘티가 다시 열면 자기 멘토가 그대로 보인다.
+  // ⑤ 멘토는 연결된 후배 두 명을 모두 본다.
+  const mentorView = await post("/api/mentor/match", { participationCode: m1Code });
+  const linked = (mentorView.json.mentees ?? []) as { name: string }[];
+  check(
+    "멘토 화면에 연결된 후배 2명과 정원 표시",
+    mentorView.status === 200 && mentorView.json.capacity === 2 && linked.length === 2,
+    linked.map((m) => m.name).join(", "),
+  );
+
+  // ⑥ 매칭을 마친 멘티가 다시 열면 자기 멘토가 그대로 보인다.
   //    줄어든 후보로 재계산하면 정작 본인 멘토가 사라진다.
   const revisit = await post("/api/match", { participationCode: menteeCode });
   const revisitResults = (revisit.json.results ?? []) as { mentor: { id: string } }[];

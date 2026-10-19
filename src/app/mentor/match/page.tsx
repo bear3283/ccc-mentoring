@@ -7,9 +7,18 @@ import { loadDraft } from "@/features/onboarding/lib/draftStore";
 import { normalizeParticipationCode } from "@/features/onboarding/lib/participationCode";
 import { EVENT_DATE_LABEL, isAfterEvent, VENUE } from "@/shared/constants/venue";
 
+interface LinkedMentee {
+  name: string;
+  contact: string;
+  campus?: string;
+}
+
 interface MentorMatch {
   mentorName: string;
-  mentee?: { name: string; contact: string; campus?: string };
+  /** 신청할 때 고른 정원 */
+  capacity: number;
+  /** 이 선배를 고른 후배. 먼저 고른 순서. */
+  mentees: LinkedMentee[];
 }
 
 /**
@@ -17,8 +26,8 @@ interface MentorMatch {
  *
  * 멘티는 매칭하는 순간 선배 연락처를 보지만, 멘토에게는 확인할 방법이 없었다.
  * 후배가 먼저 문자를 보내면 발신번호로 이름과 번호가 함께 도착하지만,
- * 후배가 망설이는 동안 멘토는 매칭된 사실조차 모르고 1:1이라 다른 후배와
- * 연결되지도 않는다. 그 사이의 공백을 메우는 화면이다.
+ * 후배가 망설이는 동안 멘토는 매칭된 사실조차 모른다. 그 사이의 공백을
+ * 메우는 화면이다. 정원이 2명 이상이면 연결된 후배가 차례로 쌓인다.
  */
 export default function MentorMatchPage() {
   const [code, setCode] = useState("");
@@ -59,7 +68,8 @@ export default function MentorMatchPage() {
     }
   };
 
-  const mentee = result?.mentee;
+  const mentees = result?.mentees ?? [];
+  const openSeats = result ? Math.max(result.capacity - mentees.length, 0) : 0;
 
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-[430px] flex-col bg-white px-6">
@@ -105,45 +115,33 @@ export default function MentorMatchPage() {
       </section>
 
       {result && (
-        <section className="mt-7">
-          {mentee ? (
-            <div className="rounded-3xl bg-brand p-6 text-white">
-              <p className="text-[13px] font-semibold text-white/75">
-                <Name>{result.mentorName}</Name>님과 연결된 후배
-              </p>
-              <h2 className="mt-1.5 text-[24px] font-bold tracking-[-0.02em]">
-                {mentee.name}
-              </h2>
-              {mentee.campus && (
-                <p className="mt-1 text-[14px] text-white/85">{mentee.campus} 지망</p>
-              )}
+        <section className="mt-7 flex flex-col gap-3">
+          {mentees.length > 0 && (
+            <p className="text-[13px] font-semibold text-gray-500">
+              <Name>{result.mentorName}</Name>님과 연결된 후배 {mentees.length}명 · 정원{" "}
+              {result.capacity}명
+            </p>
+          )}
 
-              <p className="mt-5 font-mono text-[20px] font-bold tracking-wide">
-                {mentee.contact}
-              </p>
+          {mentees.map((mentee) => (
+            <MenteeCard
+              key={mentee.contact}
+              mentee={mentee}
+              mentorName={result.mentorName}
+            />
+          ))}
 
-              {/* 후배가 먼저 연락하기 어려워할 수 있다. 선배가 먼저 여는 길을 준다. */}
-              <a
-                href={`sms:${mentee.contact.replace(/-/g, "")}?&body=${encodeURIComponent(
-                  `안녕하세요! 고3채플에서 ${mentee.name}님과 매칭된 ${result.mentorName}입니다 :)`,
-                )}`}
-                className="mt-4 flex h-[52px] w-full items-center justify-center gap-1.5 rounded-2xl bg-white text-[16px] font-bold text-brand active:bg-white/85"
-              >
-                먼저 문자 보내기
-                <span className="text-[17px]" aria-hidden>
-                  →
-                </span>
-              </a>
-              <p className="mt-2.5 text-center text-[13px] text-white/70">
-                {isAfterEvent()
-                  ? "편한 때를 정해 만나보세요."
-                  : `${EVENT_DATE_LABEL} ${VENUE.name}에서 만나요.`}
-              </p>
-            </div>
-          ) : (
+          {/* 자리가 남았다는 것도 알려야 한다. 그래야 더 기다릴지 판단한다. */}
+          {openSeats > 0 && (
             <div className="rounded-3xl bg-gray-50 px-6 py-8 text-center">
               <p className="text-[16px] font-bold text-gray-900">
-                <Name>{result.mentorName}</Name>님, 아직 연결된 후배가 없어요
+                {mentees.length === 0 ? (
+                  <>
+                    <Name>{result.mentorName}</Name>님, 아직 연결된 후배가 없어요
+                  </>
+                ) : (
+                  `${openSeats}자리가 더 남아 있어요`
+                )}
               </p>
               <p className="mt-2 text-[14px] leading-relaxed text-gray-500">
                 후배가 선배를 고르면 여기에 이름과 연락처가 나와요.
@@ -163,6 +161,37 @@ export default function MentorMatchPage() {
           </Link>
         </p>
       </div>
+    </div>
+  );
+}
+
+function MenteeCard({ mentee, mentorName }: { mentee: LinkedMentee; mentorName: string }) {
+  return (
+    <div className="rounded-3xl bg-brand p-6 text-white">
+      <h2 className="text-[24px] font-bold tracking-[-0.02em]">{mentee.name}</h2>
+      {mentee.campus && (
+        <p className="mt-1 text-[14px] text-white/85">{mentee.campus} 지망</p>
+      )}
+
+      <p className="mt-5 font-mono text-[20px] font-bold tracking-wide">{mentee.contact}</p>
+
+      {/* 후배가 먼저 연락하기 어려워할 수 있다. 선배가 먼저 여는 길을 준다. */}
+      <a
+        href={`sms:${mentee.contact.replace(/-/g, "")}?&body=${encodeURIComponent(
+          `안녕하세요! 고3채플에서 ${mentee.name}님과 매칭된 ${mentorName}입니다 :)`,
+        )}`}
+        className="mt-4 flex h-[52px] w-full items-center justify-center gap-1.5 rounded-2xl bg-white text-[16px] font-bold text-brand active:bg-white/85"
+      >
+        먼저 문자 보내기
+        <span className="text-[17px]" aria-hidden>
+          →
+        </span>
+      </a>
+      <p className="mt-2.5 text-center text-[13px] text-white/70">
+        {isAfterEvent()
+          ? "편한 때를 정해 만나보세요."
+          : `${EVENT_DATE_LABEL} ${VENUE.name}에서 만나요.`}
+      </p>
     </div>
   );
 }

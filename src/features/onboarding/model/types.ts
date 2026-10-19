@@ -1,4 +1,12 @@
-import type { Campus, Career, Gender, Major, MentoringArea, TimeSlot } from "@/shared/constants/domain";
+import type {
+  Campus,
+  Career,
+  Gender,
+  Major,
+  MentorCapacity,
+  MentoringArea,
+  TimeSlot,
+} from "@/shared/constants/domain";
 import type { MbtiType } from "@/shared/constants/mbti";
 import type { PersonaType } from "@/shared/constants/persona";
 import type { Role } from "@/shared/constants/role";
@@ -29,6 +37,9 @@ export const REGISTER_STEPS = ["consent", "basic", "role", "church"] as const;
  * 거기서 멈춘다.
  *
  * 캠퍼스는 학과 바로 앞이어야 한다. 학과 선택지가 여기서 고른 학교로 좁혀진다.
+ *
+ * 멘토의 정원(capacity)은 시간대 바로 앞에 묻는다. 몇 명을 맡을지는
+ * 얼마나 시간을 낼 수 있는지와 함께 떠올려야 하는 질문이다.
  */
 export const MENTORING_STEPS_BY_ROLE = {
   MENTEE: [
@@ -37,7 +48,7 @@ export const MENTORING_STEPS_BY_ROLE = {
   ],
   MENTOR: [
     "mentoringIntro", "persona", "mbti", "mentoringArea",
-    "currentCampus", "currentMajor", "schedule", "photo",
+    "currentCampus", "currentMajor", "capacity", "schedule", "photo",
   ],
 } as const;
 
@@ -101,6 +112,8 @@ export interface OnboardingDraft {
   mentoringArea: MentoringArea[];
   currentMajors: Major[];
   careerPaths: Career[];
+  /** 동시에 맡을 후배 수. 비어 있으면 서버가 1명으로 저장한다. */
+  mentorCapacity?: MentorCapacity;
 }
 
 export const EMPTY_DRAFT: OnboardingDraft = {

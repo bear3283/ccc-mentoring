@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { DataTable, type TableColumn } from "./DataTable";
 import { downloadCsv, type CsvColumn } from "../lib/csv";
-import type { Mentee, Mentor } from "@/features/matching/model/types";
+import type { FallbackReason, Mentee, Mentor } from "@/features/matching/model/types";
+import type { CampusDemandRow } from "../lib/campusDemand";
 import { formatTimeSlotShort } from "@/shared/constants/domain";
 import { WEIGHTS } from "@/features/matching/lib/score";
 import { PERSONAS } from "@/shared/constants/persona";
@@ -31,7 +32,17 @@ export interface MatchRow {
   contact: string;
   /** SUGGESTED = 추천만 됨, REQUESTED = 멘티가 연락을 요청함 */
   status: string;
+  /** 지망 캠퍼스 밖의 대체 후보면 그 이유 */
+  fallback?: FallbackReason;
 }
+
+/** 운영자 표의 멘토 한 행. 정원 대비 몇 명이 골랐는지를 함께 본다. */
+export type AdminMentor = Mentor & { assigned: number };
+
+const FALLBACK_LABEL: Record<FallbackReason, string> = {
+  MAJOR: "대체·학과",
+  REGION: "대체·지역",
+};
 
 const menteeColumns: TableColumn<Mentee>[] = [
   { key: "code", header: "참여코드", value: (r) => r.participationCode, width: "110px" },
@@ -71,7 +82,7 @@ function personaName(type: Mentee["personaType"] | undefined): string {
   return type ? PERSONAS[type].name : "-";
 }
 
-const mentorColumns: TableColumn<Mentor>[] = [
+const mentorColumns: TableColumn<AdminMentor>[] = [
   { key: "code", header: "참여코드", value: (r) => r.participationCode, width: "110px" },
   { key: "name", header: "이름", value: (r) => r.name, width: "80px" },
   {
@@ -95,6 +106,28 @@ const mentorColumns: TableColumn<Mentor>[] = [
   { key: "major", header: "학과", value: (r) => r.currentMajors.join(", ") },
   { key: "career", header: "진로", value: (r) => r.careerPaths.join(", ") },
   { key: "times", header: "가능 시간", value: (r) => r.availableTimes.map(formatTimeSlotShort).join(", ") },
+  {
+    key: "seats",
+    header: "배정/정원",
+    // 등록만 한 사람은 정원을 고르지 않았다. 1/1 처럼 보이면 신청한 줄 안다.
+    value: (r) => (r.mentoringApplied ? `${r.assigned}/${r.capacity}` : "-"),
+    align: "center",
+    width: "90px",
+    // 정원이 찬 멘토는 더 이상 후보에 나오지 않는다. 운영자가 바로 알아봐야 한다.
+    render: (r) =>
+      r.mentoringApplied ? (
+        <span
+          className={cn(
+            "tabular-nums",
+            r.assigned >= r.capacity && "font-bold text-gray-400",
+          )}
+        >
+          {r.assigned}/{r.capacity}
+        </span>
+      ) : (
+        "-"
+      ),
+  },
   {
     key: "mentoring",
     header: "멘토링",
@@ -131,6 +164,14 @@ const matchColumns: TableColumn<MatchRow>[] = [
   },
   { key: "mentorName", header: "멘토", value: (r) => r.mentorName, width: "80px" },
   { key: "mentorCampus", header: "멘토 캠퍼스", value: (r) => r.mentorCampus },
+  {
+    key: "kind",
+    header: "구분",
+    // 대체 후보는 캠퍼스 점수가 0이라 적합도만 보면 나쁜 추천처럼 읽힌다.
+    value: (r) => (r.fallback ? FALLBACK_LABEL[r.fallback] : "지망"),
+    align: "center",
+    width: "90px",
+  },
   { key: "menteeCampus", header: "멘티 1지망", value: (r) => r.menteeCampus },
   {
     key: "status",
@@ -191,10 +232,35 @@ export interface UnmatchedRow {
 
 interface AdminDashboardProps {
   mentees: Mentee[];
-  mentors: Mentor[];
+  mentors: AdminMentor[];
   matchRows: MatchRow[];
   unmatched: UnmatchedRow[];
+  demand: CampusDemandRow[];
 }
+
+const demandColumns: TableColumn<CampusDemandRow>[] = [
+  { key: "campus", header: "캠퍼스", value: (r) => r.campus },
+  { key: "region", header: "지역", value: (r) => r.region ?? "-", width: "90px" },
+  {
+    key: "any",
+    header: "지망한 후배 (1~3지망)",
+    value: (r) => r.anyChoice,
+    align: "right",
+    width: "170px",
+  },
+  { key: "first", header: "그중 1지망", value: (r) => r.firstChoice, align: "right", width: "110px" },
+  {
+    key: "status",
+    header: "상태",
+    // 둘은 할 일이 다르다. 없는 곳은 모집하고, 찬 곳은 정원을 늘려 달라고 부탁한다.
+    value: (r) => (r.mentors === 0 ? "멘토 없음" : `정원 마감 (멘토 ${r.mentors}명)`),
+    render: (r) => (
+      <span className={cn(r.mentors === 0 ? "font-bold text-red-500" : "text-gray-600")}>
+        {r.mentors === 0 ? "멘토 없음" : `정원 마감 (멘토 ${r.mentors}명)`}
+      </span>
+    ),
+  },
+];
 
 const unmatchedColumns: TableColumn<UnmatchedRow>[] = [
   { key: "code", header: "참여코드", value: (r) => r.code, width: "110px" },
@@ -216,13 +282,14 @@ const unmatchedColumns: TableColumn<UnmatchedRow>[] = [
   { key: "reason", header: "원인", value: (r) => r.reason },
 ];
 
-export function AdminDashboard({ mentees, mentors, matchRows, unmatched }: AdminDashboardProps) {
+export function AdminDashboard({
+  mentees,
+  mentors,
+  matchRows,
+  unmatched,
+  demand,
+}: AdminDashboardProps) {
   const [tab, setTab] = useState<Tab>("matching");
-
-  // 어느 캠퍼스에 멘토가 없어서 막혔는지 한 줄로 보여준다.
-  const campusGaps = [
-    ...new Set(unmatched.filter((u) => u.mentorsInCampus === 0).flatMap((u) => u.targetCampus)),
-  ].filter((campus) => !mentors.some((m) => m.currentCampus === campus));
 
   const [running, setRunning] = useState(false);
   const [runMessage, setRunMessage] = useState<string>();
@@ -243,6 +310,7 @@ export function AdminDashboard({ mentees, mentors, matchRows, unmatched }: Admin
         applicants?: number;
         computed?: number;
         settled?: number;
+        fallbackOnly?: number;
         noCandidates?: number;
         error?: string;
       };
@@ -252,7 +320,8 @@ export function AdminDashboard({ mentees, mentors, matchRows, unmatched }: Admin
       }
       setRunMessage(
         `신청자 ${body.applicants}명 — 추천 계산 ${body.computed}명 · ` +
-          `이미 확정 ${body.settled}명 · 조건 맞는 선배 없음 ${body.noCandidates}명. ` +
+          `이미 확정 ${body.settled}명 · 대체 후보만 ${body.fallbackOnly}명 · ` +
+          `추천 없음 ${body.noCandidates}명. ` +
           `새로고침하면 표에 반영됩니다.`,
       );
     } catch {
@@ -269,6 +338,7 @@ export function AdminDashboard({ mentees, mentors, matchRows, unmatched }: Admin
 
     if (tab === "mentee") downloadCsv("멘티_신청자.csv", mentees, asCsvColumns(menteeColumns));
     else if (tab === "mentor") downloadCsv("멘토_신청자.csv", mentors, asCsvColumns(mentorColumns));
+    else if (tab === "unmatched") downloadCsv("멘토_모집_필요_캠퍼스.csv", demand, asCsvColumns(demandColumns));
     else downloadCsv("매칭_결과.csv", matchRows, asCsvColumns(matchColumns));
   };
 
@@ -360,12 +430,26 @@ export function AdminDashboard({ mentees, mentors, matchRows, unmatched }: Admin
 
       {tab === "unmatched" && (
         <>
-          {campusGaps.length > 0 && (
-            <p className="mb-3 rounded-lg bg-red-500/10 px-4 py-3 text-[13px] text-red-600">
-              <strong>{campusGaps.join(", ")}</strong> 캠퍼스에 멘토가 없습니다. 해당 캠퍼스
-              멘토를 모집하면 {unmatched.filter((u) => u.mentorsInCampus === 0).length}명이
-              매칭될 수 있습니다.
-            </p>
+          {/*
+            모집 우선순위를 정하는 표가 먼저다. 미매칭 명단은 그 근거로 아래에 둔다.
+            지망한 후배가 많은 캠퍼스가 위로 온다.
+          */}
+          {demand.length > 0 && (
+            <section className="mb-5 flex max-h-[40%] shrink-0 flex-col">
+              <h2 className="mb-2 text-[14px] font-bold text-gray-900">
+                멘토 모집이 필요한 캠퍼스 {demand.length}곳
+                <span className="ml-2 text-[12px] font-medium text-gray-400">
+                  선배를 아직 고르지 못한 후배가 지망한 곳 중 남은 자리가 없는 곳 · CSV
+                  내보내기는 이 표를 받습니다
+                </span>
+              </h2>
+              <DataTable
+                rows={demand}
+                columns={demandColumns}
+                rowKey={(r) => r.campus}
+                searchable={(r) => `${r.campus} ${r.region ?? ""}`}
+              />
+            </section>
           )}
           <DataTable
             rows={unmatched}

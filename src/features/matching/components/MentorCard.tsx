@@ -5,7 +5,12 @@ import { formatTimeSlotShort } from "@/shared/constants/domain";
 import { PERSONAS } from "@/shared/constants/persona";
 import { cn } from "@/shared/lib/cn";
 import { nameInitials } from "@/shared/lib/nameInitials";
-import type { PublicMatchResult } from "../model/types";
+import type { FallbackReason, PublicMatchResult } from "../model/types";
+
+const FALLBACK_LABEL: Record<FallbackReason, string> = {
+  MAJOR: "같은 학과 선배",
+  REGION: "같은 지역 선배",
+};
 
 interface MentorCardProps {
   result: PublicMatchResult;
@@ -45,10 +50,22 @@ export function MentorCard({
         className="relative h-[92px]"
         style={{ background: `linear-gradient(135deg, ${from} 0%, ${to} 100%)` }}
       >
-        {/* 적합도는 카드에서 가장 먼저 읽혀야 하므로 헤더 위에 띄운다. */}
+        {/*
+          적합도는 카드에서 가장 먼저 읽혀야 하므로 헤더 위에 띄운다.
+          대체 후보는 캠퍼스 점수가 0이라 적합도가 낮게 나온다. 숫자 대신
+          왜 이 선배를 보여주는지를 띄운다 — "45%"는 고를 이유가 아니라 망설일 이유가 된다.
+        */}
         <div className="absolute top-4 right-4 rounded-full bg-white/95 px-3 py-1.5">
-          <span className="text-[15px] font-bold text-gray-900 tabular-nums">{score}%</span>
-          <span className="ml-1 text-[12px] font-medium text-gray-500">적합</span>
+          {result.fallback ? (
+            <span className="text-[13px] font-bold text-gray-900">
+              {FALLBACK_LABEL[result.fallback]}
+            </span>
+          ) : (
+            <>
+              <span className="text-[15px] font-bold text-gray-900 tabular-nums">{score}%</span>
+              <span className="ml-1 text-[12px] font-medium text-gray-500">적합</span>
+            </>
+          )}
         </div>
 
         {/* 아바타가 밴드 경계에 걸쳐 카드에 깊이를 준다. */}
@@ -167,7 +184,7 @@ export function MentorCard({
             {/* 한 번 고르면 바꿀 수 없으므로 누르기 전에 알린다. */}
             {!locked && (
               <p className="mt-2 text-center text-[12px] text-gray-400">
-                한 분과만 매칭돼요. 신중히 골라주세요.
+                한 분만 고를 수 있어요. 신중히 골라주세요.
               </p>
             )}
           </>

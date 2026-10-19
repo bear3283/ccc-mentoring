@@ -66,7 +66,18 @@ export interface Mentor {
   mbti?: MbtiType;
   currentMajors: Major[];
   careerPaths: Career[];
+  /**
+   * 동시에 맡을 수 있는 후배 수. 멘토가 신청할 때 1~3 중에 고른다.
+   * 이 수만큼 후배가 '매칭하기'를 누르면 다른 후배의 후보에서 빠진다.
+   */
+  capacity: number;
 }
+
+/**
+ * 지망 캠퍼스 밖의 선배를 보여주는 이유.
+ * MAJOR = 희망 학과를 다니는 선배, REGION = 지망 캠퍼스와 같은 지역의 선배.
+ */
+export type FallbackReason = "MAJOR" | "REGION";
 
 /** 점수의 근거. UI에서 "왜 이 멘토인지" 보여주고, 가중치 튜닝 시 디버깅에 쓴다. */
 export interface ScoreBreakdown {
@@ -85,6 +96,8 @@ export interface MatchResult {
   breakdown: ScoreBreakdown;
   /** 프로필 카드에 노출할 해시태그 */
   hashtags: string[];
+  /** 지망 캠퍼스 밖의 대체 후보일 때만 있다. */
+  fallback?: FallbackReason;
 }
 
 /**
@@ -114,6 +127,8 @@ export interface PublicMatchResult {
   mentor: PublicMentor;
   /** 겹치는 시간이 하나도 없음. 카드에 경고를 띄운다. */
   noTimeOverlap: boolean;
+  /** 지망 캠퍼스 밖의 대체 후보일 때만 있다. 카드는 적합도 대신 이유를 보여준다. */
+  fallback?: FallbackReason;
 }
 
 /**

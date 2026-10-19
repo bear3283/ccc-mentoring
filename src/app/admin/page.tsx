@@ -1,9 +1,11 @@
 import { AdminDashboard, type MatchRow } from "@/features/admin/components/AdminDashboard";
+import { campusDemand } from "@/features/admin/lib/campusDemand";
 import {
   listMatchings,
   listMentees,
   listMentors,
   listUnmatched,
+  loadAssignmentState,
 } from "@/features/signup/lib/repository";
 
 /**
@@ -20,12 +22,13 @@ import {
 export const dynamic = "force-dynamic";
 
 export default async function AdminPage() {
-  // 세 질의는 서로 의존하지 않으므로 함께 보낸다.
-  const [mentees, mentors, matchings, unmatched] = await Promise.all([
+  // 질의는 서로 의존하지 않으므로 함께 보낸다.
+  const [mentees, mentors, matchings, unmatched, assignment] = await Promise.all([
     listMentees(),
     listMentors(),
     listMatchings(),
     listUnmatched(),
+    loadAssignmentState(),
   ]);
 
   const matchRows: MatchRow[] = matchings.map((m) => ({
@@ -46,14 +49,27 @@ export default async function AdminPage() {
     majorScore: round1(m.breakdown?.majorAndCareer),
     contact: m.mentorContact,
     status: m.status,
+    fallback: m.fallback,
+  }));
+
+  // 클라이언트 컴포넌트로는 Map 을 넘길 수 없어 멘토 행에 바로 붙인다.
+  const mentorRows = mentors.map((m) => ({
+    ...m,
+    assigned: assignment.activeByMentor.get(m.id) ?? 0,
   }));
 
   return (
     <AdminDashboard
       mentees={mentees}
-      mentors={mentors}
+      mentors={mentorRows}
       matchRows={matchRows}
       unmatched={unmatched}
+      demand={campusDemand(
+        mentees,
+        mentors,
+        assignment.activeByMentor,
+        assignment.settledMentees,
+      )}
     />
   );
 }

@@ -1,4 +1,5 @@
 import { CONSENT_VERSION } from "@/shared/constants/privacy";
+import { MENTOR_CAPACITY_OPTIONS } from "@/shared/constants/domain";
 import { MBTI_TYPES } from "@/shared/constants/mbti";
 import type { OnboardingDraft } from "@/features/onboarding/model/types";
 
@@ -94,6 +95,14 @@ export function validateMentoring(
     }
     if (draft.careerPaths.length < 1 || draft.careerPaths.length > 3) {
       return "진로를 확인해주세요.";
+    }
+    // 비어 있으면 1명으로 저장한다(정원을 묻기 전 화면에서 온 신청).
+    // 적었다면 고를 수 있는 값이어야 한다. DB 제약에 걸리면 이유를 알 수 없다.
+    if (
+      draft.mentorCapacity !== undefined &&
+      !(MENTOR_CAPACITY_OPTIONS as readonly number[]).includes(draft.mentorCapacity)
+    ) {
+      return "맡을 후배 수를 다시 골라주세요.";
     }
   }
 

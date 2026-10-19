@@ -1,6 +1,6 @@
 import "server-only";
 
-import type { Mentee, Mentor, ScoreBreakdown } from "@/features/matching/model/types";
+import type { FallbackReason, Mentee, Mentor, ScoreBreakdown } from "@/features/matching/model/types";
 import type { OnboardingDraft } from "@/features/onboarding/model/types";
 import type { Role } from "@/shared/constants/role";
 import type { Campus, Career, Gender, Major, MentoringArea, TimeSlot } from "@/shared/constants/domain";
@@ -8,7 +8,7 @@ import type { MbtiType } from "@/shared/constants/mbti";
 import type { PersonaType } from "@/shared/constants/persona";
 import { safeForLog } from "@/shared/lib/security/mask";
 import { getSupabase } from "@/shared/lib/supabase/server";
-import { matchMentors } from "@/features/matching/lib/score";
+import { fallbackReason, recommendMentors } from "@/features/matching/lib/score";
 import { MOCK_MENTEES, MOCK_MENTORS } from "@/shared/lib/mock/generate";
 
 /**
@@ -52,6 +52,8 @@ interface MentorRow {
   mentoring_area: string[];
   current_majors: string[];
   career_paths: string[];
+  /** 정원 컬럼을 추가하기 전의 DB에는 없다. 그때는 예전처럼 1명으로 본다. */
+  capacity?: number;
 }
 
 /**
@@ -103,6 +105,7 @@ function toMentor(user: UserRow, profile: MentorRow | null): Mentor {
     mbti: (user.mbti ?? undefined) as MbtiType | undefined,
     currentMajors: (profile?.current_majors ?? []) as Major[],
     careerPaths: (profile?.career_paths ?? []) as Career[],
+    capacity: profile?.capacity ?? 1,
   };
 }
 
@@ -249,22 +252,43 @@ export async function saveSignup(
 }
 
 /**
- * 이미 배정이 끝난 멘토의 id.
+ * 성사된 매칭(REQUESTED/CONFIRMED)으로 본 현재 배정 상태.
  *
- * 매칭은 1:1이라, 멘티가 '매칭하기'를 눌러 성사된 멘토는 다른 멘티의
- * 후보에서 빠져야 한다. 추천(SUGGESTED)만 된 상태는 아직 성사가 아니므로
- * 후보로 남는다. 그렇지 않으면 첫 멘티가 결과를 여는 순간 멘토 3명이 잠긴다.
+ * 추천(SUGGESTED)만 된 상태는 아직 성사가 아니므로 세지 않는다.
+ * 세면 첫 멘티가 결과를 여는 순간 멘토 3명의 자리가 잠긴다.
  */
-export async function listTakenMentorIds(): Promise<Set<string>> {
-  const supabase = getSupabase();
-  if (!supabase) return new Set();
+export interface AssignmentState {
+  /** 멘토 id → 이미 맡은 후배 수 */
+  activeByMentor: Map<string, number>;
+  /** 이미 선배를 고른 멘티 id */
+  settledMentees: Set<string>;
+}
 
-  const { data } = await supabase
+export async function loadAssignmentState(): Promise<AssignmentState> {
+  const state: AssignmentState = { activeByMentor: new Map(), settledMentees: new Set() };
+  const supabase = getSupabase();
+  if (!supabase) return state;
+
+  const { data, error } = await supabase
     .from("matchings")
-    .select("mentor_id")
+    .select("mentee_id, mentor_id")
     .in("status", ["REQUESTED", "CONFIRMED"]);
 
-  return new Set((data ?? []).map((row) => row.mentor_id as string));
+  // 조회가 실패하면 모든 멘토가 빈자리로 보인다. 정원은 DB 트리거가 지키지만
+  // 후보 목록이 틀어지므로 드러나야 한다.
+  if (error) logDbError("배정 상태 조회", error);
+
+  for (const row of data ?? []) {
+    const mentorId = row.mentor_id as string;
+    state.activeByMentor.set(mentorId, (state.activeByMentor.get(mentorId) ?? 0) + 1);
+    state.settledMentees.add(row.mentee_id as string);
+  }
+  return state;
+}
+
+/** 아직 자리가 남은 멘토인지. 정원은 멘토가 신청할 때 고른다. */
+function hasOpenSeat(mentor: Mentor, state: AssignmentState): boolean {
+  return (state.activeByMentor.get(mentor.id) ?? 0) < mentor.capacity;
 }
 
 /**
@@ -341,6 +365,8 @@ export async function applyMentoring(
               mentoring_area: draft.mentoringArea,
               current_majors: draft.currentMajors,
               career_paths: draft.careerPaths,
+              // 예전 화면에서 온 신청에는 값이 없다. DB 기본값과 같은 1명으로 둔다.
+              capacity: draft.mentorCapacity ?? 1,
             },
             { onConflict: "user_id" },
           )
@@ -393,8 +419,10 @@ export async function findSettledMatch(
 export interface MentorMatchView {
   /** 멘토 본인 이름. 코드를 맞게 넣었는지 확인시켜 준다. */
   mentorName: string;
-  /** 아직 아무도 고르지 않았으면 undefined. */
-  mentee?: { name: string; contact: string; campus?: string };
+  /** 신청할 때 고른 정원. 몇 자리가 남았는지 함께 보여준다. */
+  capacity: number;
+  /** 이 선배를 고른 후배. 먼저 고른 순서. 아직 없으면 빈 배열. */
+  mentees: { name: string; contact: string; campus?: string }[];
 }
 
 /**
@@ -412,7 +440,7 @@ export async function findMenteeForMentor(code: string): Promise<MentorMatchView
 
   const { data: mentor, error } = await supabase
     .from("users")
-    .select("id, name")
+    .select("id, name, mentor_profiles(*)")
     .eq("participation_code", code)
     .eq("role", "MENTOR")
     .maybeSingle();
@@ -420,36 +448,42 @@ export async function findMenteeForMentor(code: string): Promise<MentorMatchView
   if (error) logDbError("멘토 코드 조회", error);
   if (!mentor) return null;
 
+  const profile = mentor.mentor_profiles as unknown as MentorRow | null;
+  const view: MentorMatchView = {
+    mentorName: mentor.name as string,
+    capacity: profile?.capacity ?? 1,
+    mentees: [],
+  };
+
   // 확정된 건만 본다. 추천(SUGGESTED)은 아직 그 멘티가 고른 것이 아니라,
   // 여기서 보여주면 오지도 않을 후배를 기다리게 만든다.
-  const { data: match, error: matchError } = await supabase
+  // 정원이 2명 이상이면 여러 건이라 maybeSingle 을 쓰면 안 된다.
+  const { data: matches, error: matchError } = await supabase
     .from("matchings")
-    .select("mentee_id")
+    .select("mentee:mentee_id (name, contact, mentee_profiles(target_campus))")
     .eq("mentor_id", mentor.id)
     .in("status", ["REQUESTED", "CONFIRMED"])
-    .maybeSingle();
+    .order("created_at", { ascending: true });
 
   if (matchError) logDbError("멘토의 확정 매칭 조회", matchError, { participationCode: code });
-  if (!match) return { mentorName: mentor.name as string };
 
-  const { data: mentee, error: menteeError } = await supabase
-    .from("users")
-    .select("name, contact, mentee_profiles(target_campus)")
-    .eq("id", match.mentee_id)
-    .maybeSingle();
+  for (const raw of (matches ?? []) as unknown[]) {
+    const mentee = (raw as {
+      mentee: {
+        name: string;
+        contact: string;
+        mentee_profiles: { target_campus?: string[] } | null;
+      } | null;
+    }).mentee;
+    if (!mentee) continue;
+    view.mentees.push({
+      name: mentee.name,
+      contact: mentee.contact,
+      campus: mentee.mentee_profiles?.target_campus?.[0],
+    });
+  }
 
-  if (menteeError) logDbError("연결된 멘티 조회", menteeError, { participationCode: code });
-  if (!mentee) return { mentorName: mentor.name as string };
-
-  const profile = mentee.mentee_profiles as { target_campus?: string[] } | null;
-  return {
-    mentorName: mentor.name as string,
-    mentee: {
-      name: mentee.name as string,
-      contact: mentee.contact as string,
-      campus: profile?.target_campus?.[0],
-    },
-  };
+  return view;
 }
 
 /**
@@ -457,14 +491,14 @@ export async function findMenteeForMentor(code: string): Promise<MentorMatchView
  *
  * 두 가지를 걸러낸다.
  *  1. 행사 등록만 한 사람 — 관심사·시간대가 비어 있어 점수가 나오지 않는다
- *  2. 이미 배정된 사람 — 매칭은 1:1이다
+ *  2. 정원이 다 찬 사람 — 멘토가 고른 수만큼 후배가 이미 골랐다
  *
  * 운영자 화면은 listMentors() 로 전원을 본다. 등록만 한 사람도
  * 행사에는 오기 때문에 명단에서 빠지면 안 된다.
  */
 export async function listAvailableMentors(): Promise<Mentor[]> {
-  const [mentors, taken] = await Promise.all([listMentors(), listTakenMentorIds()]);
-  return mentors.filter((m) => m.mentoringApplied && !taken.has(m.id));
+  const [mentors, state] = await Promise.all([listMentors(), loadAssignmentState()]);
+  return mentors.filter((m) => m.mentoringApplied && hasOpenSeat(m, state));
 }
 
 /** 멘토 전체. 운영자 표처럼 배정 여부와 무관하게 다 봐야 할 때 쓴다. */
@@ -592,7 +626,9 @@ export interface MatchRunResult {
   computed: number;
   /** 이미 짝이 정해져 건드리지 않은 멘티 수 */
   settled: number;
-  /** 조건에 맞는 선배가 없어 추천이 비어 있는 멘티 수 */
+  /** 지망 캠퍼스에 선배가 없어 대체 후보(같은 학과·지역)만 추천한 멘티 수 */
+  fallbackOnly: number;
+  /** 대체 후보까지 없어 추천이 비어 있는 멘티 수 */
   noCandidates: number;
 }
 
@@ -612,7 +648,9 @@ export interface MatchRunResult {
  */
 export async function runMatchingForAll(): Promise<MatchRunResult> {
   const supabase = getSupabase();
-  if (!supabase) return { applicants: 0, computed: 0, settled: 0, noCandidates: 0 };
+  if (!supabase) {
+    return { applicants: 0, computed: 0, settled: 0, fallbackOnly: 0, noCandidates: 0 };
+  }
 
   const [mentees, mentors] = await Promise.all([listMentees(), listMentors()]);
 
@@ -622,6 +660,7 @@ export async function runMatchingForAll(): Promise<MatchRunResult> {
     applicants: applicants.length,
     computed: 0,
     settled: 0,
+    fallbackOnly: 0,
     noCandidates: 0,
   };
 
@@ -632,13 +671,12 @@ export async function runMatchingForAll(): Promise<MatchRunResult> {
       continue;
     }
 
-    // 후보는 매번 다시 추린다. 앞선 멘티가 확정하면 그 멘토는 빠져야 한다.
-    const currentlyTaken = await listTakenMentorIds();
-    const available = mentors.filter(
-      (m) => m.mentoringApplied && !currentlyTaken.has(m.id),
-    );
+    // 후보는 매번 다시 추린다. 앞선 멘티가 확정해 정원이 차면 그 멘토는 빠져야 한다.
+    const state = await loadAssignmentState();
+    const available = mentors.filter((m) => m.mentoringApplied && hasOpenSeat(m, state));
 
-    const rows = matchMentors(mentee, available, MATCH_TOP_N).map((r, i) => ({
+    const recommended = recommendMentors(mentee, available, MATCH_TOP_N);
+    const rows = recommended.map((r, i) => ({
       mentorId: r.mentor.id,
       score: r.score,
       breakdown: r.breakdown as unknown,
@@ -652,6 +690,7 @@ export async function runMatchingForAll(): Promise<MatchRunResult> {
 
     await saveMatchings(mentee.id, rows);
     result.computed++;
+    if (recommended[0].fallback) result.fallbackOnly++;
   }
 
   return result;
@@ -691,6 +730,8 @@ export interface MatchingRow {
   rank: number;
   status: string;
   breakdown: ScoreBreakdown;
+  /** 지망 캠퍼스 밖의 대체 후보면 그 이유. */
+  fallback?: FallbackReason;
 }
 
 /**
@@ -706,8 +747,8 @@ export async function listMatchings(): Promise<MatchingRow[]> {
     .from("matchings")
     .select(
       `score, rank, status, breakdown,
-       mentee:mentee_id (participation_code, name, mentee_profiles(target_campus)),
-       mentor:mentor_id (participation_code, name, contact, mentor_profiles(current_campus))`,
+       mentee:mentee_id (participation_code, name, mentee_profiles(target_campus, target_majors)),
+       mentor:mentor_id (participation_code, name, contact, mentor_profiles(current_campus, current_majors))`,
     )
     .order("rank", { ascending: true });
 
@@ -723,15 +764,33 @@ export async function listMatchings(): Promise<MatchingRow[]> {
       mentee: {
         participation_code: string;
         name: string;
-        mentee_profiles: { target_campus: string[] } | null;
+        mentee_profiles: { target_campus: string[]; target_majors: string[] } | null;
       };
       mentor: {
         participation_code: string;
         name: string;
         contact: string;
-        mentor_profiles: { current_campus: string } | null;
+        mentor_profiles: { current_campus: string; current_majors: string[] } | null;
       };
     };
+
+    // 대체 후보 여부는 저장하지 않고 두 사람의 정보로 다시 판단한다.
+    // 멘티 화면이 쓰는 것과 같은 함수라 두 화면의 구분이 어긋나지 않는다.
+    const menteeProfile = row.mentee.mentee_profiles;
+    const mentorProfile = row.mentor.mentor_profiles;
+    const fallback =
+      menteeProfile && mentorProfile
+        ? fallbackReason(
+            {
+              targetCampus: menteeProfile.target_campus as Campus[],
+              targetMajors: menteeProfile.target_majors,
+            },
+            {
+              currentCampus: mentorProfile.current_campus as Campus,
+              currentMajors: mentorProfile.current_majors,
+            },
+          )
+        : undefined;
 
     return {
       menteeCode: row.mentee.participation_code,
@@ -745,6 +804,7 @@ export async function listMatchings(): Promise<MatchingRow[]> {
       rank: row.rank,
       status: row.status,
       breakdown: row.breakdown,
+      fallback,
     };
   });
 }
@@ -786,7 +846,7 @@ export async function requestMatch(
   const alreadyMine = matching.status === "REQUESTED" || matching.status === "CONFIRMED";
 
   if (!alreadyMine) {
-    // 1:1이라 멘티도 한 명만 고를 수 있다.
+    // 멘티는 선배를 한 명만 고를 수 있다. 여러 명을 맡는 것은 선배 쪽뿐이다.
     const { data: myOther } = await supabase
       .from("matchings")
       .select("id")
@@ -803,12 +863,13 @@ export async function requestMatch(
       .update({ status: "REQUESTED" })
       .eq("id", matching.id);
 
-    // DB의 부분 유니크 인덱스가 마지막 방어선이다.
-    // 두 멘티가 같은 순간에 눌러도 하나만 통과한다.
+    // DB 트리거(정원)와 부분 유니크 인덱스(멘티 1명)가 마지막 방어선이다.
+    // 마지막 한 자리에 두 멘티가 같은 순간에 눌러도 하나만 통과한다.
     if (updateError) {
+      logDbError("매칭 요청", updateError, { participationCode });
       return {
         ok: false,
-        error: "방금 다른 후배와 매칭됐어요. 다른 선배를 선택해주세요.",
+        error: "방금 이 선배의 자리가 다 찼어요. 다른 선배를 선택해주세요.",
       };
     }
   }
@@ -828,10 +889,10 @@ export interface UnmatchedReason {
   code: string;
   name: string;
   targetCampus: string[];
-  /** 지망 캠퍼스에 있는 멘토 수 */
+  /** 지망 캠퍼스에 있는, 아직 자리가 남은 멘토 수 */
   mentorsInCampus: number;
   /** 왜 매칭이 안 됐는지 */
-  reason: "캠퍼스에 멘토 없음" | "결과 미확인" | "조건 불일치";
+  reason: "캠퍼스에 멘토 없음" | "대체 후보만 추천" | "결과 미확인";
 }
 
 /**
@@ -839,35 +900,61 @@ export interface UnmatchedReason {
  *
  * 운영자가 "어느 캠퍼스 멘토를 더 모집해야 하는지" 판단하려면
  * 인원수만으로는 부족하고 원인이 필요하다.
+ *
+ * 대체 후보(같은 학과·지역 선배)만 추천받은 멘티도 여기 남긴다. 후보가
+ * 있긴 하지만 지망 캠퍼스 선배를 모집하면 그쪽으로 옮겨 갈 사람들이다.
  */
 export async function listUnmatched(): Promise<UnmatchedReason[]> {
   const supabase = getSupabase();
   if (!supabase) return [];
 
-  const [mentees, mentors, matchings] = await Promise.all([
+  const [mentees, mentors, state, matchings] = await Promise.all([
     listMentees(),
-    // 1:1이라 이미 배정된 멘토는 이 멘티가 만날 수 없다.
-    // 전체 수를 세면 "캠퍼스에 3명 있는데 왜 매칭이 안 되지"로 오해한다.
-    listAvailableMentors(),
-    supabase.from("matchings").select("mentee_id"),
+    listMentors(),
+    loadAssignmentState(),
+    supabase.from("matchings").select("mentee_id, mentor_id"),
   ]);
 
-  const matchedIds = new Set((matchings.data ?? []).map((m) => m.mentee_id as string));
+  if (matchings.error) logDbError("미매칭 계산 - 매칭 조회", matchings.error);
+
+  // 정원이 다 찬 멘토는 이 멘티가 만날 수 없다.
+  // 전체 수를 세면 "캠퍼스에 3명 있는데 왜 매칭이 안 되지"로 오해한다.
+  const available = mentors.filter((m) => m.mentoringApplied && hasOpenSeat(m, state));
+  const campusOf = new Map(mentors.map((m) => [m.id, m.currentCampus as string]));
+
+  const suggestedCampuses = new Map<string, string[]>();
+  for (const row of matchings.data ?? []) {
+    const menteeId = row.mentee_id as string;
+    const campus = campusOf.get(row.mentor_id as string);
+    if (!campus) continue;
+    suggestedCampuses.set(menteeId, [...(suggestedCampuses.get(menteeId) ?? []), campus]);
+  }
 
   return mentees
     // 멘토링을 신청하지 않은 사람은 '미매칭'이 아니다. 애초에 대상이 아니다.
-    .filter((mentee) => mentee.mentoringApplied && !matchedIds.has(mentee.id))
-    .map((mentee) => {
-      const inCampus = mentors.filter((m) => mentee.targetCampus.includes(m.currentCampus));
-      return {
-        code: mentee.participationCode,
-        name: mentee.name,
-        targetCampus: mentee.targetCampus,
-        mentorsInCampus: inCampus.length,
-        reason:
-          inCampus.length === 0
-            ? ("캠퍼스에 멘토 없음" as const)
-            : ("결과 미확인" as const),
-      };
+    // 대체 후보 중에서라도 이미 선배를 고른 사람은 매칭된 것이다.
+    .filter((mentee) => mentee.mentoringApplied && !state.settledMentees.has(mentee.id))
+    .flatMap((mentee): UnmatchedReason[] => {
+      const suggested = suggestedCampuses.get(mentee.id) ?? [];
+      // 지망 캠퍼스 선배를 추천받았으면 매칭된 것으로 본다. 고르는 일만 남았다.
+      if (suggested.some((campus) => (mentee.targetCampus as string[]).includes(campus))) {
+        return [];
+      }
+
+      const inCampus = available.filter((m) => mentee.targetCampus.includes(m.currentCampus));
+      return [
+        {
+          code: mentee.participationCode,
+          name: mentee.name,
+          targetCampus: mentee.targetCampus,
+          mentorsInCampus: inCampus.length,
+          reason:
+            inCampus.length > 0
+              ? "결과 미확인"
+              : suggested.length > 0
+                ? "대체 후보만 추천"
+                : "캠퍼스에 멘토 없음",
+        },
+      ];
     });
 }

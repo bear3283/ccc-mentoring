@@ -8,6 +8,7 @@ import { OnboardingFunnel, type StepRegistry } from "./OnboardingFunnel";
 import { AreaStep } from "./steps/AreaStep";
 import { BasicStep } from "./steps/BasicStep";
 import { CampusStep } from "./steps/CampusStep";
+import { CapacityStep } from "./steps/CapacityStep";
 import { ChurchStep } from "./steps/ChurchStep";
 import { ConsentStep } from "./steps/ConsentStep";
 import { MajorStep } from "./steps/MajorStep";
@@ -46,6 +47,7 @@ const REGISTRY: StepRegistry = {
   mentoringArea: AreaStep,
   targetMajor: MajorStep,
   currentMajor: MajorStep,
+  capacity: CapacityStep,
   schedule: ScheduleStep,
   photo: PhotoStep,
 };

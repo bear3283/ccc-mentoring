@@ -5,7 +5,12 @@ import {
   listAvailableMentors,
   saveMatchings,
 } from "@/features/signup/lib/repository";
-import { hasNoTimeOverlap, matchMentors } from "@/features/matching/lib/score";
+import {
+  fallbackReason,
+  hasNoTimeOverlap,
+  matchMentors,
+  recommendMentors,
+} from "@/features/matching/lib/score";
 import { normalizeParticipationCode, isValidParticipationCode } from "@/features/onboarding/lib/participationCode";
 import { maskContact } from "@/shared/lib/security/mask";
 import { clientKey, rateLimit, tooManyRequestsMessage } from "@/shared/lib/security/rateLimit";
@@ -67,7 +72,7 @@ export async function POST(request: Request) {
   // 후보 목록에서 자기 멘토가 빠져 있어 다시 계산하면 사라져 버린다.
   const settled = await findSettledMatch(mentee.id);
 
-  // 이미 배정된 멘토는 빼고 계산한다. 매칭은 1:1이다.
+  // 정원이 다 찬 멘토는 빼고 계산한다.
   const mentors = await listAvailableMentors();
   const results = settled
     ? [
@@ -76,9 +81,12 @@ export async function POST(request: Request) {
           score: settled.score,
           breakdown: settled.breakdown as ReturnType<typeof matchMentors>[number]["breakdown"],
           hashtags: matchMentors(mentee, [settled.mentor], 1)[0]?.hashtags ?? [],
+          // 대체 후보 중에서 고른 선배라면 다시 볼 때도 그렇게 표시한다.
+          fallback: fallbackReason(mentee, settled.mentor),
         },
       ]
-    : matchMentors(mentee, mentors, TOP_N);
+    : // 지망 캠퍼스에 선배가 없으면 같은 학과 → 같은 지역 선배를 대신 보여준다.
+      recommendMentors(mentee, mentors, TOP_N);
 
   // 결과가 적거나 없을 때 "왜 그런지"를 함께 보낸다.
   const inCampus = mentors.filter((m) => mentee.targetCampus.includes(m.currentCampus));
@@ -118,6 +126,7 @@ export async function POST(request: Request) {
       score: r.score,
       hashtags: r.hashtags,
       noTimeOverlap: hasNoTimeOverlap(mentee, r.mentor),
+      fallback: r.fallback,
       mentor: {
         id: r.mentor.id,
         name: r.mentor.name,

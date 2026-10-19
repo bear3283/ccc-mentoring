@@ -28,7 +28,7 @@ type State =
       mentee: MenteeSummary;
       results: PublicMatchResult[];
       diagnosis?: MatchDiagnosis;
-      /** 이미 매칭을 마쳤다면 그 멘토의 id. 1:1이라 한 명뿐이다. */
+      /** 이미 매칭을 마쳤다면 그 멘토의 id. 멘티는 한 명만 고르므로 하나뿐이다. */
       settledMentorId?: string;
     }
   | { kind: "noSignup" }
@@ -103,7 +103,7 @@ export default function MatchingResultPage() {
   const handleMatch = async (result: PublicMatchResult) => {
     if (state.kind !== "ready" || requesting) return;
 
-    // 1:1이라 한 번 고르면 되돌릴 수 없다. 먼저 확인을 받는다.
+    // 한 번 고르면 되돌릴 수 없다. 먼저 확인을 받는다.
     // 이미 매칭한 상대의 연락처를 다시 보는 경우는 확인이 필요 없다.
     if (result.mentor.id !== state.settledMentorId && pending?.mentor.id !== result.mentor.id) {
       setPending(result);
@@ -170,6 +170,9 @@ export default function MatchingResultPage() {
   const areas = mentee.desiredAreas.join(", ");
   // 확정 여부는 서버가 알려주는 값 하나로만 판단한다.
   const hasMatched = !!state.settledMentorId;
+  // 지망 캠퍼스에 선배가 없어 같은 학과·지역 선배를 대신 보여주는 경우.
+  // 서버는 지망 캠퍼스 후보가 한 명이라도 있으면 대체 후보를 섞지 않는다.
+  const isFallback = results.length > 0 && results.every((r) => r.fallback);
 
   return (
     <div className="mx-auto min-h-dvh w-full max-w-[430px] bg-gray-100">
@@ -179,7 +182,11 @@ export default function MatchingResultPage() {
           아래 카드는 "조금만 기다려주세요"라고 하는데 제목만 반대로 말하고 있었다.
         */}
         <p className="text-[14px] font-medium text-brand">
-          {results.length === 0 ? "멘토링 신청 완료" : "매칭 완료"}
+          {results.length === 0
+            ? "멘토링 신청 완료"
+            : isFallback && !hasMatched
+              ? "지망 캠퍼스 밖에서 찾았어요"
+              : "매칭 완료"}
         </p>
         <h1 className="mt-2 text-[22px] leading-[1.35] font-bold tracking-[-0.02em] text-gray-900">
           {results.length === 0 ? (
@@ -187,6 +194,12 @@ export default function MatchingResultPage() {
               <Name replayKey={mentee.participationCode}>{mentee.name}</Name>님,
               <br />
               선배를 찾고 있어요
+            </>
+          ) : isFallback && !hasMatched ? (
+            <>
+              <Name replayKey={mentee.participationCode}>{mentee.name}</Name>님께 도움이 될
+              <br />
+              선배 {results.length}명을 찾았어요
             </>
           ) : (
             <>
@@ -196,12 +209,21 @@ export default function MatchingResultPage() {
             </>
           )}
         </h1>
-        <p className="mt-3 text-[14px] leading-relaxed text-gray-500">
-          {mentee.targetCampus.join(" · ")} 중에서
-          <br />
-          {areas}
-          {objectParticle(areas)} 도와줄 {PERSONAS[mentee.personaType].name}형 멘티 기준
-        </p>
+        {isFallback && !hasMatched ? (
+          // 지망을 무시한 결과처럼 보이면 안 된다. 왜 다른 학교 선배인지 먼저 밝힌다.
+          <p className="mt-3 text-[14px] leading-relaxed text-gray-500">
+            {mentee.targetCampus.join(" · ")}에는 아직 선배가 없어서
+            <br />
+            희망 학과를 다니거나 같은 지역에 있는 선배를 모았어요.
+          </p>
+        ) : (
+          <p className="mt-3 text-[14px] leading-relaxed text-gray-500">
+            {mentee.targetCampus.join(" · ")} 중에서
+            <br />
+            {areas}
+            {objectParticle(areas)} 도와줄 {PERSONAS[mentee.personaType].name}형 멘티 기준
+          </p>
+        )}
 
         <div className="mt-5">
           <CodeBadge code={mentee.participationCode} size="compact" />
@@ -233,6 +255,16 @@ export default function MatchingResultPage() {
       )}
 
       <div ref={listRef} className="flex flex-col gap-4 px-5 py-6">
+        {/*
+          기다리는 것도 선택지다. 지망 캠퍼스 선배는 계속 신청하고 있어서,
+          지금 고르지 않고 나중에 다시 열면 그쪽이 먼저 나온다.
+        */}
+        {isFallback && !hasMatched && (
+          <p className="rounded-2xl bg-white px-4 py-3 text-[13px] leading-relaxed text-gray-600">
+            지망 캠퍼스 선배를 기다리고 싶다면 지금 고르지 않아도 돼요. 선배가 신청하면
+            이 화면을 다시 열었을 때 먼저 보여드려요.
+          </p>
+        )}
         {results.length === 0 ? (
           <EmptyResult diagnosis={diagnosis} targetCampus={mentee.targetCampus} />
         ) : (
@@ -269,8 +301,8 @@ export default function MatchingResultPage() {
               {pending.mentor.name} 선배와 매칭할까요?
             </p>
             <p className="mt-2 text-[14px] leading-relaxed text-gray-500">
-              한 분과만 연결돼요. 매칭하면 다른 선배는 고를 수 없고,
-              선택한 선배도 다른 후배와 매칭되지 않아요.
+              {pending.fallback && "지망 캠퍼스 밖의 선배예요. "}
+              선배는 한 분만 고를 수 있어요. 매칭하면 다른 선배는 더 고를 수 없어요.
             </p>
             <button
               type="button"

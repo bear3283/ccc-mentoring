@@ -179,3 +179,13 @@ export const CAREERS = [
 ] as const;
 
 export type Career = (typeof CAREERS)[number];
+
+/**
+ * 멘토 한 명이 맡을 수 있는 후배 수. 멘토가 신청할 때 고른다.
+ *
+ * 상한을 두는 이유: 선배 한 명이 후보 목록을 오래 차지하면 그 캠퍼스를
+ * 지망한 다른 후배가 모두 그 선배에게 몰린다. DB 제약
+ * (mentor_profiles_capacity_range)과 같은 범위여야 한다.
+ */
+export const MENTOR_CAPACITY_OPTIONS = [1, 2, 3] as const;
+export type MentorCapacity = (typeof MENTOR_CAPACITY_OPTIONS)[number];

@@ -17,7 +17,14 @@ import { MOCK_MENTEES, MOCK_MENTORS } from "../src/shared/lib/mock/generate";
 import { readFileSync } from "node:fs";
 import { buildHashtags } from "../src/features/matching/lib/hashtags";
 import { MBTI_TYPES } from "../src/shared/constants/mbti";
-import { scoreMbti, scoreSchedule } from "../src/features/matching/lib/score";
+import {
+  fallbackReason,
+  recommendMentors,
+  scoreMbti,
+  scoreSchedule,
+} from "../src/features/matching/lib/score";
+import { campusDemand } from "../src/features/admin/lib/campusDemand";
+import { CAMPUSES_BY_REGION, regionOf } from "../src/shared/constants/campus";
 import { PERSONAS } from "../src/shared/constants/persona";
 import { formatTimeSlotShort } from "../src/shared/constants/domain";
 
@@ -257,6 +264,172 @@ console.log(`  1순위 매칭 평균 적합도: ${avgTopScore.toFixed(1)}%`);
 
 if (noMatch.length > 0) {
   console.log(`  매칭 실패 멘티: ${noMatch.map((m) => m.id).join(", ")}`);
+}
+
+// ---------------------------------------------------------------- 대체 후보
+console.log("\n[5-1] 대체 후보 (지망 캠퍼스에 선배가 없을 때)");
+
+const recommended = MOCK_MENTEES.map((m) => recommendMentors(m, MOCK_MENTORS, 5));
+
+check(
+  "지망 캠퍼스 후보가 있으면 대체 후보를 섞지 않음",
+  MOCK_MENTEES.every(
+    (_, i) =>
+      results[i].length === 0 ||
+      (recommended[i].every((r) => !r.fallback) &&
+        recommended[i].map((r) => r.mentor.id).join() ===
+          results[i].map((r) => r.mentor.id).join()),
+  ),
+);
+
+const fallbackPairs = MOCK_MENTEES.flatMap((mentee, i) =>
+  results[i].length === 0 ? recommended[i].map((r) => ({ mentee, r })) : [],
+);
+
+check(
+  "대체 후보는 모두 지망 캠퍼스 밖",
+  fallbackPairs.every(({ mentee, r }) => !mentee.targetCampus.includes(r.mentor.currentCampus)),
+);
+check(
+  "MAJOR 후보는 희망 학과를 다니는 선배",
+  fallbackPairs
+    .filter(({ r }) => r.fallback === "MAJOR")
+    .every(({ mentee, r }) => r.mentor.currentMajors.some((m) => mentee.targetMajors.includes(m))),
+);
+check(
+  "REGION 후보는 지망 캠퍼스와 같은 지역이고 학과는 겹치지 않음",
+  fallbackPairs
+    .filter(({ r }) => r.fallback === "REGION")
+    .every(
+      ({ mentee, r }) =>
+        mentee.targetCampus.some((c) => regionOf(c) === regionOf(r.mentor.currentCampus)) &&
+        !r.mentor.currentMajors.some((m) => mentee.targetMajors.includes(m)),
+    ),
+);
+check(
+  "학과 후보가 지역 후보보다 앞, 같은 이유 안에서는 점수 내림차순",
+  MOCK_MENTEES.every((_, i) => {
+    if (results[i].length > 0) return true;
+    const list = recommended[i];
+    return list.every((r, k) => {
+      if (k === 0) return true;
+      const prev = list[k - 1];
+      if (prev.fallback === r.fallback) return prev.score >= r.score;
+      return prev.fallback === "MAJOR" && r.fallback === "REGION";
+    });
+  }),
+);
+check(
+  "지망 캠퍼스 선배에게는 대체 사유가 붙지 않음",
+  MOCK_MENTEES.every((mentee) =>
+    MOCK_MENTORS.filter((m) => mentee.targetCampus.includes(m.currentCampus)).every(
+      (m) => fallbackReason(mentee, m) === undefined,
+    ),
+  ),
+);
+
+// 더미 학과는 12개뿐이라 거의 모두 학과 단계에서 걸린다. 지역 단계는 일부러 만든다:
+// 아무도 다니지 않는 학과를 희망하고, 지망 캠퍼스와 같은 지역에만 선배가 있는 멘티.
+const regionMentor = MOCK_MENTORS[0];
+const regionSibling = CAMPUSES_BY_REGION[regionOf(regionMentor.currentCampus)!].find(
+  (c) => !MOCK_MENTORS.some((m) => m.currentCampus === c),
+);
+if (regionSibling) {
+  const regionCase = {
+    ...MOCK_MENTEES[0],
+    targetCampus: [regionSibling],
+    targetMajors: ["검증용없는학과"],
+  };
+  const regionResults = recommendMentors(regionCase, MOCK_MENTORS, 50);
+  check(
+    "학과가 겹치는 선배가 없으면 같은 지역 선배로 넘어감",
+    regionResults.length > 0 &&
+      regionResults.every(
+        (r) =>
+          r.fallback === "REGION" &&
+          regionOf(r.mentor.currentCampus) === regionOf(regionSibling),
+      ) &&
+      regionResults.some((r) => r.mentor.id === regionMentor.id),
+    `${regionSibling} 지망 → ${regionResults.length}명`,
+  );
+}
+check(
+  "학과도 지역도 겹치지 않으면 추천하지 않음",
+  recommendMentors(
+    { ...MOCK_MENTEES[0], targetCampus: ["제주대"], targetMajors: ["검증용없는학과"] },
+    MOCK_MENTORS.filter((m) => regionOf(m.currentCampus) !== "제주"),
+    5,
+  ).length === 0,
+);
+
+const stillEmpty = MOCK_MENTEES.filter((_, i) => recommended[i].length === 0);
+console.log(
+  `  대체 후보로 추천받은 멘티: ${noMatch.length - stillEmpty.length}/${noMatch.length}` +
+    ` (학과 ${fallbackPairs.filter(({ r }) => r.fallback === "MAJOR").length}건 · ` +
+    `지역 ${fallbackPairs.filter(({ r }) => r.fallback === "REGION").length}건)`,
+);
+if (stillEmpty.length > 0) {
+  console.log(`  대체 후보도 없는 멘티: ${stillEmpty.map((m) => m.id).join(", ")}`);
+}
+
+// ---------------------------------------------------------------- 모집 필요 캠퍼스
+console.log("\n[5-2] 멘토 모집이 필요한 캠퍼스");
+
+const noAssignments = new Map<string, number>();
+const demand = campusDemand(MOCK_MENTEES, MOCK_MENTORS, noAssignments, new Set());
+const mentorCampuses = new Set(MOCK_MENTORS.map((m) => m.currentCampus as string));
+const wantedCampuses = new Set(MOCK_MENTEES.flatMap((m) => m.targetCampus as string[]));
+
+check(
+  "배정이 없으면 '멘토 없는 지망 캠퍼스'와 정확히 일치",
+  demand.map((d) => d.campus).sort().join() ===
+    [...wantedCampuses].filter((c) => !mentorCampuses.has(c)).sort().join(),
+);
+check(
+  "지망한 후배가 많은 캠퍼스가 위",
+  demand.every((d, i) => i === 0 || demand[i - 1].anyChoice >= d.anyChoice),
+);
+check(
+  "1지망 수는 전체 지망 수를 넘지 않음",
+  demand.every((d) => d.firstChoice <= d.anyChoice),
+);
+
+// 지망한 캠퍼스에 멘토가 한 명뿐인 곳을 골라 정원을 채우면 표에 나타나야 한다.
+const soleMentor = MOCK_MENTORS.find(
+  (m) =>
+    wantedCampuses.has(m.currentCampus) &&
+    MOCK_MENTORS.filter((o) => o.currentCampus === m.currentCampus).length === 1,
+);
+if (soleMentor) {
+  const full = campusDemand(
+    MOCK_MENTEES,
+    MOCK_MENTORS,
+    new Map([[soleMentor.id, soleMentor.capacity]]),
+    new Set(),
+  );
+  const row = full.find((d) => d.campus === soleMentor.currentCampus);
+  check("정원이 다 찬 캠퍼스는 '정원 마감'으로 포함", row?.mentors === 1, soleMentor.currentCampus);
+
+  const oneLeft = campusDemand(
+    MOCK_MENTEES,
+    MOCK_MENTORS,
+    new Map([[soleMentor.id, soleMentor.capacity - 1]]),
+    new Set(),
+  );
+  check(
+    "한 자리라도 남으면 포함하지 않음",
+    !oneLeft.some((d) => d.campus === soleMentor.currentCampus),
+  );
+}
+check(
+  "선배를 고른 멘티의 지망은 수요에서 빠짐",
+  campusDemand(MOCK_MENTEES, MOCK_MENTORS, noAssignments, new Set(MOCK_MENTEES.map((m) => m.id)))
+    .length === 0,
+);
+
+console.log(`  모집 필요 캠퍼스: ${demand.length}곳`);
+for (const d of demand.slice(0, 5)) {
+  console.log(`    ${d.campus} (${d.region ?? "-"}) — 지망 ${d.anyChoice}명 · 1지망 ${d.firstChoice}명`);
 }
 
 // ---------------------------------------------------------------- 해시태그

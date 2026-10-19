@@ -6,6 +6,7 @@
  *
  * 실행: npm run check:db
  */
+import { readFileSync } from "node:fs";
 import { supabaseAccess } from "./lib/env";
 
 const { url, headers } = supabaseAccess();
@@ -68,24 +69,25 @@ const UNIQUE_SQL = `do $$ begin
     add constraint users_contact_role_unique unique (contact, role);
 exception when duplicate_object then null; end $$;`;
 
-const ONE_TO_ONE_SQL = `create unique index if not exists matchings_mentor_taken_unique
-  on public.matchings (mentor_id)
-  where status in ('REQUESTED', 'CONFIRMED');
-
-create unique index if not exists matchings_mentee_taken_unique
-  on public.matchings (mentee_id)
-  where status in ('REQUESTED', 'CONFIRMED');`;
+/**
+ * 정원 마이그레이션 SQL. 길어서 여기 옮겨 적지 않고 파일을 그대로 보여준다.
+ * 옮겨 적으면 파일만 고치고 여기는 옛 SQL로 남는다.
+ */
+const CAPACITY_SQL = readFileSync(
+  new URL("../supabase/migrations/2026-10-19-mentor-capacity.sql", import.meta.url),
+  "utf8",
+).trim();
 
 /**
- * 1:1 제약을 확인한다.
+ * 매칭 정원을 확인한다. 멘토는 고른 정원만큼, 멘티는 한 명만.
  *
- * 코드에서도 "이미 매칭됐는지" 보지만, 두 멘티가 같은 순간에 누르면 둘 다
- * 통과한다. 마지막 방어선은 DB 인덱스뿐이라 여기서 살아있는지 확인한다.
+ * 코드에서도 자리가 남았는지 세지만, 마지막 한 자리에 두 멘티가 같은 순간에
+ * 누르면 둘 다 통과한다. 마지막 방어선은 DB 트리거·인덱스뿐이라 여기서
+ * 살아있는지 확인한다.
  *
  * 실데이터를 건드리지 않도록 검사용 사용자를 새로 만들고 끝나면 지운다.
  */
-async function probeOneToOne(): Promise<boolean> {
-  const CHECK_CONTACT = "010-0000-9003";
+async function probeCapacity(): Promise<boolean> {
   const base = {
     gender: "FEMALE" as const,
     persona_type: "DAVID",
@@ -102,13 +104,33 @@ async function probeOneToOne(): Promise<boolean> {
         ...base,
         role,
         participation_code: code,
-        name: `1대1확인${n}`,
-        contact: `${CHECK_CONTACT}`.slice(0, -1) + n,
+        name: `정원확인${n}`,
+        contact: `010-0000-900${n}`,
       }),
     });
     if (!res.ok) throw new Error(`검사용 ${role} 생성 실패 — ${await res.text()}`);
     const [row] = (await res.json()) as { id: string }[];
     return row.id;
+  }
+
+  /** 정원은 프로필에 있다. 프로필이 없으면 트리거가 1명으로 본다. */
+  async function addMentor(code: string, n: number, capacity: number): Promise<string> {
+    const id = await add("MENTOR", code, n);
+    const res = await fetch(`${url}/rest/v1/mentor_profiles`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        user_id: id,
+        current_campus: "연세대",
+        admission_year: 2023,
+        mentoring_area: ["학점관리"],
+        current_majors: ["경영학과"],
+        career_paths: ["금융권"],
+        capacity,
+      }),
+    });
+    if (!res.ok) throw new Error(`검사용 멘토 프로필 생성 실패 — ${await res.text()}`);
+    return id;
   }
 
   async function link(menteeId: string, mentorId: string): Promise<Response> {
@@ -134,16 +156,25 @@ async function probeOneToOne(): Promise<boolean> {
   try {
     // 참여코드는 0·1·I·L·O 를 뺀 알파벳만 쓴다. 그 밖의 글자를 넣으면
     // users_participation_code_check 에 걸려 검사 자체가 성립하지 않는다.
-    const menteeA = await add("MENTEE", "CHKQTA", 4);
-    const menteeB = await add("MENTEE", "CHKQTB", 5);
-    const mentor = await add("MENTOR", "CHKQTC", 6);
+    const menteeA = await add("MENTEE", "CHKCPA", 3);
+    const menteeB = await add("MENTEE", "CHKCPB", 4);
+    const menteeC = await add("MENTEE", "CHKCPC", 5);
+    const mentorOfTwo = await addMentor("CHKCPD", 6, 2);
+    const otherMentor = await addMentor("CHKCPE", 8, 3);
 
-    const first = await link(menteeA, mentor);
+    // 정원 2명: 두 명까지는 받아야 한다. 옛 1:1 인덱스가 남아 있으면 둘째에서 막힌다.
+    const first = await link(menteeA, mentorOfTwo);
     if (!first.ok) throw new Error(`첫 매칭이 저장되지 않음 — ${await first.text()}`);
+    const second = await link(menteeB, mentorOfTwo);
+    if (!second.ok) return false;
 
-    // 같은 멘토를 다른 멘티가 가져가려 하면 거부되어야 한다.
-    const second = await link(menteeB, mentor);
-    return !second.ok;
+    // 세 번째는 거부되어야 한다.
+    const third = await link(menteeC, mentorOfTwo);
+    if (third.ok) return false;
+
+    // 멘티는 여전히 한 명만 고른다. 자리가 남은 다른 멘토라도 거부되어야 한다.
+    const menteeTwice = await link(menteeA, otherMentor);
+    return !menteeTwice.ok;
   } finally {
     await cleanup();
   }
@@ -276,10 +307,15 @@ const requirements: Requirement[] = [
     sql: UNIQUE_SQL,
   },
   {
-    name: "1:1 매칭 제약 (멘토·멘티 각 1명)",
-    requires: "동의 컬럼 (consented_at, consent_version)",
-    probe: probeOneToOne,
-    sql: ONE_TO_ONE_SQL,
+    name: "멘토 정원 컬럼 (mentor_profiles.capacity)",
+    column: { table: "mentor_profiles", column: "capacity" },
+    sql: CAPACITY_SQL,
+  },
+  {
+    name: "매칭 정원 제약 (멘토는 정원만큼, 멘티는 1명)",
+    requires: "멘토 정원 컬럼 (mentor_profiles.capacity)",
+    probe: probeCapacity,
+    sql: CAPACITY_SQL,
   },
 ];
 

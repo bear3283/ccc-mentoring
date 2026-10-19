@@ -1,6 +1,7 @@
+import { regionOf } from "@/shared/constants/campus";
 import { getPersonaAffinity } from "@/shared/constants/persona";
 import { buildHashtags } from "./hashtags";
-import type { MatchResult, Mentee, Mentor, ScoreBreakdown } from "../model/types";
+import type { FallbackReason, MatchResult, Mentee, Mentor, ScoreBreakdown } from "../model/types";
 
 /**
  * 가중치. 합계는 항상 100이어야 한다.
@@ -184,6 +185,17 @@ export function totalScore(breakdown: ScoreBreakdown): number {
   return Object.values(breakdown).reduce((sum, value) => sum + value, 0);
 }
 
+function toResult(mentee: Mentee, mentor: Mentor, fallback?: FallbackReason): MatchResult {
+  const breakdown = calculateBreakdown(mentee, mentor);
+  return {
+    mentor,
+    score: Math.round(totalScore(breakdown)),
+    breakdown,
+    hashtags: buildHashtags(mentor, mentee),
+    ...(fallback && { fallback }),
+  };
+}
+
 /**
  * 멘티 한 명에 대해 전체 멘토를 점수화하고 높은 순으로 정렬한다.
  * @param limit 상위 몇 명까지 돌려줄지. 결과 카드 화면에 그대로 쓴다.
@@ -191,16 +203,64 @@ export function totalScore(breakdown: ScoreBreakdown): number {
 export function matchMentors(mentee: Mentee, mentors: Mentor[], limit = 5): MatchResult[] {
   return mentors
     .filter((mentor) => passesRequiredFilters(mentee, mentor))
-    .map((mentor) => {
-      const breakdown = calculateBreakdown(mentee, mentor);
-
-      return {
-        mentor,
-        score: Math.round(totalScore(breakdown)),
-        breakdown,
-        hashtags: buildHashtags(mentor, mentee),
-      };
-    })
+    .map((mentor) => toResult(mentee, mentor))
     .sort((a, b) => b.score - a.score)
     .slice(0, limit);
+}
+
+/**
+ * 지망 캠퍼스 밖의 선배를 왜 보여주는지. 지망 캠퍼스 안의 선배면 undefined.
+ *
+ * 학과가 지역보다 앞선다. 고3에게 "그 학과 생활이 어떤지"는 학교가 달라도
+ * 그대로 통하는 이야기지만, 같은 지역이라는 것은 만나기 쉽다는 것 말고는
+ * 전해 줄 것이 적다.
+ */
+export function fallbackReason(
+  mentee: Pick<Mentee, "targetCampus" | "targetMajors">,
+  mentor: Pick<Mentor, "currentCampus" | "currentMajors">,
+): FallbackReason | undefined {
+  if (mentee.targetCampus.includes(mentor.currentCampus)) return undefined;
+  if (mentor.currentMajors.some((m) => mentee.targetMajors.includes(m))) return "MAJOR";
+
+  const region = regionOf(mentor.currentCampus);
+  if (region && mentee.targetCampus.some((c) => regionOf(c) === region)) return "REGION";
+
+  return undefined;
+}
+
+const FALLBACK_ORDER: Record<FallbackReason, number> = { MAJOR: 0, REGION: 1 };
+
+/**
+ * 지망 캠퍼스에 선배가 한 명도 없을 때 대신 보여줄 선배.
+ *
+ * 캠퍼스 필터를 몰래 푸는 것이 아니다. 결과 화면은 이들을 "지망 캠퍼스 밖"이라고
+ * 밝혀서 보여주고, 고를지는 멘티가 정한다. 캠퍼스 점수가 0이라 적합도가 낮게
+ * 나오므로, 같은 이유끼리만 점수로 줄을 세우고 이유는 학과 → 지역 순으로 둔다.
+ */
+export function matchFallbackMentors(
+  mentee: Mentee,
+  mentors: Mentor[],
+  limit = 5,
+): MatchResult[] {
+  return mentors
+    // 연락처 확인은 대체 후보라고 건너뛸 수 없다. 이어 줄 방법이 없다.
+    .filter((mentor) => mentor.contact && mentee.contact)
+    .flatMap((mentor) => {
+      const reason = fallbackReason(mentee, mentor);
+      return reason ? [toResult(mentee, mentor, reason)] : [];
+    })
+    .sort(
+      (a, b) =>
+        FALLBACK_ORDER[a.fallback!] - FALLBACK_ORDER[b.fallback!] || b.score - a.score,
+    )
+    .slice(0, limit);
+}
+
+/**
+ * 멘티에게 보여줄 추천. 지망 캠퍼스 안에서 먼저 찾고, 한 명도 없을 때만
+ * 대체 후보로 넘어간다. 지망 캠퍼스 선배가 한 명이라도 있으면 그쪽이 우선이다.
+ */
+export function recommendMentors(mentee: Mentee, mentors: Mentor[], limit = 5): MatchResult[] {
+  const primary = matchMentors(mentee, mentors, limit);
+  return primary.length > 0 ? primary : matchFallbackMentors(mentee, mentors, limit);
 }
