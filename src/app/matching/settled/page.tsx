@@ -173,8 +173,9 @@ export default function SettledMatchPage() {
         </div>
 
         {/*
-          이 화면에서 해야 할 단 하나의 일. 선배에게는 알림이 가지 않으므로
-          후배가 먼저 보내지 않으면 아무 일도 일어나지 않는다.
+          이 화면에서 해야 할 단 하나의 일. 선배에게는 자동 알림이 없고 운영진이
+          문자로 알리는데(운영자 화면 "선배 알림"), 그때까지 시간이 걸린다.
+          후배가 먼저 보내면 그 공백 없이 바로 이어진다.
         */}
         <a
           href={smsHref}
@@ -187,9 +188,9 @@ export default function SettledMatchPage() {
         </a>
 
         <p className="mt-3 rounded-2xl bg-amber-50 px-4 py-3.5 text-[14px] leading-relaxed text-amber-900">
-          <strong className="block font-bold">선배님은 아직 모르고 계세요.</strong>
-          매칭 알림이 따로 가지 않아서, 후배가 먼저 인사를 건네야 연결이 시작돼요.
-          첫 인사말은 미리 적어뒀으니 그대로 보내도 괜찮아요.
+          <strong className="block font-bold">선배님은 아직 모르고 계실 수 있어요.</strong>
+          운영진이 선배님께 문자로 알려드리지만 시간이 걸려요. 먼저 인사를 건네면
+          바로 이어져요. 첫 인사말은 미리 적어뒀으니 그대로 보내도 괜찮아요.
         </p>
 
         <div className="mt-4 flex items-center justify-center gap-5 text-[14px] font-semibold text-gray-500">

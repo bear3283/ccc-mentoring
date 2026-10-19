@@ -13,7 +13,8 @@
     "check:db": "tsx scripts/check-db.ts",
     "verify:flow": "tsx scripts/verify-flow.ts",
     "purge": "tsx scripts/purge-expired.ts",
-    "seed:demo": "tsx scripts/seed-demo.ts"
+    "seed:demo": "tsx scripts/seed-demo.ts",
+    "notify:mentors": "tsx scripts/notify-mentors.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.5.2",

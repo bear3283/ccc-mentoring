@@ -83,6 +83,11 @@ const ARRIVAL_SQL = readFileSync(
   "utf8",
 ).trim();
 
+const NOTICE_SQL = readFileSync(
+  new URL("../supabase/migrations/2026-10-20-mentor-notice.sql", import.meta.url),
+  "utf8",
+).trim();
+
 /**
  * 매칭 정원을 확인한다. 멘토는 고른 정원만큼, 멘티는 한 명만.
  *
@@ -334,6 +339,11 @@ const requirements: Requirement[] = [
         event_arrival: "2500",
       }),
     sql: ARRIVAL_SQL,
+  },
+  {
+    name: "선배 알림 기록 컬럼 (matchings.mentor_notified_at, mentor_notified_via)",
+    column: { table: "matchings", column: "mentor_notified_at,mentor_notified_via" },
+    sql: NOTICE_SQL,
   },
   {
     name: "멘토 정원 컬럼 (mentor_profiles.capacity)",

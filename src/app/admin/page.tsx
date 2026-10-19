@@ -3,6 +3,7 @@ import { campusDemand } from "@/features/admin/lib/campusDemand";
 import {
   listMatchings,
   listMentees,
+  listMentorNotices,
   listMentors,
   listUnmatched,
   loadAssignmentState,
@@ -23,12 +24,13 @@ export const dynamic = "force-dynamic";
 
 export default async function AdminPage() {
   // 질의는 서로 의존하지 않으므로 함께 보낸다.
-  const [mentees, mentors, matchings, unmatched, assignment] = await Promise.all([
+  const [mentees, mentors, matchings, unmatched, assignment, notices] = await Promise.all([
     listMentees(),
     listMentors(),
     listMatchings(),
     listUnmatched(),
     loadAssignmentState(),
+    listMentorNotices(),
   ]);
 
   const matchRows: MatchRow[] = matchings.map((m) => ({
@@ -64,6 +66,7 @@ export default async function AdminPage() {
       mentors={mentorRows}
       matchRows={matchRows}
       unmatched={unmatched}
+      notices={notices}
       demand={campusDemand(
         mentees,
         mentors,

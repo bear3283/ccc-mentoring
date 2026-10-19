@@ -5,13 +5,15 @@ import { DataTable, type TableColumn } from "./DataTable";
 import { downloadCsv, type CsvColumn } from "../lib/csv";
 import type { FallbackReason, Mentee, Mentor } from "@/features/matching/model/types";
 import type { CampusDemandRow } from "../lib/campusDemand";
+import type { MentorNoticeRow } from "@/features/signup/lib/repository";
+import { MentorNoticeList } from "./MentorNoticeList";
 import { formatTimeSlotShort } from "@/shared/constants/domain";
 import { EVENT_ARRIVAL_LABEL } from "@/shared/constants/venue";
 import { WEIGHTS } from "@/features/matching/lib/score";
 import { PERSONAS } from "@/shared/constants/persona";
 import { cn } from "@/shared/lib/cn";
 
-type Tab = "mentee" | "mentor" | "matching" | "unmatched";
+type Tab = "mentee" | "mentor" | "matching" | "unmatched" | "notice";
 
 /** 매칭 표의 한 행. 멘티 1명 x 추천 멘토 1명. */
 export interface MatchRow {
@@ -228,6 +230,7 @@ const TABS: { key: Tab; label: string }[] = [
   { key: "mentor", label: "멘토 신청자" },
   { key: "matching", label: "매칭 결과" },
   { key: "unmatched", label: "미매칭" },
+  { key: "notice", label: "선배 알림" },
 ];
 
 export interface UnmatchedRow {
@@ -244,6 +247,7 @@ interface AdminDashboardProps {
   matchRows: MatchRow[];
   unmatched: UnmatchedRow[];
   demand: CampusDemandRow[];
+  notices: MentorNoticeRow[];
 }
 
 const demandColumns: TableColumn<CampusDemandRow>[] = [
@@ -296,7 +300,10 @@ export function AdminDashboard({
   matchRows,
   unmatched,
   demand,
+  notices,
 }: AdminDashboardProps) {
+  // 탭 머리의 숫자만 쓴다. 목록 안에서 "보냄"을 눌러도 새로고침 전까지는 그대로다.
+  const pendingNotices = notices.filter((n) => !n.notifiedAt).length;
   const [tab, setTab] = useState<Tab>("matching");
 
   const [running, setRunning] = useState(false);
@@ -389,7 +396,7 @@ export function AdminDashboard({
         )}
 
         {/* 운영 판단에 필요한 수치를 표 위에 고정해 둔다. */}
-        <dl className="mt-4 flex gap-6 border-y border-gray-100 py-3">
+        <dl className="mt-4 flex flex-wrap gap-x-6 gap-y-2 border-y border-gray-100 py-3">
           <Stat label="멘티" value={`${mentees.length}명`} />
           <Stat label="멘토" value={`${mentors.length}명`} />
           <Stat label="매칭 성사" value={`${mentees.length - unmatched.length}명`} />
@@ -399,9 +406,14 @@ export function AdminDashboard({
             emphasis={unmatched.length > 0}
           />
           <Stat label="추천 조합" value={`${matchRows.length}건`} />
+          <Stat
+            label="선배 알림 대기"
+            value={`${pendingNotices}명`}
+            emphasis={pendingNotices > 0}
+          />
         </dl>
 
-        <div className="flex gap-1 py-3">
+        <div className="flex flex-wrap gap-1 py-3">
           {TABS.map((t) => (
             <button
               key={t.key}
@@ -413,6 +425,9 @@ export function AdminDashboard({
               )}
             >
               {t.label}
+              {t.key === "notice" && pendingNotices > 0 && (
+                <span className="ml-1.5 tabular-nums">{pendingNotices}</span>
+              )}
             </button>
           ))}
         </div>
@@ -468,6 +483,8 @@ export function AdminDashboard({
           />
         </>
       )}
+
+      {tab === "notice" && <MentorNoticeList initial={notices} />}
 
       {tab === "matching" && (
         <DataTable

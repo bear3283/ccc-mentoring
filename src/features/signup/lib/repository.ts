@@ -986,3 +986,108 @@ export async function listUnmatched(): Promise<UnmatchedReason[]> {
       ];
     });
 }
+
+/** 선배에게 알렸는지. 운영자 화면과 notify-mentors 스크립트가 같은 값을 쓴다. */
+export type MentorNoticeVia = "ADMIN_SMS" | "MAC_MESSAGES";
+
+/** 성사된 매칭 한 건과 선배 알림 상태. */
+export interface MentorNoticeRow {
+  matchingId: string;
+  menteeName: string;
+  menteeArrival?: EventArrival;
+  mentorName: string;
+  mentorCode: string;
+  mentorContact: string;
+  /** 아직 알리지 않았으면 undefined */
+  notifiedAt?: string;
+  notifiedVia?: MentorNoticeVia;
+}
+
+/**
+ * 성사된 매칭 전부와 선배 알림 상태.
+ *
+ * 추천(SUGGESTED)은 넣지 않는다. 후배가 아직 고르지 않았으니 알릴 일이 없다.
+ * 알릴 것이 위로 오도록 아직 안 보낸 건을 먼저, 그 안에서는 오래된 순으로 둔다.
+ */
+export async function listMentorNotices(): Promise<MentorNoticeRow[]> {
+  const supabase = getSupabase();
+  if (!supabase) return [];
+
+  const { data, error } = await supabase
+    .from("matchings")
+    .select(
+      `id, created_at, mentor_notified_at, mentor_notified_via,
+       mentee:mentee_id (name, event_arrival),
+       mentor:mentor_id (participation_code, name, contact)`,
+    )
+    .in("status", ["REQUESTED", "CONFIRMED"])
+    .order("created_at", { ascending: true });
+
+  if (error) logDbError("선배 알림 목록 조회", error);
+  if (error || !data) return [];
+
+  const rows = (data as unknown[]).flatMap((raw): MentorNoticeRow[] => {
+    const row = raw as {
+      id: string;
+      mentor_notified_at: string | null;
+      mentor_notified_via: MentorNoticeVia | null;
+      mentee: { name: string; event_arrival: string | null } | null;
+      mentor: { participation_code: string; name: string; contact: string } | null;
+    };
+    // 사람이 지워졌으면 알릴 대상도 없다.
+    if (!row.mentee || !row.mentor) return [];
+    return [
+      {
+        matchingId: row.id,
+        menteeName: row.mentee.name,
+        menteeArrival: asEventArrival(row.mentee.event_arrival),
+        mentorName: row.mentor.name,
+        mentorCode: row.mentor.participation_code,
+        mentorContact: row.mentor.contact,
+        notifiedAt: row.mentor_notified_at ?? undefined,
+        notifiedVia: row.mentor_notified_via ?? undefined,
+      },
+    ];
+  });
+
+  return [...rows.filter((r) => !r.notifiedAt), ...rows.filter((r) => r.notifiedAt)];
+}
+
+/**
+ * 선배에게 알렸다고 기록한다(또는 기록을 지운다).
+ *
+ * 이미 기록된 건은 덮어쓰지 않는다. 휴대폰 두 대로 같은 화면을 열어 둔 운영자가
+ * 동시에 눌러도 처음 보낸 시각과 방법이 남는다. 잘못 누른 경우만 되돌린다.
+ */
+export async function setMentorNotified(
+  matchingId: string,
+  via: MentorNoticeVia | null,
+): Promise<{ ok: boolean; notifiedAt?: string }> {
+  const supabase = getSupabase();
+  if (!supabase) return { ok: false };
+
+  const query =
+    via === null
+      ? supabase
+          .from("matchings")
+          .update({ mentor_notified_at: null, mentor_notified_via: null })
+          .eq("id", matchingId)
+      : supabase
+          .from("matchings")
+          .update({ mentor_notified_at: new Date().toISOString(), mentor_notified_via: via })
+          .eq("id", matchingId)
+          .is("mentor_notified_at", null);
+
+  const { error } = await query;
+  if (error) {
+    logDbError("선배 알림 기록", error);
+    return { ok: false };
+  }
+
+  const { data } = await supabase
+    .from("matchings")
+    .select("mentor_notified_at")
+    .eq("id", matchingId)
+    .maybeSingle();
+  return { ok: true, notifiedAt: (data?.mentor_notified_at as string | null) ?? undefined };
+}

@@ -11,7 +11,7 @@
  * 검증이 끝나면 만든 데이터를 스스로 지운다.
  */
 import { CONSENT_VERSION } from "../src/shared/constants/privacy";
-import { supabaseAccess } from "./lib/env";
+import { loadEnv, supabaseAccess } from "./lib/env";
 
 const BASE = process.env.BASE_URL ?? "http://localhost:3000";
 const { url: dbUrl, headers: dbHeaders } = supabaseAccess();
@@ -458,6 +458,37 @@ async function main() {
       revisitResults.some((r) => r.mentor.id === mentorId),
     `settled=${String(revisit.json.settledMentorId)}`,
   );
+
+  console.log("\n[5-2] 선배 알림 (운영자)");
+  // 알림 기록은 운영자만 남길 수 있어야 한다. 아니면 누구나 "알렸음"으로 바꿔 빠뜨리게 만든다.
+  const matchRow = (await (
+    await fetch(
+      `${dbUrl}/rest/v1/matchings?select=id&mentor_id=eq.${mentorId}&status=eq.REQUESTED&limit=1`,
+      { headers: dbHeaders },
+    )
+  ).json()) as { id: string }[];
+  const matchingId = matchRow[0]?.id;
+  const anonymous = await post("/api/admin/mentor-notice", { matchingId });
+  check("로그인 없이 알림 기록 거부", anonymous.status === 401, `HTTP ${anonymous.status}`);
+
+  const password = loadEnv().ADMIN_PASSWORD;
+  const login = await post("/api/admin/login", { password });
+  const cookie = login.res.headers.get("set-cookie")?.split(";")[0];
+  if (!cookie || !matchingId) {
+    check("운영자 로그인 후 알림 기록", false, !cookie ? "로그인 실패" : "매칭 행 없음");
+  } else {
+    const first = await post("/api/admin/mentor-notice", { matchingId }, cookie);
+    const second = await post("/api/admin/mentor-notice", { matchingId }, cookie);
+    check(
+      "알림 기록 · 두 번 눌러도 처음 시각 유지",
+      first.status === 200 && !!first.json.notifiedAt && second.json.notifiedAt === first.json.notifiedAt,
+      String(first.json.notifiedAt ?? first.json.error),
+    );
+    const undo = await post("/api/admin/mentor-notice", { matchingId, undo: true }, cookie);
+    check("알림 기록 되돌리기", undo.status === 200 && undo.json.notifiedAt === null);
+    const bad = await post("/api/admin/mentor-notice", { matchingId: "not-a-uuid" }, cookie);
+    check("잘못된 매칭 id 거부", bad.status === 400, `HTTP ${bad.status}`);
+  }
 
   console.log("\n[6] 참여코드 조회");
   const found = await post("/api/lookup", { name: "검증멘티", contact: `${TEST_PREFIX}0001` });
