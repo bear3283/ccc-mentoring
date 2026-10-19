@@ -52,7 +52,7 @@ npm run dev        # http://localhost:3000
 | `npm run verify` | 매칭 알고리즘 검증 (멘토 50 × 멘티 50 = 2,500조합) |
 | `npm run verify:flow` | API·DB·보안이 실제로 맞물려 도는지 (서버 필요) |
 | `npm run seed:demo` | 검증용 멘토 10명 투입 (`-- --clean` 으로 정리) |
-| `npm run notify:mentors` | 알릴 선배 목록 (`-- --send` 로 맥 메시지 앱 발송, `-- --test 번호` 로 시험) |
+| `npm run notify:mentors` | 알릴 선배 목록 (`-- --send` 로 맥 메시지 앱 발송, `-- --test 다른사람번호` 로 시험) |
 | `npm run reset-data` | 신청 데이터 삭제 (`-- --yes` 를 붙여야 실제 실행) |
 | `npm run purge -- --event-end YYYY-MM-DD` | 보유 기간이 지난 데이터 파기 |
 
@@ -350,7 +350,10 @@ python3 scripts/build-campus-majors.py   # 공시자료가 갱신되면 다시 �
 | **3. Claude 에게 주기적으로 확인 맡기기** | Claude Code 에서 `/loop 30m npm run notify:mentors 로 알릴 선배가 있는지 보고, 있으면 알려줘` | 운영자가 자주 못 볼 때 |
 
 **2번 준비** (처음 한 번): 운영자 아이폰 → 설정 → 메시지 → 문자 메시지 전달 → 이 맥 켜기.
-그다음 `npm run notify:mentors -- --test 010-내번호` 로 내 휴대폰에 한 통 와야 합니다.
+그다음 `npm run notify:mentors -- --test 010-다른사람번호` 로 시험에 동의한 **다른 사람** 휴대폰에
+한 통이 가야 합니다. **본인 번호로는 시험하지 마세요.** 아이폰이 자기 번호로 문자를 보내면 맥에서 진행
+막대가 멈춘 채 나가지 않고, iMessage(파란 말풍선)로 가 버리기도 해서 시험이 되지 않습니다.
+갤럭시 사용자에게는 문자(초록 말풍선)로 가야 하니, 초록색이 끝까지 나가는 것을 한 번은 확인하세요.
 문자는 **그 아이폰 번호로** 나가고, 맥이 켜져 있어야 합니다. 한꺼번에 많이 보내면 통신사가
 스팸으로 막을 수 있어 건 사이에 쉬고 건수를 제한합니다.
 

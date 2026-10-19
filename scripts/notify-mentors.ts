@@ -7,7 +7,11 @@
  *
  * 실행:
  *   npm run notify:mentors                         # 보낼 목록과 문구만 확인
- *   npm run notify:mentors -- --test 010-1234-5678 # 내 번호로 한 통만 시험 (기록 안 함)
+ *   npm run notify:mentors -- --test 010-1234-5678 # 다른 사람 번호로 한 통만 시험 (기록 안 함)
+ *
+ * 시험은 운영자 본인 번호가 아니라 동의한 다른 사람 번호로 한다. 아이폰이 자기
+ * 번호로 문자를 보내면 맥에서 진행 막대가 멈춘 채 나가지 않는다(실측). 본인 번호가
+ * iMessage 에 등록돼 있으면 문자 대신 iMessage(파란 말풍선)로 가서 시험이 되지도 않는다.
  *   npm run notify:mentors -- --send               # 실제로 보내고 기록 (기본 최대 10건)
  *   npm run notify:mentors -- --send --limit 30
  *
