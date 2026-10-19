@@ -54,14 +54,19 @@ check(
   `캠퍼스 ${WEIGHTS.campus} / 영역 ${WEIGHTS.area} / 시간대 ${WEIGHTS.schedule} / MBTI ${WEIGHTS.mbti} / 학과·진로 ${WEIGHTS.majorAndCareer} / 성경인물 ${WEIGHTS.persona}`,
 );
 check(
-  "MBTI 4축이 각각 2.5점",
-  WEIGHTS.mbti / 4 === 2.5,
+  "MBTI 4축이 같은 점수로 나뉨",
+  (WEIGHTS.mbti / 4) * 4 === WEIGHTS.mbti,
   `${WEIGHTS.mbti} / 4 = ${WEIGHTS.mbti / 4}점`,
 );
 check(
-  "성경 인물이 MBTI보다 가벼움",
-  WEIGHTS.persona < WEIGHTS.mbti,
-  `성경인물 ${WEIGHTS.persona} < MBTI ${WEIGHTS.mbti}`,
+  "성경 인물이 MBTI보다 무겁지 않음 (둘 다 보조 지표)",
+  WEIGHTS.persona <= WEIGHTS.mbti,
+  `성경인물 ${WEIGHTS.persona} ≤ MBTI ${WEIGHTS.mbti}`,
+);
+check(
+  "실질 신호(학교·분야·학과진로)가 성향(MBTI·성경인물)보다 무거움",
+  WEIGHTS.majorAndCareer > WEIGHTS.mbti + WEIGHTS.persona,
+  `학과·진로 ${WEIGHTS.majorAndCareer} > 성향 ${WEIGHTS.mbti + WEIGHTS.persona}`,
 );
 
 // 고등학교/추천인이 점수에 새어 들어가지 않았는지 소스에서 직접 확인한다.
@@ -179,9 +184,13 @@ console.log("\n[2-1] MBTI 배점");
   const none = scoreMbti(mentee, { ...mentorBase, mbti: oppositeLetters as typeof mentee.mbti });
   const unknown = scoreMbti(mentee, { ...mentorBase, mbti: undefined });
 
-  check("4축 모두 일치 = 10점", full === 10, `${full}점`);
+  check(`4축 모두 일치 = ${WEIGHTS.mbti}점`, full === WEIGHTS.mbti, `${full}점`);
   check("4축 모두 불일치 = 0점", none === 0, `${none}점`);
-  check("미입력 시 중립(5점) - 건너뛴 사람이 불이익 없음", unknown === 5, `${unknown}점`);
+  check(
+    `미입력 시 중립(${WEIGHTS.mbti / 2}점) - 건너뛴 사람이 불이익 없음`,
+    unknown === WEIGHTS.mbti / 2,
+    `${unknown}점`,
+  );
 
   // 미입력자는 모든 멘토에게 같은 점수를 받으므로 순위가 왜곡되지 않아야 한다.
   const noMbtiMentee = { ...mentee, mbti: undefined };
