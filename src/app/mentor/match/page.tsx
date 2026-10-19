@@ -5,12 +5,20 @@ import { useEffect, useState } from "react";
 import { Name } from "@/components/ui/Name";
 import { loadDraft } from "@/features/onboarding/lib/draftStore";
 import { normalizeParticipationCode } from "@/features/onboarding/lib/participationCode";
-import { EVENT_DATE_LABEL, isAfterEvent, VENUE } from "@/shared/constants/venue";
+import {
+  EVENT_ARRIVAL_LABEL,
+  EVENT_DATE_LABEL,
+  isAfterEvent,
+  VENUE,
+  type EventArrival,
+} from "@/shared/constants/venue";
 
 interface LinkedMentee {
   name: string;
   contact: string;
   campus?: string;
+  /** 채플 당일 도착 시간. 그날 언제 찾아가 인사할지 정하는 데 쓴다. */
+  eventArrival?: EventArrival;
 }
 
 interface MentorMatch {
@@ -173,6 +181,16 @@ function MenteeCard({ mentee, mentorName }: { mentee: LinkedMentee; mentorName: 
         <p className="mt-1 text-[14px] text-white/85">{mentee.campus} 지망</p>
       )}
 
+      {/* 채플 날은 인사하는 자리다. 1:1 멘토링 날짜는 그 뒤에 문자로 따로 정한다. */}
+      {!isAfterEvent() && (
+        <p className="mt-3 text-[14px] text-white/85">
+          채플 날{" "}
+          <b className="font-bold text-white">
+            {mentee.eventArrival ? EVENT_ARRIVAL_LABEL[mentee.eventArrival] : "도착 시간 미정"}
+          </b>
+        </p>
+      )}
+
       <p className="mt-5 font-mono text-[20px] font-bold tracking-wide">{mentee.contact}</p>
 
       {/* 후배가 먼저 연락하기 어려워할 수 있다. 선배가 먼저 여는 길을 준다. */}
@@ -189,8 +207,8 @@ function MenteeCard({ mentee, mentorName }: { mentee: LinkedMentee; mentorName: 
       </a>
       <p className="mt-2.5 text-center text-[13px] text-white/70">
         {isAfterEvent()
-          ? "편한 때를 정해 만나보세요."
-          : `${EVENT_DATE_LABEL} ${VENUE.name}에서 만나요.`}
+          ? "1:1 멘토링 날을 정해 만나보세요."
+          : `${EVENT_DATE_LABEL} ${VENUE.name}에서 인사하고, 1:1 멘토링은 그 뒤에 따로 잡아요.`}
       </p>
     </div>
   );

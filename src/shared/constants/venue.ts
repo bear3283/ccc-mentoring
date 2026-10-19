@@ -178,3 +178,31 @@ export const MEETING_SPOTS: MeetingSpot[] = [
 
 /** 예시라는 것을 화면에서도 밝혀야 당일에 혼선이 없다. */
 export const MEETING_SPOTS_ARE_DRAFT = true;
+
+/**
+ * 채플 당일(목) 몇 시에 올 수 있는지.
+ *
+ * 채플 날은 매칭된 선배·후배가 얼굴을 보고 인사하는 자리다. 1:1 멘토링은
+ * 그 뒤에 따로 한 번 하고, 그 시간은 TIME_SLOTS(평일·주말 시간대)로 받는다.
+ * 둘을 한 질문으로 물으면 "목요일에 만나는 시간"인지 헷갈린다.
+ *
+ * 매칭 점수에는 쓰지 않는다. 인사만 하는 자리라 도착 시간이 달라도
+ * 문자로 맞추면 된다. 매칭된 상대와 운영자에게만 보여준다.
+ *
+ * DB 제약(users_event_arrival_check)과 같은 값이어야 한다.
+ */
+export const EVENT_ARRIVALS = ["1700", "1730", "1800", "1830", "1900_LATER", "ABSENT"] as const;
+export type EventArrival = (typeof EVENT_ARRIVALS)[number];
+
+export const EVENT_ARRIVAL_LABEL: Record<EventArrival, string> = {
+  "1700": "오후 5시 ~ 5시 30분",
+  "1730": "오후 5시 30분 ~ 6시",
+  "1800": "오후 6시 ~ 6시 30분",
+  "1830": "오후 6시 30분 ~ 7시",
+  "1900_LATER": "오후 7시 이후",
+  ABSENT: "당일엔 못 와요",
+};
+
+export function isEventArrival(value: unknown): value is EventArrival {
+  return typeof value === "string" && (EVENT_ARRIVALS as readonly string[]).includes(value);
+}

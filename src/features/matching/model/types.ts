@@ -8,6 +8,7 @@ import type {
 } from "@/shared/constants/domain";
 import type { MbtiType } from "@/shared/constants/mbti";
 import type { PersonaType } from "@/shared/constants/persona";
+import type { EventArrival } from "@/shared/constants/venue";
 
 /** DB의 Users + Mentee_Profiles를 조인한 형태 */
 export interface Mentee {
@@ -27,6 +28,8 @@ export interface Mentee {
   isNewFriend?: boolean;
   /** 행사 등록만 했는지, 멘토링까지 신청했는지 */
   mentoringApplied?: boolean;
+  /** 채플 당일 도착 시간. 매칭 점수에는 쓰지 않는다. */
+  eventArrival?: EventArrival;
   /** 프로필 사진 (data URL). 없으면 페르소나 이모지로 대체한다. */
   photoUrl?: string;
   availableTimes: TimeSlot[];
@@ -56,6 +59,8 @@ export interface Mentor {
   isNewFriend?: boolean;
   /** 행사 등록만 했는지, 멘토링까지 신청했는지 */
   mentoringApplied?: boolean;
+  /** 채플 당일 도착 시간. 매칭 점수에는 쓰지 않는다. */
+  eventArrival?: EventArrival;
   photoUrl?: string;
   availableTimes: TimeSlot[];
   currentCampus: Campus;

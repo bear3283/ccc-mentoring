@@ -135,7 +135,7 @@ export function MentorCard({
             </dd>
           </div>
           <div>
-            <dt className="text-[12px] text-gray-400">가능 시간</dt>
+            <dt className="text-[12px] text-gray-400">멘토링 가능 시간</dt>
             <dd className="mt-0.5 text-[14px] font-semibold text-gray-700">
               {/* 개수만 보여주면 실제로 만날 수 있는지 판단이 안 된다. */}
               {mentor.availableTimes.slice(0, 2).map(formatTimeSlotShort).join(", ")}

@@ -9,6 +9,12 @@ import { AREA_META, type MentoringArea } from "@/shared/constants/domain";
 import { loadDraft } from "@/features/onboarding/lib/draftStore";
 import { MentoringGuide } from "@/features/venue/components/MentoringGuide";
 import { PERSONAS } from "@/shared/constants/persona";
+import {
+  EVENT_ARRIVAL_LABEL,
+  EVENT_DATE_LABEL,
+  isAfterEvent,
+  type EventArrival,
+} from "@/shared/constants/venue";
 import { nameInitials } from "@/shared/lib/nameInitials";
 
 /**
@@ -32,6 +38,9 @@ type State =
       contact: string;
       /** 내가 고른 관심 영역. 첫 문자에 넣을 질문 예시를 여기서 뽑는다. */
       areas: MentoringArea[];
+      /** 채플 당일 도착 시간. 선배 것은 연결된 뒤에만 서버가 알려준다. */
+      mentorArrival?: EventArrival;
+      myArrival?: EventArrival;
     };
 
 export default function SettledMatchPage() {
@@ -59,7 +68,10 @@ export default function SettledMatchPage() {
       const matchBody = (await matchRes.json()) as {
         results?: PublicMatchResult[];
         settledMentorId?: string;
+        mentee?: { eventArrival?: EventArrival };
       };
+      // 서버 값이 우선이다. 다른 기기에서 코드로 들어오면 브라우저 초안이 비어 있다.
+      const myArrival = matchBody.mentee?.eventArrival ?? stored.draft.eventArrival;
 
       const mentor = matchBody.results?.find(
         (r) => r.mentor.id === matchBody.settledMentorId,
@@ -75,13 +87,24 @@ export default function SettledMatchPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ participationCode: code, mentorId: mentor.id }),
       });
-      const revealBody = (await revealRes.json()) as { contact?: string };
+      const revealBody = (await revealRes.json()) as {
+        contact?: string;
+        mentorEventArrival?: EventArrival;
+      };
       if (!revealRes.ok || !revealBody.contact) {
         setState({ kind: "none" });
         return;
       }
 
-      setState({ kind: "ready", myName, mentor, contact: revealBody.contact, areas });
+      setState({
+        kind: "ready",
+        myName,
+        mentor,
+        contact: revealBody.contact,
+        areas,
+        mentorArrival: revealBody.mentorEventArrival,
+        myArrival,
+      });
     })();
   }, [router]);
 
@@ -111,7 +134,8 @@ export default function SettledMatchPage() {
     );
   }
 
-  const { myName, mentor, contact, areas } = state;
+  const { myName, mentor, contact, areas, mentorArrival, myArrival } = state;
+  const beforeEvent = !isAfterEvent();
   // 고3이 가장 막히는 지점은 번호가 아니라 "뭐라고 보내지"다.
   // 본인이 고른 관심 영역에서 질문 하나를 꺼내 보여주면 그 자리가 메워진다.
   const sampleAsk = areas[0] ? AREA_META[areas[0]].ask : "대학 생활은 어떠세요?";
@@ -177,6 +201,41 @@ export default function SettledMatchPage() {
       </header>
 
       {/*
+        채플 날은 인사만 하는 자리다. 서로 언제 오는지 알아야 그날 찾아갈 수 있다.
+        1:1 멘토링 날짜는 그 뒤에 따로 정한다(아래 안내 3단계).
+      */}
+      {beforeEvent && (
+        <section className="mt-3 bg-white px-6 py-7">
+          <h2 className="text-[18px] font-bold tracking-[-0.01em] text-gray-900">
+            {EVENT_DATE_LABEL} 채플에서 인사해요
+          </h2>
+          <p className="mt-1.5 text-[14px] leading-relaxed text-gray-500">
+            1:1 멘토링은 채플 뒤에 따로 날을 잡아요. 채플 날에는 얼굴 보고 인사만 해요.
+          </p>
+          <dl className="mt-5 grid grid-cols-[auto_1fr] gap-x-5 gap-y-3 text-[15px]">
+            <dt className="font-semibold text-gray-500">선배</dt>
+            <dd className="font-bold text-gray-900">
+              {mentorArrival ? EVENT_ARRIVAL_LABEL[mentorArrival] : "아직 몰라요"}
+            </dd>
+            <dt className="font-semibold text-gray-500">나</dt>
+            <dd className="font-bold text-gray-900">
+              {myArrival ? EVENT_ARRIVAL_LABEL[myArrival] : "고르지 않았어요"}
+            </dd>
+          </dl>
+          {(mentorArrival === "ABSENT" || myArrival === "ABSENT") && (
+            <p className="mt-4 rounded-2xl bg-gray-50 px-4 py-3.5 text-[13px] leading-relaxed text-gray-600">
+              채플 날 만나기 어렵다면, 문자로 1:1 멘토링 날을 바로 정해 보세요.
+            </p>
+          )}
+          {!mentorArrival && (
+            <p className="mt-4 rounded-2xl bg-gray-50 px-4 py-3.5 text-[13px] leading-relaxed text-gray-600">
+              선배가 언제 오는지는 첫 문자에서 물어보면 돼요.
+            </p>
+          )}
+        </section>
+      )}
+
+      {/*
         번호를 받고도 막히는 곳은 "뭐라고 보내지"다. 예시를 보여주면 그 자리가 메워진다.
         길게 쓰라고 하면 오히려 못 보내므로, 짧게 보내도 된다는 것을 먼저 말한다.
       */}
@@ -205,10 +264,18 @@ export default function SettledMatchPage() {
                 : "한 번에 여러 개를 묻기보다 하나씩 물어보는 편이 답하기 쉬워요."
             }
           />
+          {/*
+            채플 전이면 "그날 인사"를, 지났거나 당일에 못 오면 "1:1 멘토링 날"을 묻는다.
+            둘을 한 문장에 섞으면 목요일에 멘토링까지 하자는 말로 읽힌다.
+          */}
           <GuideLine
             step="3"
-            title="언제 편한지 덧붙이기"
-            body="저는 평일 저녁이 편한데, 선배님은 언제가 괜찮으세요?"
+            title={beforeEvent && myArrival && myArrival !== "ABSENT" ? "채플 날 인사 약속" : "만날 날 묻기"}
+            body={
+              beforeEvent && myArrival && myArrival !== "ABSENT"
+                ? `채플 날 저는 ${arrivalPhrase(myArrival)} 도착해요. 그날 잠깐 인사드려도 될까요?`
+                : "채플 끝나고 한 번 뵙고 싶은데, 선배님은 언제가 괜찮으세요?"
+            }
             note="답장 부담이 줄어들어요."
           />
         </ol>
@@ -255,4 +322,10 @@ function GuideLine({
       </div>
     </li>
   );
+}
+
+/** "오후 6시 ~ 6시 30분 사이에" / "오후 7시 이후에". 첫 문자 예시에 그대로 넣는다. */
+function arrivalPhrase(arrival: Exclude<EventArrival, "ABSENT">): string {
+  const label = EVENT_ARRIVAL_LABEL[arrival];
+  return arrival === "1900_LATER" ? `${label}에` : `${label} 사이에`;
 }

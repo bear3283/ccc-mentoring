@@ -54,5 +54,10 @@ export async function POST(request: Request) {
   // 누가 누구에게 요청했는지는 참여코드로만 남긴다.
   console.log(`[match] request ${code} -> ${mentorId.slice(0, 8)}`);
 
-  return NextResponse.json({ contact: result.contact, mentorName: result.mentorName });
+  return NextResponse.json({
+    contact: result.contact,
+    mentorName: result.mentorName,
+    // 연결된 후배에게만 나가는 값이다. 후보 카드(/api/match)에는 싣지 않는다.
+    mentorEventArrival: result.mentorEventArrival,
+  });
 }

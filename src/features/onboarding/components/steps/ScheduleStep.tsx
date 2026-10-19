@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { TIME_SLOTS, TIME_SLOT_DEFS, type TimeSlot } from "@/shared/constants/domain";
+import { EVENT_DATE_LABEL, isAfterEvent } from "@/shared/constants/venue";
 import { useStaggerReveal } from "@/shared/hooks/useStaggerReveal";
 import { cn } from "@/shared/lib/cn";
 import { StepLayout } from "../StepLayout";
@@ -11,12 +12,21 @@ const WEEKDAY_SLOTS = TIME_SLOTS.filter((id) => TIME_SLOT_DEFS[id].day === "WEEK
 const WEEKEND_SLOTS = TIME_SLOTS.filter((id) => TIME_SLOT_DEFS[id].day === "WEEKEND");
 
 /**
- * 시간대가 하나도 겹치지 않으면 매칭에서 아예 제외되므로,
+ * 겹치는 시간이 적을수록 매칭 점수가 크게 깎이므로,
  * 적게 고르면 손해라는 것을 화면에서 계속 알려준다.
  */
 const RECOMMENDED_MIN = 3;
 
-export function ScheduleStep({ draft, onNext, onChange }: StepProps) {
+/** 누구와 만나는지만 역할에 따라 다르다. */
+const PARTNER = { MENTEE: "선배", MENTOR: "후배" } as const;
+
+/**
+ * 채플 뒤에 따로 한 번 하는 1:1 멘토링 시간.
+ *
+ * 채플 당일(목) 시간과 헷갈리지 않게 질문에 "채플 이후"를 박아 두고,
+ * 바로 앞 스텝(ArrivalStep)이 당일 시간을 따로 묻는다.
+ */
+export function ScheduleStep({ role, draft, onNext, onChange }: StepProps) {
   const [selected, setSelected] = useState<TimeSlot[]>(draft.availableTimes);
 
   const bodyRef = useRef<HTMLDivElement>(null);
@@ -46,8 +56,10 @@ export function ScheduleStep({ draft, onNext, onChange }: StepProps) {
   return (
     <StepLayout
       eyebrow="마지막 질문이에요"
-      question="언제 만날 수 있어요?"
-      hint={`겹치는 시간이 없으면 매칭되지 않아요. ${RECOMMENDED_MIN}개 이상 고르길 권해요. 밤 시간대는 온라인으로 만나요.`}
+      // 문자열이어야 한다. StepLayout 은 question 이 바뀌면 스크롤을 맨 위로 올리는데,
+      // JSX 는 렌더마다 새 값이라 시간을 고를 때마다 화면이 튄다.
+      question="채플 이후 1:1 멘토링, 언제 할 수 있어요?"
+      hint={`${isAfterEvent() ? "" : `${EVENT_DATE_LABEL} 채플 날이 아니라, 그 뒤에 `}${PARTNER[role]}와 따로 한 번 만나는 시간이에요. 겹치는 시간이 많을수록 잘 맞는 ${PARTNER[role]}와 연결돼요. ${RECOMMENDED_MIN}개 이상 고르길 권해요. 밤 시간대는 온라인으로 만나요.`}
       ctaLabel={
         selected.length === 0
           ? "가능한 시간을 골라주세요"

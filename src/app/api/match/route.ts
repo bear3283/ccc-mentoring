@@ -121,6 +121,8 @@ export async function POST(request: Request) {
       targetCampus: mentee.targetCampus,
       desiredAreas: mentee.desiredAreas,
       personaType: mentee.personaType,
+      // 본인 값이다. 다른 기기에서 코드로 들어오면 브라우저에 초안이 없다.
+      eventArrival: mentee.eventArrival,
     },
     results: results.map((r) => ({
       score: r.score,

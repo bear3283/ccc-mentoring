@@ -6,6 +6,7 @@ import { downloadCsv, type CsvColumn } from "../lib/csv";
 import type { FallbackReason, Mentee, Mentor } from "@/features/matching/model/types";
 import type { CampusDemandRow } from "../lib/campusDemand";
 import { formatTimeSlotShort } from "@/shared/constants/domain";
+import { EVENT_ARRIVAL_LABEL } from "@/shared/constants/venue";
 import { WEIGHTS } from "@/features/matching/lib/score";
 import { PERSONAS } from "@/shared/constants/persona";
 import { cn } from "@/shared/lib/cn";
@@ -62,7 +63,8 @@ const menteeColumns: TableColumn<Mentee>[] = [
   { key: "mbti", header: "MBTI", value: (r) => r.mbti ?? "-", align: "center", width: "70px" },
   { key: "major", header: "희망 학과", value: (r) => r.targetMajors.join(", ") },
   { key: "career", header: "희망 진로", value: (r) => r.targetCareers.join(", ") },
-  { key: "times", header: "가능 시간", value: (r) => r.availableTimes.map(formatTimeSlotShort).join(", ") },
+  { key: "arrival", header: "채플 날 도착", value: (r) => arrivalLabel(r.eventArrival) },
+  { key: "times", header: "멘토링 가능 시간", value: (r) => r.availableTimes.map(formatTimeSlotShort).join(", ") },
   { key: "school", header: "출신 고교", value: (r) => r.highSchool ?? "-" },
   {
     key: "mentoring",
@@ -80,6 +82,11 @@ const menteeColumns: TableColumn<Mentee>[] = [
  */
 function personaName(type: Mentee["personaType"] | undefined): string {
   return type ? PERSONAS[type].name : "-";
+}
+
+/** 채플이 지난 뒤 신청했거나 이전 신청자라 비어 있을 수 있다. */
+function arrivalLabel(arrival: Mentee["eventArrival"]): string {
+  return arrival ? EVENT_ARRIVAL_LABEL[arrival] : "-";
 }
 
 const mentorColumns: TableColumn<AdminMentor>[] = [
@@ -105,7 +112,8 @@ const mentorColumns: TableColumn<AdminMentor>[] = [
   { key: "mbti", header: "MBTI", value: (r) => r.mbti ?? "-", align: "center", width: "70px" },
   { key: "major", header: "학과", value: (r) => r.currentMajors.join(", ") },
   { key: "career", header: "진로", value: (r) => r.careerPaths.join(", ") },
-  { key: "times", header: "가능 시간", value: (r) => r.availableTimes.map(formatTimeSlotShort).join(", ") },
+  { key: "arrival", header: "채플 날 도착", value: (r) => arrivalLabel(r.eventArrival) },
+  { key: "times", header: "멘토링 가능 시간", value: (r) => r.availableTimes.map(formatTimeSlotShort).join(", ") },
   {
     key: "seats",
     header: "배정/정원",

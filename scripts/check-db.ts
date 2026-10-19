@@ -78,6 +78,11 @@ const CAPACITY_SQL = readFileSync(
   "utf8",
 ).trim();
 
+const ARRIVAL_SQL = readFileSync(
+  new URL("../supabase/migrations/2026-10-20-event-arrival.sql", import.meta.url),
+  "utf8",
+).trim();
+
 /**
  * 매칭 정원을 확인한다. 멘토는 고른 정원만큼, 멘티는 한 명만.
  *
@@ -305,6 +310,30 @@ const requirements: Requirement[] = [
       return rejected;
     },
     sql: UNIQUE_SQL,
+  },
+  {
+    name: "채플 당일 도착 시간 컬럼 (users.event_arrival)",
+    column: { table: "users", column: "event_arrival" },
+    sql: ARRIVAL_SQL,
+  },
+  {
+    name: "도착 시간은 정해진 값만 저장",
+    requires: "채플 당일 도착 시간 컬럼 (users.event_arrival)",
+    probe: () =>
+      insertRejected({
+        role: "MENTEE",
+        participation_code: "CHKARA",
+        name: "도착확인",
+        gender: "FEMALE",
+        contact: "010-0000-9009",
+        persona_type: "DAVID",
+        available_times: ["WEEKDAY_EVENING"],
+        consented_at: new Date().toISOString(),
+        consent_version: "check",
+        // 목록에 없는 값을 넣어 거부되는지 본다
+        event_arrival: "2500",
+      }),
+    sql: ARRIVAL_SQL,
   },
   {
     name: "멘토 정원 컬럼 (mentor_profiles.capacity)",

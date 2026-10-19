@@ -3,8 +3,10 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import type { Role } from "@/shared/constants/role";
+import { isAfterEvent } from "@/shared/constants/venue";
 import { loadDraft, saveDraft } from "../lib/draftStore";
 import { OnboardingFunnel, type StepRegistry } from "./OnboardingFunnel";
+import { ArrivalStep } from "./steps/ArrivalStep";
 import { AreaStep } from "./steps/AreaStep";
 import { BasicStep } from "./steps/BasicStep";
 import { CampusStep } from "./steps/CampusStep";
@@ -48,6 +50,7 @@ const REGISTRY: StepRegistry = {
   targetMajor: MajorStep,
   currentMajor: MajorStep,
   capacity: CapacityStep,
+  eventArrival: ArrivalStep,
   schedule: ScheduleStep,
   photo: PhotoStep,
 };
@@ -85,8 +88,11 @@ export function RoleFunnel({ role, phase }: RoleFunnelProps) {
   // 1단계는 모두 같은 순서를 밟는다. 역할은 그 안의 한 스텝으로 받는다.
   const source = isMentoring ? MENTORING_STEPS_BY_ROLE[role ?? "MENTEE"] : REGISTER_STEPS;
 
-  // 구현이 끝난 스텝만 태운다.
-  const activeSteps = source.filter((step): step is OnboardingStep => step in REGISTRY);
+  // 구현이 끝난 스텝만 태운다. 채플이 지난 뒤에는 당일 도착 시간을 묻지 않는다.
+  const activeSteps = source.filter(
+    (step): step is OnboardingStep =>
+      step in REGISTRY && !(step === "eventArrival" && isAfterEvent()),
+  );
 
   const handleComplete = async (draft: OnboardingDraft) => {
     if (submitting) return;

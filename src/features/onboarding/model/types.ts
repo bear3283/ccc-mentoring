@@ -10,6 +10,7 @@ import type {
 import type { MbtiType } from "@/shared/constants/mbti";
 import type { PersonaType } from "@/shared/constants/persona";
 import type { Role } from "@/shared/constants/role";
+import type { EventArrival } from "@/shared/constants/venue";
 
 /**
  * 가입은 두 단계다.
@@ -40,15 +41,19 @@ export const REGISTER_STEPS = ["consent", "basic", "role", "church"] as const;
  *
  * 멘토의 정원(capacity)은 시간대 바로 앞에 묻는다. 몇 명을 맡을지는
  * 얼마나 시간을 낼 수 있는지와 함께 떠올려야 하는 질문이다.
+ *
+ * 채플 당일 도착 시간(eventArrival)은 1:1 멘토링 시간대(schedule) 바로 앞이다.
+ * "목요일엔 인사, 멘토링은 그 뒤에 따로"를 연달아 물어야 둘이 구분된다.
+ * 채플이 지난 뒤에는 RoleFunnel 이 이 스텝을 건너뛴다.
  */
 export const MENTORING_STEPS_BY_ROLE = {
   MENTEE: [
     "mentoringIntro", "persona", "mbti", "desiredArea",
-    "targetCampus", "targetMajor", "schedule", "photo",
+    "targetCampus", "targetMajor", "eventArrival", "schedule", "photo",
   ],
   MENTOR: [
     "mentoringIntro", "persona", "mbti", "mentoringArea",
-    "currentCampus", "currentMajor", "capacity", "schedule", "photo",
+    "currentCampus", "currentMajor", "capacity", "eventArrival", "schedule", "photo",
   ],
 } as const;
 
@@ -92,6 +97,8 @@ export interface OnboardingDraft {
   mentoringApplied?: boolean;
   /** 프로필 사진 (data URL) */
   photoUrl?: string;
+  /** 채플 당일 몇 시에 올 수 있는지. 매칭된 상대와 운영자에게 보여준다. */
+  eventArrival?: EventArrival;
   /** 개인정보 동의 시각 (ISO). 없으면 서버가 신청을 거부한다. */
   consentedAt?: string;
   /** 동의한 문구의 버전. 문구가 바뀌어도 무엇에 동의했는지 남는다. */

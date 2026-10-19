@@ -10,8 +10,11 @@ import { cn } from "@/shared/lib/cn";
  * 매칭 이후 무엇을 하면 되는지.
  *
  * 연락처만 주고 끝내면 대부분 첫 메시지를 못 보낸다.
- * '채팅으로 인사 → 당일 교회에서 만남'이라는 정해진 길을 보여줘서
- * 다음 행동을 고민하지 않게 한다.
+ * '문자로 인사 → 채플 날 얼굴 보고 인사 → 그 뒤에 1:1 멘토링'이라는
+ * 정해진 길을 보여줘서 다음 행동을 고민하지 않게 한다.
+ *
+ * 채플 날은 인사만 하는 자리고, 멘토링은 따로 한 번 한다. 예전 순서
+ * (시간 정하기 → 채플에서 만나기)는 멘토링을 목요일에 하는 것처럼 읽혔다.
  */
 
 interface Step {
@@ -20,28 +23,26 @@ interface Step {
   detail: string;
 }
 
-const STEPS: Step[] = [
-  {
-    emoji: "💬",
-    title: "먼저 문자로 인사해요",
-    detail:
-      "전화보다 부담이 적어요. 이름과 어떻게 매칭됐는지만 밝혀도 충분해요.",
-  },
-  {
-    emoji: "📅",
-    title: "만날 시간과 장소를 정해요",
-    detail: isAfterEvent()
-      ? "언제 어디서 볼지 미리 정해두면 당일에 헤매지 않아요."
-      : `${EVENT_DATE_LABEL} 몇 시에, 교회 어디에서 볼지 미리 정해두면 편해요.`,
-  },
-  {
-    emoji: "⛪",
-    title: isAfterEvent()
-      ? `${VENUE.name}에서 만나요`
-      : `${EVENT_DATE_LABEL} ${VENUE.name}에서 만나요`,
-    detail: "직접 얼굴 보고 나누는 이야기가 제일 오래 남아요.",
-  },
-];
+const GREET: Step = {
+  emoji: "💬",
+  title: "먼저 문자로 인사해요",
+  detail: "전화보다 부담이 적어요. 이름과 어떻게 매칭됐는지만 밝혀도 충분해요.",
+};
+
+const CHAPEL: Step = {
+  emoji: "⛪",
+  title: `${EVENT_DATE_LABEL} 채플에서 얼굴 보고 인사해요`,
+  detail: `${VENUE.name}에 몇 시쯤 오는지 서로 알려두고, 짧게 인사하며 얼굴을 익혀요.`,
+};
+
+const MENTORING: Step = {
+  emoji: "📅",
+  title: "1:1 멘토링 날을 정해요",
+  detail: "신청할 때 고른 시간 중에서 따로 한 번 만나요. 밤 시간은 온라인으로 해도 돼요.",
+};
+
+/** 채플이 지나면 인사 단계가 빠진다. 지난 날을 기다리라고 안내하지 않는다. */
+const STEPS: Step[] = isAfterEvent() ? [GREET, MENTORING] : [GREET, CHAPEL, MENTORING];
 
 interface MentoringGuideProps {
   /**

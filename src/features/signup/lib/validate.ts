@@ -1,6 +1,7 @@
 import { CONSENT_VERSION } from "@/shared/constants/privacy";
 import { MENTOR_CAPACITY_OPTIONS } from "@/shared/constants/domain";
 import { MBTI_TYPES } from "@/shared/constants/mbti";
+import { isEventArrival } from "@/shared/constants/venue";
 import type { OnboardingDraft } from "@/features/onboarding/model/types";
 
 /**
@@ -69,6 +70,11 @@ export function validateMentoring(
 
   if (!draft.availableTimes || draft.availableTimes.length === 0) {
     return "가능한 시간을 골라주세요.";
+  }
+
+  // 채플이 지난 뒤에는 묻지 않아 비어 있을 수 있다. 적었다면 고를 수 있는 값이어야 한다.
+  if (draft.eventArrival !== undefined && !isEventArrival(draft.eventArrival)) {
+    return "채플 당일 오는 시간을 다시 골라주세요.";
   }
 
   // 캠퍼스는 2단계로 옮겨왔다. 프로필 행이 여기서 처음 만들어지므로

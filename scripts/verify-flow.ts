@@ -84,6 +84,7 @@ function mentorMentoring(over: Record<string, unknown> = {}) {
     currentMajors: ["경영학과"],
     careerPaths: ["금융권"],
     availableTimes: ["WEEKDAY_EVENING"],
+    eventArrival: "1830",
     ...over,
   };
 }
@@ -110,6 +111,7 @@ function menteeMentoring(over: Record<string, unknown> = {}) {
     targetMajors: ["경영학과"],
     targetCareers: ["금융권"],
     availableTimes: ["WEEKDAY_EVENING"],
+    eventArrival: "1800",
     ...over,
   };
 }
@@ -251,6 +253,17 @@ async function main() {
     String(badMbti.json.error ?? ""),
   );
 
+  const badArrival = await post("/api/mentoring", {
+    role: "MENTEE",
+    draft: menteeMentoring({ eventArrival: "2500" }),
+    participationCode: menteeCode,
+  });
+  check(
+    "고를 수 없는 채플 날 도착 시간은 읽히는 메시지로 거부",
+    badArrival.status === 400 && String(badArrival.json.error ?? "").includes("채플"),
+    String(badArrival.json.error ?? ""),
+  );
+
   console.log("\n[2] 입력 검증 (서버가 다시 막는가)");
   const badPhone = await post("/api/signup", {
     role: "MENTEE",
@@ -350,6 +363,16 @@ async function main() {
   console.log("\n[5] 연락처 공개");
   const reveal = await post("/api/match/request", { participationCode: menteeCode, mentorId });
   check("매칭된 멘토에게 요청 시 공개", reveal.status === 200 && /^010-/.test(String(reveal.json.contact ?? "")));
+  // 채플 날 도착 시간은 연결된 뒤에만 알려준다. 후보 카드에는 없어야 한다.
+  check(
+    "연결된 후배에게 선배의 채플 날 도착 시간 공개",
+    reveal.json.mentorEventArrival === "1830",
+    String(reveal.json.mentorEventArrival),
+  );
+  check(
+    "후보 카드에는 도착 시간 없음",
+    !JSON.stringify(match.json.results ?? []).includes("ventArrival"),
+  );
   const fake = await post("/api/match/request", {
     participationCode: menteeCode,
     mentorId: "00000000-0000-0000-0000-000000000000",
@@ -413,11 +436,16 @@ async function main() {
 
   // ⑤ 멘토는 연결된 후배 두 명을 모두 본다.
   const mentorView = await post("/api/mentor/match", { participationCode: m1Code });
-  const linked = (mentorView.json.mentees ?? []) as { name: string }[];
+  const linked = (mentorView.json.mentees ?? []) as { name: string; eventArrival?: string }[];
   check(
     "멘토 화면에 연결된 후배 2명과 정원 표시",
     mentorView.status === 200 && mentorView.json.capacity === 2 && linked.length === 2,
     linked.map((m) => m.name).join(", "),
+  );
+  check(
+    "멘토 화면에 후배의 채플 날 도착 시간 표시",
+    linked.every((m) => m.eventArrival === "1800"),
+    linked.map((m) => m.eventArrival).join(", "),
   );
 
   // ⑥ 매칭을 마친 멘티가 다시 열면 자기 멘토가 그대로 보인다.

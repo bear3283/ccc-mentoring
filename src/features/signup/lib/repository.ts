@@ -6,6 +6,7 @@ import type { Role } from "@/shared/constants/role";
 import type { Campus, Career, Gender, Major, MentoringArea, TimeSlot } from "@/shared/constants/domain";
 import type { MbtiType } from "@/shared/constants/mbti";
 import type { PersonaType } from "@/shared/constants/persona";
+import { isEventArrival, type EventArrival } from "@/shared/constants/venue";
 import { safeForLog } from "@/shared/lib/security/mask";
 import { getSupabase } from "@/shared/lib/supabase/server";
 import { fallbackReason, recommendMentors } from "@/features/matching/lib/score";
@@ -37,6 +38,8 @@ interface UserRow {
   church: string | null;
   is_new_friend: boolean;
   mentoring_applied: boolean;
+  /** 도착 시간 컬럼을 추가하기 전의 DB에는 없다. */
+  event_arrival?: string | null;
 }
 
 interface MenteeRow {
@@ -71,6 +74,7 @@ function toMentee(user: UserRow, profile: MenteeRow | null): Mentee {
     church: user.church ?? undefined,
     isNewFriend: user.is_new_friend ?? false,
     mentoringApplied: user.mentoring_applied ?? false,
+    eventArrival: asEventArrival(user.event_arrival),
     referrer: user.referrer ?? undefined,
     photoUrl: user.photo_url ?? undefined,
     availableTimes: user.available_times as TimeSlot[],
@@ -95,6 +99,7 @@ function toMentor(user: UserRow, profile: MentorRow | null): Mentor {
     church: user.church ?? undefined,
     isNewFriend: user.is_new_friend ?? false,
     mentoringApplied: user.mentoring_applied ?? false,
+    eventArrival: asEventArrival(user.event_arrival),
     referrer: user.referrer ?? undefined,
     photoUrl: user.photo_url ?? undefined,
     availableTimes: user.available_times as TimeSlot[],
@@ -107,6 +112,11 @@ function toMentor(user: UserRow, profile: MentorRow | null): Mentor {
     careerPaths: (profile?.career_paths ?? []) as Career[],
     capacity: profile?.capacity ?? 1,
   };
+}
+
+/** DB 값이 고를 수 있는 값이 아니면(비었거나 옛 값) 없는 것으로 본다. */
+function asEventArrival(value: string | null | undefined): EventArrival | undefined {
+  return isEventArrival(value) ? value : undefined;
 }
 
 /** Supabase 가 돌려주는 오류의 모양. 전부 optional 이라 따로 적는다. */
@@ -328,6 +338,8 @@ export async function applyMentoring(
       mbti: draft.mbti ?? null,
       photo_url: draft.photoUrl ?? null,
       available_times: draft.availableTimes,
+      // 채플이 지난 뒤에는 묻지 않는다. 다시 신청하며 비워 낸 경우도 그대로 비운다.
+      event_arrival: draft.eventArrival ?? null,
     })
     .eq("id", user.id);
 
@@ -422,7 +434,7 @@ export interface MentorMatchView {
   /** 신청할 때 고른 정원. 몇 자리가 남았는지 함께 보여준다. */
   capacity: number;
   /** 이 선배를 고른 후배. 먼저 고른 순서. 아직 없으면 빈 배열. */
-  mentees: { name: string; contact: string; campus?: string }[];
+  mentees: { name: string; contact: string; campus?: string; eventArrival?: EventArrival }[];
 }
 
 /**
@@ -460,7 +472,7 @@ export async function findMenteeForMentor(code: string): Promise<MentorMatchView
   // 정원이 2명 이상이면 여러 건이라 maybeSingle 을 쓰면 안 된다.
   const { data: matches, error: matchError } = await supabase
     .from("matchings")
-    .select("mentee:mentee_id (name, contact, mentee_profiles(target_campus))")
+    .select("mentee:mentee_id (name, contact, event_arrival, mentee_profiles(target_campus))")
     .eq("mentor_id", mentor.id)
     .in("status", ["REQUESTED", "CONFIRMED"])
     .order("created_at", { ascending: true });
@@ -472,6 +484,7 @@ export async function findMenteeForMentor(code: string): Promise<MentorMatchView
       mentee: {
         name: string;
         contact: string;
+        event_arrival: string | null;
         mentee_profiles: { target_campus?: string[] } | null;
       } | null;
     }).mentee;
@@ -480,6 +493,7 @@ export async function findMenteeForMentor(code: string): Promise<MentorMatchView
       name: mentee.name,
       contact: mentee.contact,
       campus: mentee.mentee_profiles?.target_campus?.[0],
+      eventArrival: asEventArrival(mentee.event_arrival),
     });
   }
 
@@ -816,7 +830,14 @@ export async function listMatchings(): Promise<MatchingRow[]> {
 export async function requestMatch(
   participationCode: string,
   mentorId: string,
-): Promise<{ ok: boolean; contact?: string; mentorName?: string; error?: string }> {
+): Promise<{
+  ok: boolean;
+  contact?: string;
+  mentorName?: string;
+  /** 선배의 채플 당일 도착 시간. 연결된 후배에게만 알려준다. */
+  mentorEventArrival?: EventArrival;
+  error?: string;
+}> {
   const supabase = getSupabase();
   if (!supabase) return { ok: false, error: "서버가 연결되지 않았어요." };
 
@@ -874,15 +895,22 @@ export async function requestMatch(
     }
   }
 
-  const { data: mentor } = await supabase
+  const { data: mentor, error: mentorError } = await supabase
     .from("users")
-    .select("name, contact")
+    .select("name, contact, event_arrival")
     .eq("id", mentorId)
     .maybeSingle();
 
+  // 매칭은 이미 성사됐는데 여기서 막히면 후배는 번호를 못 받는다. 원인을 남긴다.
+  if (mentorError) logDbError("매칭된 멘토 조회", mentorError, { participationCode });
   if (!mentor) return { ok: false, error: "멘토 정보를 찾지 못했어요." };
 
-  return { ok: true, contact: mentor.contact as string, mentorName: mentor.name as string };
+  return {
+    ok: true,
+    contact: mentor.contact as string,
+    mentorName: mentor.name as string,
+    mentorEventArrival: asEventArrival(mentor.event_arrival as string | null),
+  };
 }
 
 export interface UnmatchedReason {
