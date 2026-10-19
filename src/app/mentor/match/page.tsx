@@ -4,7 +4,10 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Name } from "@/components/ui/Name";
 import { loadDraft } from "@/features/onboarding/lib/draftStore";
-import { normalizeParticipationCode } from "@/features/onboarding/lib/participationCode";
+import {
+  isValidParticipationCode,
+  normalizeParticipationCode,
+} from "@/features/onboarding/lib/participationCode";
 import {
   EVENT_ARRIVAL_LABEL,
   EVENT_DATE_LABEL,
@@ -43,10 +46,24 @@ export default function MentorMatchPage() {
   const [error, setError] = useState<string>();
   const [loading, setLoading] = useState(false);
 
-  // 방금 신청을 마친 멘토는 코드를 다시 적을 필요가 없다.
+  /*
+   * 코드를 다시 적지 않아도 되는 두 경우.
+   *  - 운영진 알림 문자의 링크(/mentor/match#K7MQ2P): 누르면 바로 확인한다.
+   *    코드를 #뒤에 두는 이유는 이 값이 서버로 가지 않아 접속 기록에 남지 않기 때문이다.
+   *    이 코드로 후배 연락처를 볼 수 있다.
+   *  - 방금 신청을 마친 멘토: 이 브라우저에 남은 코드를 채운다.
+   */
   useEffect(() => {
+    const fromLink = normalizeParticipationCode(decodeURIComponent(window.location.hash.slice(1)));
+    if (isValidParticipationCode(fromLink)) {
+      setCode(fromLink);
+      void check(fromLink);
+      return;
+    }
     const stored = loadDraft();
     if (stored?.role === "MENTOR") setCode(stored.participationCode);
+    // check 는 상태를 바꾸기만 하는 함수라 첫 렌더 한 번만 돌리면 된다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const normalized = normalizeParticipationCode(code);
@@ -54,6 +71,10 @@ export default function MentorMatchPage() {
 
   const handleSubmit = async () => {
     if (!canSubmit) return;
+    await check(normalized);
+  };
+
+  const check = async (target: string) => {
     setLoading(true);
     setError(undefined);
     setResult(null);
@@ -61,7 +82,7 @@ export default function MentorMatchPage() {
       const res = await fetch("/api/mentor/match", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ participationCode: normalized }),
+        body: JSON.stringify({ participationCode: target }),
       });
       const body = (await res.json()) as MentorMatch & { error?: string };
       if (!res.ok) {

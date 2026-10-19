@@ -25,17 +25,28 @@ export interface MentorNoticeInput {
 }
 
 /**
+ * 선배 본인 확인 화면으로 바로 가는 링크. 누르면 코드가 채워져 곧장 확인된다.
+ *
+ * 코드는 #뒤에 둔다. ?code= 로 두면 서버 접속 기록에 남는데, 이 코드로
+ * 후배 연락처를 볼 수 있다. #뒤는 브라우저 안에서만 읽힌다.
+ */
+export function mentorCheckUrl(mentorCode: string): string {
+  return `${APP_ORIGIN}/mentor/match#${mentorCode}`;
+}
+
+/**
  * 문자 본문. 후배 번호는 넣지 않는다.
  *
  * 문자는 잘못된 번호로 갈 수도 있고 오래 남는다. 번호는 참여코드로 확인하는
- * 화면에서만 보여주고, 문자에는 누가 골랐는지와 어디서 확인하는지만 쓴다.
+ * 화면에서만 보여주고, 문자에는 누가 골랐는지와 바로 확인하는 링크만 쓴다.
+ * 링크가 안 열리는 경우에 대비해 참여코드도 따로 적는다.
  */
 export function mentorNoticeText({ menteeName, mentorName, mentorCode }: MentorNoticeInput): string {
   return [
     `[고3채플] ${mentorName} 선배님, ${menteeName} 후배가 선배님을 멘토로 골랐어요.`,
-    `후배 연락처와 채플 날 도착 시간은 여기서 확인해 주세요.`,
-    `${APP_ORIGIN}/mentor/match`,
-    `참여코드: ${mentorCode}`,
+    `아래 링크를 누르면 후배 연락처와 채플 날 도착 시간이 바로 보여요.`,
+    mentorCheckUrl(mentorCode),
+    `(참여코드 ${mentorCode})`,
   ].join("\n");
 }
 
