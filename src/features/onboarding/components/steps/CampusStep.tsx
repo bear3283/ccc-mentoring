@@ -133,18 +133,6 @@ export function CampusStep({ role, draft, onNext, onChange }: StepProps) {
         </div>
       )}
 
-      {/*
-        학번은 고른 학교 바로 아래에서 펼친다. 학교를 누른 자리에서 이어 고르면
-        목록 위로 다시 올라갈 필요가 없다.
-        지역 탭을 옮기거나 검색해서 고른 학교가 목록에서 사라졌을 때만 위에 띄운다.
-      */}
-      {!isMentee && choices[0] && !visible.includes(choices[0]) && (
-        <div className="mb-3 rounded-2xl bg-brand-soft px-4 py-3.5">
-          <p className="text-[15px] font-bold text-brand">{choices[0]}</p>
-          <AdmissionYearPicker value={admissionYear} onChange={setAdmissionYear} />
-        </div>
-      )}
-
       <input
         type="search"
         inputMode="search"
@@ -173,6 +161,20 @@ export function CampusStep({ role, draft, onNext, onChange }: StepProps) {
               </button>
             ))}
           </div>
+        </div>
+      )}
+
+      {/*
+        학번은 고른 학교 바로 아래에서 펼친다. 학교를 누른 자리에서 이어 고르면
+        목록 위로 다시 올라갈 필요가 없다.
+        지역 탭을 옮기거나 검색해서 고른 학교가 목록에서 사라졌을 때만 목록 위에 띄운다.
+        검색창·지역 탭보다 아래여야 한다. 위에 두면 상자가 생기고 사라질 때마다
+        탭이 밀려, 다음 지역을 누르려던 손가락 아래에 다른 탭이 온다.
+      */}
+      {!isMentee && choices[0] && !visible.includes(choices[0]) && (
+        <div className="mb-3 rounded-2xl bg-brand-soft px-4 py-3.5">
+          <p className="text-[15px] font-bold text-brand">{choices[0]}</p>
+          <AdmissionYearPicker value={admissionYear} onChange={setAdmissionYear} />
         </div>
       )}
 
