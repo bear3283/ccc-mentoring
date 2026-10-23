@@ -5,7 +5,6 @@ import {
   ADMISSION_YEARS,
   admissionYearLabel,
   CAMPUSES_BY_REGION,
-  JUNIOR_COLLEGES,
   campusMatches,
   REGIONS,
   regionOf,
@@ -214,13 +213,8 @@ export function CampusStep({ role, draft, onNext, onChange }: StepProps) {
                 // 지망 순위를 숫자로 보여줘야 "몇 지망으로 넣었더라"를 되짚지 않는다.
                 leading={isMentee ? (selected ? `${rank + 1}` : "") : undefined}
                 title={campus}
-                // 4년제와 섞어 가나다순으로 두므로, 전문대는 이름 옆에 작게 밝혀 둔다.
                 trailing={
-                  isMentee && !selected && choices.length >= MAX_CHOICES
-                    ? "3개까지"
-                    : JUNIOR_COLLEGES.has(campus)
-                      ? "전문대"
-                      : undefined
+                  isMentee && !selected && choices.length >= MAX_CHOICES ? "3개까지" : undefined
                 }
               />
             </li>
