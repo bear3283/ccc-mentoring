@@ -1,7 +1,7 @@
 "use client";
 
 import { Name } from "@/components/ui/Name";
-import { formatTimeSlotShort } from "@/shared/constants/domain";
+import { admissionYearLabel, formatTimeSlotShort } from "@/shared/constants/domain";
 import { PERSONAS } from "@/shared/constants/persona";
 import { cn } from "@/shared/lib/cn";
 import { nameInitials } from "@/shared/lib/nameInitials";
@@ -95,7 +95,7 @@ export function MentorCard({
         </h3>
         <p className="mt-1 text-[14px] text-gray-500">
           {mentor.currentCampus} · {mentor.currentMajors.join(", ")} ·{" "}
-          {String(mentor.admissionYear).slice(2)}학번
+          {admissionYearLabel(mentor.admissionYear)}
         </p>
 
         <ul className="mt-4 flex flex-wrap justify-center gap-1.5">

@@ -191,3 +191,17 @@ export type Career = (typeof CAREERS)[number];
  */
 export const MENTOR_CAPACITY_OPTIONS = [1, 2, 3] as const;
 export type MentorCapacity = (typeof MENTOR_CAPACITY_OPTIONS)[number];
+
+/**
+ * 멘토가 고르는 학번. 최신 학번이 앞에 온다.
+ *
+ * 마지막 칸은 "19학번 이상"으로 그보다 앞선 학번을 모두 받는다.
+ * 고학번·복학생 선배도 고를 칸이 있어야 한다. 저장값은 그 칸의 연도다.
+ */
+export const ADMISSION_YEARS = Array.from({ length: 8 }, (_, i) => new Date().getFullYear() - i);
+const OLDEST_ADMISSION_YEAR = ADMISSION_YEARS[ADMISSION_YEARS.length - 1];
+
+/** 2024 -> "24학번", 마지막 칸 이전 -> "19학번 이상". */
+export function admissionYearLabel(year: number): string {
+  return `${String(year).slice(2)}학번${year <= OLDEST_ADMISSION_YEAR ? " 이상" : ""}`;
+}

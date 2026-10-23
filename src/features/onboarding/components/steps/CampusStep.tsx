@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  ADMISSION_YEARS,
+  admissionYearLabel,
   CAMPUSES_BY_REGION,
   JUNIOR_COLLEGES,
   campusMatches,
@@ -18,9 +20,6 @@ import type { StepProps } from "../../model/types";
 
 /** 멘티는 3지망까지 고른다. 매칭 가중치가 가장 큰 항목이다. */
 const MAX_CHOICES = 3;
-
-const CURRENT_YEAR = new Date().getFullYear();
-const ADMISSION_YEARS = Array.from({ length: 8 }, (_, i) => CURRENT_YEAR - i);
 
 export function CampusStep({ role, draft, onNext, onChange }: StepProps) {
   const isMentee = role === "MENTEE";
@@ -157,7 +156,7 @@ export function CampusStep({ role, draft, onNext, onChange }: StepProps) {
                       : "bg-white text-gray-600",
                   )}
                 >
-                  {String(year).slice(2)}학번
+                  {admissionYearLabel(year)}
                 </button>
               </li>
             ))}

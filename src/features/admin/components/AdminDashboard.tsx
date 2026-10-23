@@ -7,7 +7,7 @@ import type { FallbackReason, Mentee, Mentor } from "@/features/matching/model/t
 import type { CampusDemandRow } from "../lib/campusDemand";
 import type { MentorNoticeRow } from "@/features/signup/lib/repository";
 import { MentorNoticeList } from "./MentorNoticeList";
-import { formatTimeSlotShort } from "@/shared/constants/domain";
+import { admissionYearLabel, formatTimeSlotShort } from "@/shared/constants/domain";
 import { EVENT_ARRIVAL_LABEL } from "@/shared/constants/venue";
 import { WEIGHTS } from "@/features/matching/lib/score";
 import { PERSONAS } from "@/shared/constants/persona";
@@ -105,7 +105,7 @@ const mentorColumns: TableColumn<AdminMentor>[] = [
   {
     key: "admission",
     header: "학번",
-    value: (r) => (r.admissionYear ? `${String(r.admissionYear).slice(2)}학번` : "-"),
+    value: (r) => (r.admissionYear ? admissionYearLabel(r.admissionYear) : "-"),
     align: "center",
     width: "80px",
   },
