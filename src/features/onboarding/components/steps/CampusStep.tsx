@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   CAMPUSES_BY_REGION,
+  JUNIOR_COLLEGES,
   REGIONS,
   regionOf,
   type Campus,
@@ -33,7 +34,7 @@ export function CampusStep({ role, draft, onNext, onChange }: StepProps) {
   );
 
   /**
-   * 전국 캠퍼스는 100개에 가깝다. 한 목록으로 늘어놓으면 찾지 못한다.
+   * 전국 캠퍼스는 전문대까지 270개쯤이다. 한 목록으로 늘어놓으면 찾지 못한다.
    * 이미 고른 학교가 있으면 그 지역부터 열어 준다.
    */
   const [region, setRegion] = useState<Region>(
@@ -134,7 +135,7 @@ export function CampusStep({ role, draft, onNext, onChange }: StepProps) {
       )}
 
       {/*
-        고른 학교와 학번을 목록 위에 둔다. 아래에 두면 캠퍼스 100개를 지나
+        고른 학교와 학번을 목록 위에 둔다. 아래에 두면 캠퍼스 수십 개를 지나
         스크롤해야 나와서, "학번을 골라주세요"라는 버튼만 보고 길을 잃는다.
       */}
       {!isMentee && choices.length > 0 && (
@@ -213,8 +214,13 @@ export function CampusStep({ role, draft, onNext, onChange }: StepProps) {
                 // 지망 순위를 숫자로 보여줘야 "몇 지망으로 넣었더라"를 되짚지 않는다.
                 leading={isMentee ? (selected ? `${rank + 1}` : "") : undefined}
                 title={campus}
+                // 4년제와 섞어 가나다순으로 두므로, 전문대는 이름 옆에 작게 밝혀 둔다.
                 trailing={
-                  isMentee && !selected && choices.length >= MAX_CHOICES ? "3개까지" : undefined
+                  isMentee && !selected && choices.length >= MAX_CHOICES
+                    ? "3개까지"
+                    : JUNIOR_COLLEGES.has(campus)
+                      ? "전문대"
+                      : undefined
                 }
               />
             </li>

@@ -16,3 +16,4 @@ scripts/.cache-majors.xlsx
 .vercel
 .env*
 !.env.example
+__pycache__/

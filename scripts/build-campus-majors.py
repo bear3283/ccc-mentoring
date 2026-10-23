@@ -113,6 +113,10 @@ def read_rows(path: Path):
 
 # 공시자료에는 고3이 고를 수 없는 통계용 항목이 섞여 있다.
 # "기타모집단위"를 선택지로 내밀면 무엇을 고르는 건지 알 수 없다.
+# 대학구분별로 남길 학위과정. 고3이 바로 들어가는 과정만 쓴다.
+# 전문대 소속 간호대는 4년제 학사과정이라 전문대도 학사를 함께 받는다.
+DEGREE = {"대학": ("학사",), "전문대학": ("전문학사", "학사")}
+
 NOISE = re.compile(r"기타모집단위|교양|기초교육|^$")
 
 
@@ -192,10 +196,11 @@ def main() -> None:
 
     by_school: dict[str, dict[str, str]] = defaultdict(dict)
     for row in it:
-        # 4년제 · 학사 · 주간 · 살아 있는 학과만 남긴다.
-        if cell(row, "대학구분") != "대학":
+        # 4년제는 학사, 전문대는 전문학사 · 주간 · 살아 있는 학과만 남긴다.
+        # 사이버대는 캠퍼스가 없어 앱 목록에 없다.
+        if cell(row, "학위과정") not in DEGREE.get(cell(row, "대학구분"), ()):
             continue
-        if cell(row, "학위과정") != "학사":
+        if "사이버" in cell(row, "학교구분"):
             continue
         if cell(row, "주야간구분") != "주간":
             continue
@@ -212,6 +217,17 @@ def main() -> None:
     def normalize(s: str) -> str:
         return s.replace("대학교", "대").replace("대학", "대").replace(" ", "")
 
+    def short(s: str) -> str:
+        """campus.ts 의 전문대 표기. "한국폴리텍 I 대학 성남캠퍼스" -> "폴리텍 성남"."""
+        m = re.match(r"한국폴리텍 (?:\S+ 대학|특성화대학) (.+)캠퍼스", s)
+        if m:
+            return "폴리텍 " + m.group(1)
+        s = normalize(s)
+        # 서울여자간호대는 "서울여대"와 헷갈려 그대로 둔다.
+        if s.endswith("여자대") and s != "서울여자간호대":
+            return s[: -len("여자대")] + "여대"
+        return s
+
     school_keys = sorted(by_school)
     campuses = campus_list()
     mapping: dict[str, list[str]] = {}
@@ -219,7 +235,10 @@ def main() -> None:
         if campus in MANUAL:
             mapping[campus] = MANUAL[campus]
             continue
-        hits = [k for k in school_keys if normalize(k.split("|")[0]) == normalize(campus)]
+        hits = [
+            k for k in school_keys
+            if normalize(k.split("|")[0]) == normalize(campus) or short(k.split("|")[0]) == campus
+        ]
         main_only = [h for h in hits if h.endswith("|본교")]
         picked = main_only or hits
         if not picked:
@@ -258,7 +277,7 @@ def main() -> None:
         f' * 출처: 교육부 대학알리미 "학교별 학부·과(전공) 리스트" ({SOURCE_LABEL})',
         f" *   {BOARD_URL}",
         " *",
-        " * 4년제 대학 · 학사과정 · 주간 · 폐지되지 않은 학과만 남겼습니다.",
+        " * 4년제는 학사과정, 전문대는 전문학사·학사과정의 주간 · 폐지되지 않은 학과만 남겼습니다.",
         " * 이름을 그대로 쓰면 같은 학과가 학교마다 중복 저장되므로,",
         " * 학과명을 MAJOR_NAMES 에 한 번만 두고 캠퍼스는 그 인덱스를 가집니다.",
         " *",
