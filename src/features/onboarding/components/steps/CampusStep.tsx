@@ -134,32 +134,14 @@ export function CampusStep({ role, draft, onNext, onChange }: StepProps) {
       )}
 
       {/*
-        고른 학교와 학번을 목록 위에 둔다. 아래에 두면 캠퍼스 수십 개를 지나
-        스크롤해야 나와서, "학번을 골라주세요"라는 버튼만 보고 길을 잃는다.
+        학번은 고른 학교 바로 아래에서 펼친다. 학교를 누른 자리에서 이어 고르면
+        목록 위로 다시 올라갈 필요가 없다.
+        지역 탭을 옮기거나 검색해서 고른 학교가 목록에서 사라졌을 때만 위에 띄운다.
       */}
-      {!isMentee && choices.length > 0 && (
+      {!isMentee && choices[0] && !visible.includes(choices[0]) && (
         <div className="mb-3 rounded-2xl bg-brand-soft px-4 py-3.5">
           <p className="text-[15px] font-bold text-brand">{choices[0]}</p>
-          <ul role="radiogroup" className="mt-2.5 flex flex-wrap gap-1.5">
-            {ADMISSION_YEARS.map((year) => (
-              <li key={year}>
-                <button
-                  type="button"
-                  role="radio"
-                  aria-checked={admissionYear === year}
-                  onClick={() => setAdmissionYear(year)}
-                  className={cn(
-                    "rounded-full px-3 py-1.5 text-[13px] font-bold transition-colors duration-150",
-                    admissionYear === year
-                      ? "bg-brand text-white"
-                      : "bg-white text-gray-600",
-                  )}
-                >
-                  {admissionYearLabel(year)}
-                </button>
-              </li>
-            ))}
-          </ul>
+          <AdmissionYearPicker value={admissionYear} onChange={setAdmissionYear} />
         </div>
       )}
 
@@ -217,6 +199,12 @@ export function CampusStep({ role, draft, onNext, onChange }: StepProps) {
                   isMentee && !selected && choices.length >= MAX_CHOICES ? "3개까지" : undefined
                 }
               />
+              {!isMentee && selected && (
+                <div className="mt-2 rounded-2xl bg-brand-soft px-4 py-3">
+                  <p className="text-[13px] font-semibold text-brand">학번을 골라주세요</p>
+                  <AdmissionYearPicker value={admissionYear} onChange={setAdmissionYear} />
+                </div>
+              )}
             </li>
           );
         })}
@@ -228,5 +216,34 @@ export function CampusStep({ role, draft, onNext, onChange }: StepProps) {
         )}
       </ul>
     </StepLayout>
+  );
+}
+
+function AdmissionYearPicker({
+  value,
+  onChange,
+}: {
+  value: number | undefined;
+  onChange: (year: number) => void;
+}) {
+  return (
+    <ul role="radiogroup" aria-label="학번" className="mt-2.5 flex flex-wrap gap-1.5">
+      {ADMISSION_YEARS.map((year) => (
+        <li key={year}>
+          <button
+            type="button"
+            role="radio"
+            aria-checked={value === year}
+            onClick={() => onChange(year)}
+            className={cn(
+              "rounded-full px-3 py-1.5 text-[13px] font-bold transition-colors duration-150",
+              value === year ? "bg-brand text-white" : "bg-white text-gray-600",
+            )}
+          >
+            {admissionYearLabel(year)}
+          </button>
+        </li>
+      ))}
+    </ul>
   );
 }
