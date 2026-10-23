@@ -6,6 +6,7 @@ export {
   CAMPUSES,
   CAMPUSES_BY_REGION,
   JUNIOR_COLLEGES,
+  campusMatches,
   REGIONS,
   MAJOR_FIELDS,
   FIELD_EMOJI,

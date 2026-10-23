@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   CAMPUSES_BY_REGION,
   JUNIOR_COLLEGES,
+  campusMatches,
   REGIONS,
   regionOf,
   type Campus,
@@ -34,7 +35,7 @@ export function CampusStep({ role, draft, onNext, onChange }: StepProps) {
   );
 
   /**
-   * 전국 캠퍼스는 전문대까지 270개쯤이다. 한 목록으로 늘어놓으면 찾지 못한다.
+   * 전국 캠퍼스는 전문대까지 370개쯤이다. 한 목록으로 늘어놓으면 찾지 못한다.
    * 이미 고른 학교가 있으면 그 지역부터 열어 준다.
    */
   const [region, setRegion] = useState<Region>(
@@ -60,7 +61,7 @@ export function CampusStep({ role, draft, onNext, onChange }: StepProps) {
     if (!keyword) return CAMPUSES_BY_REGION[region] as readonly Campus[];
 
     return REGIONS.flatMap((r) => CAMPUSES_BY_REGION[r] as readonly Campus[]).filter(
-      (campus) => campus.includes(keyword),
+      (campus) => campusMatches(campus, keyword),
     );
   }, [region, query]);
 
