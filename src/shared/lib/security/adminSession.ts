@@ -13,6 +13,18 @@
 
 export const ADMIN_COOKIE = "ccc_admin";
 
+/**
+ * 운영자(admin)는 모든 것을, 보기 전용(viewer)은 화면만 본다.
+ * 보기 전용은 신청 현황을 함께 확인할 사람에게 주는 비밀번호(VIEWER_PASSWORD)로 들어온다.
+ */
+export type AdminRole = "admin" | "viewer";
+
+/**
+ * 보기 전용 세션은 만료 시각 앞에 이 표식을 붙여 함께 서명한다.
+ * 운영자 쿠키 모양은 전과 같아서, 이미 로그인한 운영자는 다시 들어오지 않아도 된다.
+ */
+const VIEWER_PREFIX = "viewer:";
+
 /** 세션 유효 기간. 현장에서 하루 종일 쓰는 화면이라 12시간으로 잡는다. */
 const SESSION_MS = 12 * 60 * 60 * 1000;
 
@@ -45,28 +57,34 @@ function safeEqual(a: string, b: string): boolean {
   return diff === 0;
 }
 
-export async function createSessionValue(secret: string): Promise<string> {
-  const expiresAt = String(Date.now() + SESSION_MS);
-  return `${expiresAt}.${await sign(expiresAt, secret)}`;
+export async function createSessionValue(
+  secret: string,
+  role: AdminRole = "admin",
+): Promise<string> {
+  const payload = `${role === "viewer" ? VIEWER_PREFIX : ""}${Date.now() + SESSION_MS}`;
+  return `${payload}.${await sign(payload, secret)}`;
 }
 
+/** 서명과 만료를 확인하고 역할을 돌려준다. 유효하지 않으면 null. */
 export async function verifySessionValue(
   value: string | undefined,
   secret: string,
-): Promise<boolean> {
-  if (!value) return false;
+): Promise<AdminRole | null> {
+  if (!value || !secret) return null;
 
   const separator = value.lastIndexOf(".");
-  if (separator <= 0) return false;
+  if (separator <= 0) return null;
 
-  const expiresAt = value.slice(0, separator);
+  const payload = value.slice(0, separator);
   const signature = value.slice(separator + 1);
 
-  const expected = await sign(expiresAt, secret);
-  if (!safeEqual(signature, expected)) return false;
+  const expected = await sign(payload, secret);
+  if (!safeEqual(signature, expected)) return null;
 
-  const expiry = Number(expiresAt);
-  return Number.isFinite(expiry) && Date.now() < expiry;
+  // 표식도 서명 안에 있으므로 보기 전용 쿠키를 운영자 쿠키로 바꿔 쓸 수 없다.
+  const role: AdminRole = payload.startsWith(VIEWER_PREFIX) ? "viewer" : "admin";
+  const expiry = Number(payload.slice(role === "viewer" ? VIEWER_PREFIX.length : 0));
+  return Number.isFinite(expiry) && Date.now() < expiry ? role : null;
 }
 
 /** 비밀번호 비교도 길이·내용을 한 번에 노출하지 않도록 상수 시간으로 한다. */

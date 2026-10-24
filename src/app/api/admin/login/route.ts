@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import {
   ADMIN_COOKIE,
+  type AdminRole,
   createSessionValue,
   passwordMatches,
   SESSION_MAX_AGE_SECONDS,
@@ -37,13 +38,21 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "잘못된 요청이에요." }, { status: 400 });
   }
 
-  if (!passwordMatches(password, expected)) {
+  // 보기 전용 비밀번호는 선택이다. 설정하지 않았으면 운영자 비밀번호만 받는다.
+  const viewer = process.env.VIEWER_PASSWORD;
+  const role: AdminRole | null = passwordMatches(password, expected)
+    ? "admin"
+    : viewer && passwordMatches(password, viewer)
+      ? "viewer"
+      : null;
+
+  if (!role) {
     // 남은 시도 횟수를 알려주면 공격자에게도 정보가 되므로 알려주지 않는다.
     return NextResponse.json({ error: "비밀번호가 맞지 않아요." }, { status: 401 });
   }
 
-  const response = NextResponse.json({ ok: true });
-  response.cookies.set(ADMIN_COOKIE, await createSessionValue(secret), {
+  const response = NextResponse.json({ ok: true, role });
+  response.cookies.set(ADMIN_COOKIE, await createSessionValue(secret, role), {
     httpOnly: true, // 자바스크립트로 못 읽게 해 XSS로 탈취되는 것을 막는다
     sameSite: "lax", // 다른 사이트에서 넘어온 요청에는 쿠키를 싣지 않는다
     secure: process.env.NODE_ENV === "production",

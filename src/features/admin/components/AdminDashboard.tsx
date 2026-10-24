@@ -242,6 +242,8 @@ export interface UnmatchedRow {
 }
 
 interface AdminDashboardProps {
+  /** 보기 전용 비밀번호로 들어온 사람. 바꾸는 버튼을 모두 숨긴다. */
+  readOnly: boolean;
   mentees: Mentee[];
   mentors: AdminMentor[];
   matchRows: MatchRow[];
@@ -295,6 +297,7 @@ const unmatchedColumns: TableColumn<UnmatchedRow>[] = [
 ];
 
 export function AdminDashboard({
+  readOnly,
   mentees,
   mentors,
   matchRows,
@@ -363,21 +366,23 @@ export function AdminDashboard({
       <header className="shrink-0">
         <div className="flex items-end justify-between">
           <div>
-            <p className="text-[13px] font-medium text-brand">운영자</p>
+            <p className="text-[13px] font-medium text-brand">{readOnly ? "보기 전용" : "운영자"}</p>
             <h1 className="mt-0.5 text-[22px] font-bold tracking-[-0.02em] text-gray-900">
               신청 현황 및 매칭 결과
             </h1>
           </div>
 
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={handleRunMatching}
-              disabled={running}
-              className="h-9 rounded-lg border border-gray-200 px-4 text-[13px] font-bold text-gray-700 active:bg-gray-100 disabled:text-gray-300"
-            >
-              {running ? "계산 중…" : "전체 매칭 실행"}
-            </button>
+            {!readOnly && (
+              <button
+                type="button"
+                onClick={handleRunMatching}
+                disabled={running}
+                className="h-9 rounded-lg border border-gray-200 px-4 text-[13px] font-bold text-gray-700 active:bg-gray-100 disabled:text-gray-300"
+              >
+                {running ? "계산 중…" : "전체 매칭 실행"}
+              </button>
+            )}
             <button
               type="button"
               onClick={handleExport}
@@ -484,7 +489,7 @@ export function AdminDashboard({
         </>
       )}
 
-      {tab === "notice" && <MentorNoticeList initial={notices} />}
+      {tab === "notice" && <MentorNoticeList initial={notices} readOnly={readOnly} />}
 
       {tab === "matching" && (
         <DataTable

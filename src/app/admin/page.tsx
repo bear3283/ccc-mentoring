@@ -1,3 +1,4 @@
+import { cookies } from "next/headers";
 import { AdminDashboard, type MatchRow } from "@/features/admin/components/AdminDashboard";
 import { campusDemand } from "@/features/admin/lib/campusDemand";
 import {
@@ -8,6 +9,7 @@ import {
   listUnmatched,
   loadAssignmentState,
 } from "@/features/signup/lib/repository";
+import { ADMIN_COOKIE, verifySessionValue } from "@/shared/lib/security/adminSession";
 
 /**
  * 운영자 화면.
@@ -23,6 +25,12 @@ import {
 export const dynamic = "force-dynamic";
 
 export default async function AdminPage() {
+  // 미들웨어가 이미 들여보냈으므로 여기서는 역할만 읽어 버튼을 고른다.
+  const role = await verifySessionValue(
+    (await cookies()).get(ADMIN_COOKIE)?.value,
+    process.env.ADMIN_SESSION_SECRET ?? "",
+  );
+
   // 질의는 서로 의존하지 않으므로 함께 보낸다.
   const [mentees, mentors, matchings, unmatched, assignment, notices] = await Promise.all([
     listMentees(),
@@ -62,6 +70,7 @@ export default async function AdminPage() {
 
   return (
     <AdminDashboard
+      readOnly={role !== "admin"}
       mentees={mentees}
       mentors={mentorRows}
       matchRows={matchRows}

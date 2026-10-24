@@ -28,14 +28,16 @@ export async function middleware(request: NextRequest) {
     return respondLocked(request, "not-configured");
   }
 
-  const isValid = await verifySessionValue(
-    request.cookies.get(ADMIN_COOKIE)?.value,
-    secret,
-  );
+  const role = await verifySessionValue(request.cookies.get(ADMIN_COOKIE)?.value, secret);
+  if (!role) return respondLocked(request, "unauthorized");
 
-  if (isValid) return NextResponse.next();
+  // 보기 전용은 화면만 본다. 운영자 API는 모두 무언가를 바꾸므로 여기서 막는다.
+  // 화면에서 버튼을 숨기는 것만으로는 직접 보낸 요청을 막지 못한다.
+  if (role === "viewer" && pathname.startsWith("/api/admin/")) {
+    return NextResponse.json({ error: "보기 전용 계정은 바꿀 수 없어요." }, { status: 403 });
+  }
 
-  return respondLocked(request, "unauthorized");
+  return NextResponse.next();
 }
 
 function respondLocked(request: NextRequest, reason: string) {

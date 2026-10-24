@@ -507,6 +507,25 @@ async function main() {
   const wrongPw = await post("/api/admin/login", { password: "wrong-password" });
   check("틀린 비밀번호 거부", wrongPw.status === 401);
 
+  // 보기 전용 비밀번호는 선택이라, 설정한 곳에서만 확인한다.
+  const viewerPassword = process.env.VIEWER_PASSWORD ?? loadEnv().VIEWER_PASSWORD;
+  if (viewerPassword) {
+    const viewerLogin = await post("/api/admin/login", { password: viewerPassword });
+    const viewerCookie = viewerLogin.res.headers.get("set-cookie")?.split(";")[0] ?? "";
+    check("보기 전용 로그인", viewerLogin.status === 200 && viewerLogin.json.role === "viewer");
+    const viewerPage = await fetch(`${BASE}/admin`, { headers: { Cookie: viewerCookie }, redirect: "manual" });
+    const viewerHtml = await viewerPage.text();
+    check(
+      "보기 전용 화면에 매칭 실행 버튼 없음",
+      viewerPage.status === 200 && viewerHtml.includes("보기 전용") && !viewerHtml.includes("전체 매칭 실행"),
+      `HTTP ${viewerPage.status}`,
+    );
+    const viewerWrite = await post("/api/admin/match-all", {}, viewerCookie);
+    check("보기 전용은 운영자 API 거부", viewerWrite.status === 403, `HTTP ${viewerWrite.status}`);
+  } else {
+    console.log("  - 보기 전용 점검 건너뜀 (VIEWER_PASSWORD 없음)");
+  }
+
   await cleanup();
 
   console.log("\n" + "=".repeat(56));

@@ -20,7 +20,14 @@ const VIA_LABEL: Record<NonNullable<MentorNoticeRow["notifiedVia"]>, string> = {
  *
  * 운영자는 휴대폰으로 볼 가능성이 높아 표 대신 세로 목록으로 둔다.
  */
-export function MentorNoticeList({ initial }: { initial: MentorNoticeRow[] }) {
+export function MentorNoticeList({
+  initial,
+  readOnly,
+}: {
+  initial: MentorNoticeRow[];
+  /** 보기 전용은 누가 알림을 기다리는지만 본다. 보내기·기록은 운영자 몫이다. */
+  readOnly: boolean;
+}) {
   const [rows, setRows] = useState(initial);
   const [busy, setBusy] = useState<string>();
   const [error, setError] = useState<string>();
@@ -63,12 +70,19 @@ export function MentorNoticeList({ initial }: { initial: MentorNoticeRow[] }) {
 
   return (
     <div className="min-h-0 flex-1 overflow-y-auto">
-      <p className="mb-4 max-w-[640px] text-[13px] leading-relaxed text-gray-500">
-        후배가 선배를 골랐다는 것을 선배는 알 수 없어요. <b className="text-gray-700">문자 열기</b>를
-        누르면 내용이 채워진 문자 앱이 열려요. 보낸 뒤 <b className="text-gray-700">보냄</b>을 눌러 두면
-        다른 운영자와 겹치지 않아요. 여러 건을 맥에서 한 번에 보내려면{" "}
-        <code className="rounded bg-gray-100 px-1">npm run notify:mentors</code>.
-      </p>
+      {readOnly ? (
+        <p className="mb-4 max-w-[640px] text-[13px] leading-relaxed text-gray-500">
+          후배가 고른 선배 중 아직 문자로 알리지 않은 사람과, 이미 알린 기록이에요.
+          문자 보내기와 기록은 운영자가 해요.
+        </p>
+      ) : (
+        <p className="mb-4 max-w-[640px] text-[13px] leading-relaxed text-gray-500">
+          후배가 선배를 골랐다는 것을 선배는 알 수 없어요. <b className="text-gray-700">문자 열기</b>를
+          누르면 내용이 채워진 문자 앱이 열려요. 보낸 뒤 <b className="text-gray-700">보냄</b>을 눌러 두면
+          다른 운영자와 겹치지 않아요. 여러 건을 맥에서 한 번에 보내려면{" "}
+          <code className="rounded bg-gray-100 px-1">npm run notify:mentors</code>.
+        </p>
+      )}
 
       {error && (
         <p className="mb-3 max-w-[640px] rounded-lg bg-red-500/10 px-4 py-2.5 text-[13px] text-red-600">
@@ -88,22 +102,24 @@ export function MentorNoticeList({ initial }: { initial: MentorNoticeRow[] }) {
           {pending.map((row) => (
             <li key={row.matchingId} className="rounded-xl border border-gray-200 bg-white p-4">
               <NoticeSummary row={row} />
-              <div className="mt-3 flex gap-2">
-                <a
-                  href={smsHref(row.mentorContact, mentorNoticeText(row))}
-                  className="flex h-11 flex-1 items-center justify-center rounded-lg bg-brand text-[14px] font-bold text-white active:bg-brand-dark"
-                >
-                  문자 열기
-                </a>
-                <button
-                  type="button"
-                  onClick={() => void mark(row, false)}
-                  disabled={busy === row.matchingId}
-                  className="h-11 flex-1 rounded-lg border border-gray-200 text-[14px] font-bold text-gray-700 active:bg-gray-100 disabled:text-gray-300"
-                >
-                  {busy === row.matchingId ? "기록 중…" : "보냄"}
-                </button>
-              </div>
+              {!readOnly && (
+                <div className="mt-3 flex gap-2">
+                  <a
+                    href={smsHref(row.mentorContact, mentorNoticeText(row))}
+                    className="flex h-11 flex-1 items-center justify-center rounded-lg bg-brand text-[14px] font-bold text-white active:bg-brand-dark"
+                  >
+                    문자 열기
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => void mark(row, false)}
+                    disabled={busy === row.matchingId}
+                    className="h-11 flex-1 rounded-lg border border-gray-200 text-[14px] font-bold text-gray-700 active:bg-gray-100 disabled:text-gray-300"
+                  >
+                    {busy === row.matchingId ? "기록 중…" : "보냄"}
+                  </button>
+                </div>
+              )}
             </li>
           ))}
         </ul>
@@ -124,14 +140,16 @@ export function MentorNoticeList({ initial }: { initial: MentorNoticeRow[] }) {
                 {formatTime(row.notifiedAt!)} · {row.notifiedVia ? VIA_LABEL[row.notifiedVia] : "-"}
               </p>
             </div>
-            <button
-              type="button"
-              onClick={() => void mark(row, true)}
-              disabled={busy === row.matchingId}
-              className="shrink-0 text-[12px] font-semibold text-gray-500 underline disabled:text-gray-300"
-            >
-              되돌리기
-            </button>
+            {!readOnly && (
+              <button
+                type="button"
+                onClick={() => void mark(row, true)}
+                disabled={busy === row.matchingId}
+                className="shrink-0 text-[12px] font-semibold text-gray-500 underline disabled:text-gray-300"
+              >
+                되돌리기
+              </button>
+            )}
           </li>
         ))}
       </ul>

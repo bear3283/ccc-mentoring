@@ -113,6 +113,12 @@ Project Settings → Environment Variables 에 아래를 Production 으로 추�
 | `SUPABASE_SERVICE_ROLE_KEY` | **절대 `NEXT_PUBLIC_` 접두사 금지** |
 | `ADMIN_PASSWORD` | 운영용 새 값 |
 | `ADMIN_SESSION_SECRET` | 위와 다른 값 |
+| `VIEWER_PASSWORD` | 선택. 보기 전용 비밀번호 — 운영자 비밀번호와 다른 값 |
+
+보기 전용 비밀번호로 들어오면 같은 `/admin` 화면이 열리지만, 전체 매칭 실행과
+선배 알림 문자·기록 버튼이 없고 서버도 운영자 API 요청을 403으로 거부합니다.
+연락처는 운영자와 똑같이 보이므로 현황을 함께 볼 사람에게만 주세요.
+비밀번호를 바꾼 뒤에도 이미 들어온 사람은 최대 12시간 머물 수 있습니다(위 서명키 설명 참고).
 
 ### 2-3. 배포 직후 확인 (실기기 필수)
 
