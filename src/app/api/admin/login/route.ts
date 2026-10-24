@@ -39,7 +39,8 @@ export async function POST(request: Request) {
   }
 
   // 보기 전용 비밀번호는 선택이다. 설정하지 않았으면 운영자 비밀번호만 받는다.
-  const viewer = process.env.VIEWER_PASSWORD;
+  // 클립보드로 넣다가 끝에 줄바꿈이 딸려 들어오기 쉬워 앞뒤 공백은 떼고 비교한다.
+  const viewer = process.env.VIEWER_PASSWORD?.trim();
   const role: AdminRole | null = passwordMatches(password, expected)
     ? "admin"
     : viewer && passwordMatches(password, viewer)
