@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { DataTable, type TableColumn } from "./DataTable";
 import { downloadCsv, type CsvColumn } from "../lib/csv";
 import type { FallbackReason, Mentee, Mentor } from "@/features/matching/model/types";
@@ -312,6 +313,28 @@ export function AdminDashboard({
   const [running, setRunning] = useState(false);
   const [runMessage, setRunMessage] = useState<string>();
 
+  const router = useRouter();
+  const [loggingOut, setLoggingOut] = useState(false);
+
+  /**
+   * 로그인 쿠키를 지우고 로그인 화면으로 보낸다.
+   * 함께 쓰는 노트북·현장 PC에서 다음 사람이 그대로 들어오지 않게 한다.
+   * 쿠키는 httpOnly 라 브라우저에서 지울 수 없어 서버에 맡긴다.
+   */
+  const handleLogout = async () => {
+    if (loggingOut) return;
+    setLoggingOut(true);
+    try {
+      const res = await fetch("/api/admin/login", { method: "DELETE" });
+      if (!res.ok) throw new Error(String(res.status));
+      router.replace("/admin/login");
+      router.refresh();
+    } catch {
+      setRunMessage("로그아웃하지 못했어요. 다시 눌러주세요.");
+      setLoggingOut(false);
+    }
+  };
+
   /**
    * 신청자 전원의 추천을 다시 계산한다.
    *
@@ -389,6 +412,14 @@ export function AdminDashboard({
               className="h-9 rounded-lg bg-brand px-4 text-[13px] font-bold text-white active:bg-brand-dark"
             >
               CSV 내보내기
+            </button>
+            <button
+              type="button"
+              onClick={handleLogout}
+              disabled={loggingOut}
+              className="h-9 rounded-lg px-3 text-[13px] font-semibold text-gray-500 active:bg-gray-100 disabled:text-gray-300"
+            >
+              {loggingOut ? "나가는 중…" : "로그아웃"}
             </button>
           </div>
         </div>

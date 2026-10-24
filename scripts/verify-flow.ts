@@ -504,6 +504,12 @@ async function main() {
     redirect: "manual",
   });
   check("위조 쿠키 차단", forged.status === 307 || forged.status === 302);
+  const logout = await fetch(`${BASE}/api/admin/login`, { method: "DELETE" });
+  check(
+    "로그아웃하면 로그인 쿠키를 지움",
+    logout.ok && /ccc_admin=;.*Max-Age=0/i.test(logout.headers.get("set-cookie") ?? ""),
+    `HTTP ${logout.status}`,
+  );
   const wrongPw = await post("/api/admin/login", { password: "wrong-password" });
   check("틀린 비밀번호 거부", wrongPw.status === 401);
 
@@ -516,12 +522,20 @@ async function main() {
     const viewerPage = await fetch(`${BASE}/admin`, { headers: { Cookie: viewerCookie }, redirect: "manual" });
     const viewerHtml = await viewerPage.text();
     check(
-      "보기 전용 화면에 매칭 실행 버튼 없음",
-      viewerPage.status === 200 && viewerHtml.includes("보기 전용") && !viewerHtml.includes("전체 매칭 실행"),
+      "보기 전용 화면에 매칭 실행 버튼 없음 · 로그아웃 버튼 있음",
+      viewerPage.status === 200 &&
+        viewerHtml.includes("보기 전용") &&
+        !viewerHtml.includes("전체 매칭 실행") &&
+        viewerHtml.includes("로그아웃"),
       `HTTP ${viewerPage.status}`,
     );
     const viewerWrite = await post("/api/admin/match-all", {}, viewerCookie);
     check("보기 전용은 운영자 API 거부", viewerWrite.status === 403, `HTTP ${viewerWrite.status}`);
+    const viewerLogout = await fetch(`${BASE}/api/admin/login`, {
+      method: "DELETE",
+      headers: { Cookie: viewerCookie },
+    });
+    check("보기 전용도 로그아웃 가능", viewerLogout.ok, `HTTP ${viewerLogout.status}`);
   } else {
     console.log("  - 보기 전용 점검 건너뜀 (VIEWER_PASSWORD 없음)");
   }
