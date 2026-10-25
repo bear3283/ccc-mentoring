@@ -100,7 +100,7 @@ export const CONSENT_ITEMS: ConsentItem[] = [
         term: "처리 위탁",
         detail:
           "Vercel Inc.(웹사이트 운영), Supabase Inc.(데이터 저장)에 맡겨 처리합니다. " +
-          "두 회사는 맡은 일 외에는 정보를 쓰지 않습니다",
+          "정보는 두 회사의 서울 지역 서버에 보관되고, 두 회사는 맡은 일 외에는 정보를 쓰지 않습니다",
       },
       {
         term: "내 정보에 대한 권리",
