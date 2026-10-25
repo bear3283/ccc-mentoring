@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { MeetingSpots } from "@/features/venue/components/MeetingSpots";
 import { VenueMap } from "@/features/venue/components/VenueMap";
 import { VENUE, EVENT_DATE_LABEL, isAfterEvent } from "@/shared/constants/venue";
 
@@ -41,10 +40,6 @@ export default function VenuePage() {
       </div>
 
       <VenueMap />
-
-      <div className="mt-10">
-        <MeetingSpots />
-      </div>
 
       <div className="mt-10 px-5 pb-[max(24px,env(safe-area-inset-bottom))]">
         <Link

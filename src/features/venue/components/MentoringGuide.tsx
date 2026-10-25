@@ -38,7 +38,7 @@ const CHAPEL: Step = {
 const MENTORING: Step = {
   emoji: "📅",
   title: "1:1 멘토링 날을 정해요",
-  detail: "신청할 때 고른 시간 중에서 따로 한 번 만나요. 밤 시간은 온라인으로 해도 돼요.",
+  detail: "서로 편한 날짜를 문자로 정해 따로 한 번 만나요. 온라인으로 해도 돼요.",
 };
 
 /** 채플이 지나면 인사 단계가 빠진다. 지난 날을 기다리라고 안내하지 않는다. */
@@ -107,7 +107,7 @@ export function MentoringGuide({ activeStep, title = "매칭된 다음은요" }:
         href="/venue"
         className="mt-5 flex h-[52px] w-full items-center justify-between rounded-2xl bg-brand-soft px-5 text-[15px] font-bold text-brand active:bg-brand-soft/70"
       >
-        <span>오시는 길 · 만날 장소 보기</span>
+        <span>오시는 길 보기</span>
         <span className="text-[18px]">→</span>
       </Link>
     </section>

@@ -2,6 +2,7 @@
  * 행사 장소 정보.
  *
  * 화면 여러 곳(약도, 매칭 결과, 안내문)에서 같은 값을 쓰므로 여기 한 곳만 고친다.
+ * 교회 안에서 만날 자리는 안내하지 않는다. 오시는 길만 보여준다.
  * 교통편은 신길교회 공식 홈페이지(shingil.kr)의 '오시는길' 기준이다.
  */
 
@@ -109,82 +110,10 @@ export const VENUE = {
 } as const;
 
 /**
- * 교회 안에서 멘토와 멘티가 만날 만한 장소.
- *
- * 지금은 예시다. 실제 공간이 정해지면 운영진이 이 배열만 고치면
- * 안내 화면에 그대로 반영된다.
- */
-export interface MeetingSpot {
-  id: string;
-  name: string;
-  floor: string;
-  emoji: string;
-  /** 어떤 대화에 어울리는 곳인지 */
-  mood: string;
-  /** 동시에 머물기 좋은 인원 감각 */
-  capacity: string;
-}
-
-export const MEETING_SPOTS: MeetingSpot[] = [
-  {
-    id: "cafe",
-    name: "카페",
-    floor: "1층",
-    emoji: "☕",
-    mood: "처음 만나 어색할 때. 음료를 시키는 동안 자연스럽게 말이 트인다",
-    capacity: "2~4명",
-  },
-  {
-    id: "lobby",
-    name: "로비 라운지",
-    floor: "1층",
-    emoji: "🛋️",
-    mood: "찾기 쉬워서 처음 만나는 장소로 좋다",
-    capacity: "여러 팀",
-  },
-  {
-    id: "youth-room",
-    name: "청년부실",
-    floor: "3층",
-    emoji: "🎸",
-    mood: "편하게 오래 이야기하기 좋은 곳",
-    capacity: "4~8명",
-  },
-  {
-    id: "small-group",
-    name: "소그룹실",
-    floor: "2층",
-    emoji: "🗣️",
-    mood: "진로처럼 조용히 나눌 이야기가 있을 때",
-    capacity: "2~6명",
-  },
-  {
-    id: "library",
-    name: "도서실",
-    floor: "2층",
-    emoji: "📚",
-    mood: "공부법이나 학과 이야기를 자료 보며 나눌 때",
-    capacity: "2~4명",
-  },
-  {
-    id: "yard",
-    name: "야외 마당",
-    floor: "바깥",
-    emoji: "🌳",
-    mood: "날이 좋으면 걸으면서 이야기하기 좋다",
-    capacity: "제한 없음",
-  },
-];
-
-/** 예시라는 것을 화면에서도 밝혀야 당일에 혼선이 없다. */
-export const MEETING_SPOTS_ARE_DRAFT = true;
-
-/**
  * 채플 당일(목) 몇 시에 올 수 있는지.
  *
  * 채플 날은 매칭된 선배·후배가 얼굴을 보고 인사하는 자리다. 1:1 멘토링은
- * 그 뒤에 따로 한 번 하고, 그 시간은 TIME_SLOTS(평일·주말 시간대)로 받는다.
- * 둘을 한 질문으로 물으면 "목요일에 만나는 시간"인지 헷갈린다.
+ * 그 뒤에 따로 한 번 하고, 그 날짜는 매칭된 뒤 둘이 문자로 정한다.
  *
  * 매칭 점수에는 쓰지 않는다. 인사만 하는 자리라 도착 시간이 달라도
  * 문자로 맞추면 된다. 매칭된 상대와 운영자에게만 보여준다.

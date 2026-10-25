@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Name } from "@/components/ui/Name";
 import { loadDraft, type StoredDraft } from "@/features/onboarding/lib/draftStore";
-import { InstagramLinks } from "@/features/venue/components/InstagramLinks";
 import { MentoringGuide } from "@/features/venue/components/MentoringGuide";
 import { useStaggerReveal } from "@/shared/hooks/useStaggerReveal";
 
@@ -36,13 +35,6 @@ export default function MentoringCompletePage() {
 
   const isMentee = stored.role === "MENTEE";
   const name = stored.draft.name ?? "";
-
-  // 멘티는 지망 학교들, 멘토는 재학 중인 학교의 CCC를 보여준다.
-  const campuses = isMentee
-    ? stored.draft.targetCampus
-    : stored.draft.currentCampus
-      ? [stored.draft.currentCampus]
-      : [];
 
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-[430px] flex-col bg-white">
@@ -96,10 +88,6 @@ export default function MentoringCompletePage() {
 
       <div className="mt-10">
         <MentoringGuide />
-      </div>
-
-      <div className="mt-10">
-        <InstagramLinks campuses={campuses} />
       </div>
 
       <div className="mt-10 px-5 pb-[max(24px,env(safe-area-inset-bottom))]">
