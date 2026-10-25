@@ -58,7 +58,7 @@ export function findIssues(mentees: Mentee[], mentors: Mentor[]): IssueRow[] {
       kind: "성별 미입력",
       contact: p.contact,
       people: describe(p),
-      action: "매칭 후보에서 빠져 있어요. 멘토링 신청을 다시 하면서 성별을 고르도록 안내하세요.",
+      action: "매칭 후보에서 빠져 있어요. 처음 화면에서 같은 이름·번호로 다시 등록해 성별을 고르고, 멘토링을 다시 신청하도록 안내하세요.",
     }));
 
   return [...duplicates, ...noGender];

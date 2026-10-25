@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useStaggerReveal } from "@/shared/hooks/useStaggerReveal";
 import { cn } from "@/shared/lib/cn";
 import { StepLayout } from "../StepLayout";
-import { GenderChoice } from "./GenderStep";
+import { GenderChoice } from "./GenderChoice";
 import type { StepProps } from "../../model/types";
 
 /** 010-1234-5678 형태로만 통과시킨다. 연락이 안 되면 등록이 의미가 없다. */

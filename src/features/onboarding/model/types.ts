@@ -42,16 +42,18 @@ export const REGISTER_STEPS = ["consent", "basic", "role", "extra"] as const;
  * 채플 당일 도착 시간(eventArrival)만 받고, 채플이 지난 뒤에는 RoleFunnel 이
  * 이 스텝을 건너뛴다.
  *
- * 성별(gender)은 등록(BasicStep)에서 받는다. 성별을 받기 전에 등록한 사람만
- * 멘토링 신청 첫머리에서 한 번 더 묻는다(RoleFunnel 이 고른다).
+ * 성별(gender)은 등록(BasicStep)에서 받고 여기서 다시 묻지 않는다. 멘토링 신청은
+ * 등록할 때 이 브라우저에 남긴 초안 위에 이어 쓰므로 성별이 이미 들어 있다.
+ * 성별을 받기 전에 등록한 사람도 같은 이름·번호로 다시 등록하면 성별을 고르게 되고,
+ * 멘토링을 신청할 때 그 값이 저장된다.
  */
 export const MENTORING_STEPS_BY_ROLE = {
   MENTEE: [
-    "mentoringIntro", "gender", "persona", "mbti", "desiredArea",
+    "mentoringIntro", "persona", "mbti", "desiredArea",
     "targetCampus", "targetMajor", "eventArrival", "photo",
   ],
   MENTOR: [
-    "mentoringIntro", "gender", "persona", "mbti", "mentoringArea",
+    "mentoringIntro", "persona", "mbti", "mentoringArea",
     "currentCampus", "currentMajor", "capacity", "eventArrival", "photo",
   ],
 } as const;

@@ -345,7 +345,8 @@ function EmptyResult({
     if (diagnosis.genderMissing) {
       return {
         title: "성별을 알려주시면 선배를 찾아드릴게요",
-        detail: "같은 성별의 선배와 이어드려요. 아래 버튼으로 멘토링 신청을 다시 하면서 성별을 골라주세요.",
+        detail:
+          "같은 성별의 선배와 이어드려요. 처음 화면에서 같은 이름·번호로 다시 등록하며 성별을 고르고, 이어서 멘토링을 신청해주세요.",
       };
     }
 
@@ -378,12 +379,15 @@ function EmptyResult({
       <p className="mt-2 text-[14px] leading-relaxed text-gray-500">
         {reason?.detail ?? "지망 캠퍼스나 관심 분야를 넓혀보세요."}
       </p>
-      {/* 등록(/onboarding/register)이 아니라 멘토링 신청으로 보낸다. 등록은 이미 끝났다. */}
+      {/*
+        보통은 멘토링 신청으로 보낸다. 등록은 이미 끝났다.
+        성별이 비어 있으면 성별을 묻는 등록부터 다시 해야 한다(같은 번호면 기존 코드가 나온다).
+      */}
       <Link
-        href="/onboarding/mentoring/mentee"
+        href={diagnosis?.genderMissing ? "/onboarding/register" : "/onboarding/mentoring/mentee"}
         className="mt-5 inline-flex h-11 items-center rounded-xl bg-brand-soft px-5 text-[14px] font-bold text-brand"
       >
-        조건 바꿔서 다시 신청하기
+        {diagnosis?.genderMissing ? "성별 넣어 다시 등록하기" : "조건 바꿔서 다시 신청하기"}
       </Link>
     </div>
   );

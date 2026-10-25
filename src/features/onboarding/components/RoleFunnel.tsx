@@ -13,7 +13,6 @@ import { CampusStep } from "./steps/CampusStep";
 import { CapacityStep } from "./steps/CapacityStep";
 import { ConsentStep } from "./steps/ConsentStep";
 import { ExtraStep } from "./steps/ExtraStep";
-import { GenderStep } from "./steps/GenderStep";
 import { MajorStep } from "./steps/MajorStep";
 import { MbtiStep } from "./steps/MbtiStep";
 import { MentoringIntroStep } from "./steps/MentoringIntroStep";
@@ -41,7 +40,6 @@ const REGISTRY: StepRegistry = {
 
   // ── 2단계: 멘토링 신청 (여기서부터 역할별로 갈라진다) ──
   mentoringIntro: MentoringIntroStep,
-  gender: GenderStep,
   targetCampus: CampusStep,
   currentCampus: CampusStep,
   persona: PersonaStep,
@@ -89,12 +87,9 @@ export function RoleFunnel({ role, phase }: RoleFunnelProps) {
   const source = isMentoring ? MENTORING_STEPS_BY_ROLE[role ?? "MENTEE"] : REGISTER_STEPS;
 
   // 구현이 끝난 스텝만 태운다. 채플이 지난 뒤에는 당일 도착 시간을 묻지 않는다.
-  // 성별은 등록 때 받으므로, 성별을 받기 전에 등록한 사람에게만 다시 묻는다.
   const activeSteps = source.filter(
     (step): step is OnboardingStep =>
-      step in REGISTRY &&
-      !(step === "eventArrival" && isAfterEvent()) &&
-      !(step === "gender" && initialDraft.gender),
+      step in REGISTRY && !(step === "eventArrival" && isAfterEvent()),
   );
 
   const handleComplete = async (draft: OnboardingDraft) => {
