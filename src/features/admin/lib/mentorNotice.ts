@@ -43,8 +43,9 @@ export function mentorCheckUrl(mentorCode: string): string {
  */
 export function mentorNoticeText({ menteeName, mentorName, mentorCode }: MentorNoticeInput): string {
   return [
-    `[고3채플] ${mentorName} 선배님, ${menteeName} 후배가 선배님을 멘토로 골랐어요.`,
-    `아래 링크를 누르면 후배 연락처와 채플 날 도착 시간이 바로 보여요.`,
+    `[고3채플] ${mentorName} 선배님, ${menteeName} 후배와 연결됐어요!`,
+    // 확인에서 끝나지 않고 인사까지 이어지게 한다. 링크 화면에 [문자 보내며 인사하기]가 있다.
+    `아래 링크에서 후배 연락처와 채플 날 도착 시간을 확인하고, 문자로 인사해 주세요.`,
     mentorCheckUrl(mentorCode),
     `(참여코드 ${mentorCode})`,
   ].join("\n");
