@@ -202,7 +202,6 @@ const matchColumns: TableColumn<MatchRow>[] = [
   { key: "mbtiScore", header: `MBTI(${WEIGHTS.mbti})`, value: (r) => r.mbtiScore, align: "right" },
   { key: "majorScore", header: `학과(${WEIGHTS.major})`, value: (r) => r.majorScore, align: "right" },
   { key: "personaScore", header: `성경인물(${WEIGHTS.persona})`, value: (r) => r.personaScore, align: "right" },
-
 ];
 
 const TABS: { key: Tab; label: string }[] = [
