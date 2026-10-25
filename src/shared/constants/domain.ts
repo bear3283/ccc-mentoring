@@ -26,6 +26,8 @@ export const MENTORING_AREAS = [
   "진로설계",
   "교환학생",
   "자취생활",
+  "신앙생활",
+  "CCC",
 ] as const;
 
 export type MentoringArea = (typeof MENTORING_AREAS)[number];
@@ -78,6 +80,16 @@ export const AREA_META: Record<
     emoji: "🏠",
     hint: "방 구하기, 생활비, 살림",
     ask: "자취는 할 만한가요?",
+  },
+  신앙생활: {
+    emoji: "🙏",
+    hint: "대학에서 신앙 지키기, 교회 생활",
+    ask: "대학에 가서 신앙생활은 어떻게 이어가셨어요?",
+  },
+  CCC: {
+    emoji: "🤝",
+    hint: "캠퍼스 CCC 모임과 활동",
+    ask: "CCC에서는 어떤 활동을 해요?",
   },
 };
 
