@@ -11,6 +11,9 @@ import { VENUE_MAP } from "../lib/venueMapGeometry.generated";
  */
 
 const BRAND = "#bf4e2b";
+/** 서울 지하철 노선 색. */
+const LINE1 = "#0052A4";
+const LINE5 = "#996CAC";
 const { width: W, height: H, points: p } = VENUE_MAP;
 
 /** 100m 가 화면에서 몇 칸인지. 거리 감각을 주는 축척 막대에 쓴다. */
@@ -33,10 +36,10 @@ export function VenueIllustration() {
           <path d={VENUE_MAP.main} stroke="#ffffff" strokeWidth={15} />
         </g>
 
-        {/* ── 철길(1호선 경부선) ── 레일과 침목 */}
-        <g fill="none">
-          <path d={VENUE_MAP.rail} stroke="#c7bdb4" strokeWidth={7} strokeDasharray="1.6 5" />
-          <path d={VENUE_MAP.rail} stroke="#a89d93" strokeWidth={1.6} />
+        {/* ── 전철 노선 ── 선로 대신 노선 색 선 하나로만. 5호선은 땅속이라 점선으로. */}
+        <g fill="none" strokeLinecap="round" strokeLinejoin="round" opacity={0.75}>
+          <path d={VENUE_MAP.line1} stroke={LINE1} strokeWidth={4} />
+          <path d={VENUE_MAP.line5} stroke={LINE5} strokeWidth={4} strokeDasharray="7 5" />
         </g>
 
         {/* ── 걷는 길 ── 둥근 점선이라 "걸어가는 길"로 읽힌다. */}
@@ -57,18 +60,17 @@ export function VenueIllustration() {
           <text x={104} y={150} textAnchor="end" fontSize={10.5} fontWeight={800} fill="#9a7f6b">
             영등포로 →
           </text>
-          <text x={232} y={136} transform="rotate(27 232 136)" fontSize={8.5} fontWeight={700} fill="#8c8078">
-            1호선 철길
+          <text x={300} y={160} transform="rotate(27 300 160)" fontSize={9} fontWeight={800} fill={LINE1}>
+            1호선
           </text>
         </g>
 
         {/* ── 역 ── 노선 색을 쓴다. */}
         {/* 5호선 역은 약도 왼쪽 끝에 걸려 있어 이름표가 잘리지 않게 안쪽으로 민다. */}
-        <StationTag x={Math.max(p.line5[0], 14)} y={Math.max(p.line5[1], 16)} color="#996CAC" line="5" />
-        <StationTag x={p.line1[0]} y={p.line1[1]} color="#0052A4" line="1" />
+        <StationTag x={Math.max(p.line5[0], 14)} y={Math.max(p.line5[1], 16)} color={LINE5} line="5" />
+        <StationTag x={p.line1[0]} y={p.line1[1]} color={LINE1} line="1" />
 
         {/* ── 길 위 표지 ── */}
-        <Landmark x={p.gas[0]} y={p.gas[1]} label="주유소" anchor="end" />
         <Landmark x={p.cu[0]} y={p.cu[1]} label="CU" anchor="start" />
 
         {/* ── 단계 배지 ── */}

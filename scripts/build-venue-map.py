@@ -32,7 +32,6 @@ STATION_LINE5 = (37.51751, 126.91635)
 LANDMARKS = {
     "busDaeyun": (37.51453, 126.91815),  # 대윤병원 버스정류장 — 골목으로 꺾는 곳
     "cu": (37.51514, 126.91792),  # CU 편의점 — 영등포로를 걷는 중간
-    "gas": (37.51538, 126.91693),  # SK 주유소 — 길 건너편
 }
 
 OUT = Path("src/features/venue/lib/venueMapGeometry.generated.ts")
@@ -64,21 +63,52 @@ def main() -> None:
     root = ET.fromstring(osm)
     nodes = {n.get("id"): (float(n.get("lat")), float(n.get("lon"))) for n in root.iter("node")}
 
-    roads: dict[str, list[str]] = {"main": [], "minor": [], "rail": []}
+    ways = []
     for way in root.iter("way"):
         tags = {t.get("k"): t.get("v") for t in way.iter("tag")}
-        hw, rw = tags.get("highway"), tags.get("railway")
-        if hw in ("primary", "secondary"):
-            kind = "main"
-        elif hw in ("tertiary", "residential", "unclassified", "living_street"):
-            kind = "minor"
-        elif rw == "rail":
-            kind = "rail"
-        else:
-            continue
         pts = [nodes[nd.get("ref")] for nd in way.iter("nd") if nd.get("ref") in nodes]
         if len(pts) >= 2:
-            roads[kind].append(path(pts))
+            ways.append((tags, pts))
+
+    # 영등포로 서쪽은 그리지 않는다. 걷는 길은 영등포로 동쪽 보도와 그 안쪽 골목뿐이라
+    # 서쪽 골목은 눈만 어지럽힌다. 위도마다 영등포로가 지나는 경도를 구해 비교한다.
+    spine = sorted(
+        (pt for tags, pts in ways if tags.get("name") == "영등포로" and tags.get("highway") == "secondary"
+         for pt in pts),
+    )
+
+    def road_lon_at(lat: float) -> float:
+        below = [p for p in spine if p[0] <= lat]
+        above = [p for p in spine if p[0] >= lat]
+        if not below:
+            return above[0][1]
+        if not above:
+            return below[-1][1]
+        (a_lat, a_lon), (b_lat, b_lon) = below[-1], above[0]
+        if b_lat == a_lat:
+            return a_lon
+        return a_lon + (b_lon - a_lon) * (lat - a_lat) / (b_lat - a_lat)
+
+    def west_of_road(pts: list[tuple[float, float]]) -> bool:
+        west = sum(1 for lat, lon in pts if lon < road_lon_at(lat) - 0.00005)
+        return west > len(pts) / 2
+
+    roads: dict[str, list[str]] = {"main": [], "minor": []}
+    line1: list[tuple[float, float]] = []
+    line5: list[str] = []
+    for tags, pts in ways:
+        hw, rw = tags.get("highway"), tags.get("railway")
+        if hw in ("primary", "secondary"):
+            if tags.get("name") == "영등포로" or not west_of_road(pts):
+                roads["main"].append(path(pts))
+        elif hw in ("tertiary", "residential", "unclassified", "living_street"):
+            if not west_of_road(pts):
+                roads["minor"].append(path(pts))
+        elif rw == "rail" and len(pts) > len(line1):
+            # 1호선(경부선)은 선로가 여러 가닥이다. 노선 하나로만 그리려고 가장 긴 가닥 하나를 쓴다.
+            line1 = pts
+        elif rw == "subway" and tags.get("name") == "5호선":
+            line5.append(path(pts))
 
     route = json.loads(
         fetch(
@@ -106,7 +136,9 @@ def main() -> None:
         "walkMeters": round(route["distance"]),
         "main": " ".join(roads["main"]),
         "minor": " ".join(roads["minor"]),
-        "rail": " ".join(roads["rail"]),
+        "line1": path(line1),
+        # 5호선은 상·하행 두 가닥이 거의 겹친다. 하나만 그린다.
+        "line5": line5[0] if line5 else "",
         "walk": walk,
         "points": points,
     }
