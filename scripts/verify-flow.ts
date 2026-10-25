@@ -67,8 +67,6 @@ function mentor(n: number, over: Record<string, unknown> = {}) {
     name: `검증멘토${n}`,
     gender: "FEMALE",
     contact: `${TEST_PREFIX}${String(1000 + n).slice(-4)}`,
-    church: "신길교회",
-    isNewFriend: false,
     ...over,
   };
 }
@@ -100,8 +98,6 @@ function mentee(over: Record<string, unknown> = {}) {
     name: "검증멘티",
     gender: "FEMALE",
     contact: `${TEST_PREFIX}0001`,
-    church: "신길교회",
-    isNewFriend: false,
     ...over,
   };
 }
@@ -290,17 +286,12 @@ async function main() {
   });
   check("동의 없는 신청 거부", noConsent.status === 400, String(noConsent.json.error ?? ""));
 
-  const noChurch = await post("/api/signup", {
-    role: "MENTEE",
-    draft: { ...mentee({ contact: `${TEST_PREFIX}0011` }), church: undefined, isNewFriend: false },
-  });
-  check("교회·새친구 둘 다 없으면 거부", noChurch.status === 400, String(noChurch.json.error ?? ""));
-
   const newFriend = await post("/api/signup", {
     role: "MENTEE",
-    draft: mentee({ name: "새친구검증", contact: `${TEST_PREFIX}0012`, church: undefined, isNewFriend: true }),
+    // 출석 교회는 묻지 않는다. 보내더라도 저장하지 않는다.
+    draft: mentee({ name: "새친구검증", contact: `${TEST_PREFIX}0012`, church: "보내도무시" }),
   });
-  check("교회 없이 새친구로는 등록 가능", newFriend.status === 200, String(newFriend.json.error ?? ""));
+  check("출석 교회 없이 등록 가능", newFriend.status === 200, String(newFriend.json.error ?? ""));
 
   const oldConsent = await post("/api/signup", {
     role: "MENTEE",
@@ -462,7 +453,7 @@ async function main() {
   check("두 번째 후배 연결 (2/2)", secondRequest.status === 200, String(secondRequest.json.error ?? ""));
 
   // ④ 정원이 찼으니 세 번째 후배의 후보에서는 빠진다.
-  //    등록 한도를 아끼려고 [2]에서 등록한 새친구 멘티를 재사용한다.
+  //    등록 한도를 아끼려고 [2]에서 등록한 멘티를 재사용한다.
   const thirdCode = await applyAsMentee(
     "새친구검증",
     newFriend.json.participationCode as string | undefined,

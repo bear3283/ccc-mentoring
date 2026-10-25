@@ -12,7 +12,7 @@ const bodoni = Bodoni_Moda({
 
 export const metadata: Metadata = {
   title: "CCC 멘토-멘티 매칭",
-  description: "예비 대학생과 CCC 선배를 캠퍼스·관심 영역·성향으로 이어주는 서비스",
+  description: "예비 대학생과 CCC 선배를 연결해주는 서비스",
 };
 
 export const viewport: Viewport = {

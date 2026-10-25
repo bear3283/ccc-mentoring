@@ -42,14 +42,6 @@ export function validateRegistration(
     return "동의 문구가 변경되었어요. 화면을 새로고침한 뒤 다시 시도해주세요.";
   }
 
-  // 교회를 적었거나 새친구라고 밝혔거나. 둘 다 비면 집계할 수 없다.
-  if (!draft.isNewFriend && !draft.church?.trim()) {
-    return "출석하는 교회를 알려주세요.";
-  }
-  if (draft.church && draft.church.trim().length > 40) {
-    return "교회 이름이 너무 길어요.";
-  }
-
   // 캠퍼스는 여기서 보지 않는다. 채플에 오는 데 필요한 정보가 아니라
   // 매칭에 쓰는 정보라 2단계로 옮겼다.
   if (draft.role && draft.role !== role) {

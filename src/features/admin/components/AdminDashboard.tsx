@@ -52,13 +52,6 @@ const menteeColumns: TableColumn<Mentee>[] = [
   { key: "code", header: "참여코드", value: (r) => r.participationCode, width: "110px" },
   { key: "name", header: "이름", value: (r) => r.name, width: "80px" },
   { key: "gender", header: "성별", value: (r) => genderLabel(r.gender), align: "center", width: "60px" },
-  {
-    key: "church",
-    header: "출석 교회",
-    // 새친구는 눈에 띄어야 한다. 행사 당일 따로 맞이해야 하는 분들이다.
-    value: (r) => (r.isNewFriend ? "🌱 새친구" : (r.church ?? "-")),
-    width: "120px",
-  },
   { key: "campus1", header: "1지망", value: (r) => r.targetCampus[0] ?? "-" },
   { key: "campus2", header: "2지망", value: (r) => r.targetCampus[1] ?? "-" },
   { key: "campus3", header: "3지망", value: (r) => r.targetCampus[2] ?? "-" },
@@ -101,13 +94,6 @@ const mentorColumns: TableColumn<AdminMentor>[] = [
   { key: "code", header: "참여코드", value: (r) => r.participationCode, width: "110px" },
   { key: "name", header: "이름", value: (r) => r.name, width: "80px" },
   { key: "gender", header: "성별", value: (r) => genderLabel(r.gender), align: "center", width: "60px" },
-  {
-    key: "church",
-    header: "출석 교회",
-    // 새친구는 눈에 띄어야 한다. 행사 당일 따로 맞이해야 하는 분들이다.
-    value: (r) => (r.isNewFriend ? "🌱 새친구" : (r.church ?? "-")),
-    width: "120px",
-  },
   { key: "campus", header: "캠퍼스", value: (r) => r.currentCampus ?? "-" },
   {
     key: "admission",

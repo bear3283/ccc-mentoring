@@ -18,7 +18,7 @@ import { useStaggerReveal } from "@/shared/hooks/useStaggerReveal";
  * 등록에서 실제로 묻는 것. 미리 알려주면 "얼마나 걸리지?"를 재지 않는다.
  * 한 줄에 이어 붙이므로 각 항목은 짧아야 한다.
  */
-const ASKS = ["이름", "연락처", "고3인지 대학생인지", "출석 교회"] as const;
+const ASKS = ["이름", "성별", "연락처", "고3인지 대학생인지"] as const;
 
 // 운영자 화면(/admin)은 여기에 두지 않는다.
 // 이 화면은 QR을 스캔한 참가자가 보는 곳이라, 관리자 링크가 노출되면 안 된다.

@@ -27,7 +27,7 @@ import type { EventArrival } from "@/shared/constants/venue";
  */
 
 /** 1단계 — 고3채플 등록. 역할과 무관하게 모두 같은 순서다. */
-export const REGISTER_STEPS = ["consent", "basic", "role", "church"] as const;
+export const REGISTER_STEPS = ["consent", "basic", "role", "extra"] as const;
 
 /**
  * 2단계 — 멘토링 신청. 선택이다.
@@ -88,8 +88,8 @@ export interface OnboardingDraft {
   /** 이 서비스를 소개해 준 사람 */
   referrer?: string;
   /**
-   * 출석하는 교회. 없으면 비우고 isNewFriend 를 세운다.
-   * 행사에서 새친구를 따로 챙기기 위한 구분이다.
+   * 출석하는 교회와 새친구 여부. 2026-10-26부터 묻지 않는다.
+   * 그 전에 등록한 사람의 값을 운영자 표에 보여주려고 타입만 남긴다.
    */
   church?: string;
   isNewFriend?: boolean;

@@ -11,8 +11,8 @@ import { AreaStep } from "./steps/AreaStep";
 import { BasicStep } from "./steps/BasicStep";
 import { CampusStep } from "./steps/CampusStep";
 import { CapacityStep } from "./steps/CapacityStep";
-import { ChurchStep } from "./steps/ChurchStep";
 import { ConsentStep } from "./steps/ConsentStep";
+import { ExtraStep } from "./steps/ExtraStep";
 import { GenderStep } from "./steps/GenderStep";
 import { MajorStep } from "./steps/MajorStep";
 import { MbtiStep } from "./steps/MbtiStep";
@@ -37,7 +37,7 @@ const REGISTRY: StepRegistry = {
   consent: ConsentStep,
   basic: BasicStep,
   role: RoleStep,
-  church: ChurchStep,
+  extra: ExtraStep,
 
   // ── 2단계: 멘토링 신청 (여기서부터 역할별로 갈라진다) ──
   mentoringIntro: MentoringIntroStep,

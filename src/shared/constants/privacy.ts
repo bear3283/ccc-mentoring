@@ -12,7 +12,7 @@
 import { EVENT_DATE } from "./venue";
 
 /** 문구를 수정하면 반드시 올린다. DB의 consent_version 에 함께 저장된다. */
-export const CONSENT_VERSION = "2026-10-25";
+export const CONSENT_VERSION = "2026-10-26";
 
 /** 행사 종료 후 보관 기간. 문구와 파기 절차(scripts/purge-expired.ts)가 같은 값을 봐야 한다. */
 export const RETENTION_DAYS = 90;
@@ -38,13 +38,13 @@ function formatDate(d: Date): string {
 
 export interface ConsentItem {
   /**
-   * collect = 개인정보 수집·이용, sensitive = 민감정보(종교) 처리,
-   * thirdParty = 매칭 상대에게 제공. 법에서 각각 따로 동의를 받도록 정한 것들이다.
+   * collect = 개인정보 수집·이용, thirdParty = 매칭 상대에게 제공.
+   * 법에서 각각 따로 동의를 받도록 정한 것들이다.
    */
-  id: "collect" | "sensitive" | "thirdParty";
+  id: "collect" | "thirdParty";
   /** 체크박스 옆 한 줄 */
   label: string;
-  /** 필수 동의 여부. 셋 다 없으면 등록이 성립하지 않는다. */
+  /** 필수 동의 여부. 둘 다 없으면 등록이 성립하지 않는다. */
   required: true;
   /** 펼쳤을 때 보이는 표 */
   table: { term: string; detail: string }[];
@@ -58,10 +58,9 @@ export interface ConsentItem {
  * 개인정보 보호법이 동의를 받을 때 알리도록 정한 네 가지를 항목마다 빠짐없이 둔다.
  *   수집·이용(제15조 제2항): 목적, 항목, 보유·이용 기간, 거부권과 불이익
  *   제3자 제공(제17조 제2항): 받는 자, 받는 자의 목적, 항목, 받는 자의 보유 기간, 거부권과 불이익
- *   민감정보(제23조): 다른 동의와 따로 받는다
  *
- * 출석 교회와 새친구 여부는 종교를 드러내 "사상·신념" 민감정보로 볼 여지가 있어
- * 따로 받는다. 같은 칸에 묶으면 무엇에 동의했는지 흐려진다.
+ * 민감정보(제23조)는 받지 않는다. 출석 교회는 종교를 드러내 민감정보로 볼 여지가 있어
+ * 2026-10-26부터 묻지 않는다. 다시 묻게 되면 따로 동의 항목을 두어야 한다.
  *
  * 화면에 실제로 받는 항목만 적는다. 받지 않는 항목을 적으면 과다 수집으로,
  * 받는 항목을 빠뜨리면 동의 없는 수집으로 읽힌다. 항목을 바꾸면 이 표도 함께 고친다.
@@ -112,32 +111,6 @@ export const CONSENT_ITEMS: ConsentItem[] = [
     ],
     notice:
       "동의를 거부할 권리가 있어요. 다만 이름·성별·연락처 없이는 등록과 매칭을 할 수 없어, " +
-      "동의하지 않으시면 등록할 수 없어요.",
-  },
-  {
-    id: "sensitive",
-    label: "출석 교회 정보(민감정보) 처리에 동의합니다",
-    required: true,
-    table: [
-      { term: "처리하는 곳", detail: PRIVACY_CONTROLLER },
-      {
-        term: "항목",
-        detail: "출석하는 교회 이름, 출석하는 교회가 없는지(새친구) 여부",
-      },
-      {
-        term: "이용 목적",
-        detail: "채플 당일 새친구를 따로 맞이하고 안내하기 위해, 교회별 참가 현황을 파악하기 위해",
-      },
-      { term: "보유·이용 기간", detail: RETENTION_LABEL },
-      {
-        term: "알려드려요",
-        detail:
-          "교회 정보는 신앙을 드러낼 수 있어 법에서 민감정보로 따로 동의를 받도록 하고 있어요. " +
-          "매칭 상대에게는 보여주지 않고 운영진만 봐요",
-      },
-    ],
-    notice:
-      "동의를 거부할 권리가 있어요. 다만 새친구 안내가 채플 운영에 꼭 필요해, " +
       "동의하지 않으시면 등록할 수 없어요.",
   },
   {

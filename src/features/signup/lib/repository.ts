@@ -239,8 +239,9 @@ export async function saveSignup(
       name: draft.name,
       gender: draft.gender ?? null,
       contact: draft.contact,
-      church: draft.church ?? null,
-      is_new_friend: draft.isNewFriend ?? false,
+      // 출석 교회는 묻지 않는다(민감정보). 화면을 거치지 않은 요청이 보내도 저장하지 않는다.
+      church: null,
+      is_new_friend: false,
       // 멘토링을 신청하지 않은 등록자는 아래 값들이 비어 있다.
       mentoring_applied: draft.mentoringApplied ?? false,
       persona_type: draft.personaType ?? null,
