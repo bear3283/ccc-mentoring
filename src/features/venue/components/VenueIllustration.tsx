@@ -66,11 +66,9 @@ export function VenueIllustration() {
         </g>
 
         {/*
-          ── 역 ── 1호선과 5호선은 같은 신길역이다. 이름표를 따로 달면 역이 두 개인 것처럼
-          읽혀서, 노선 위에는 작은 점만 찍고 이름표는 1번 출구 위에 하나로 단다.
+          ── 역 ── 1호선과 5호선은 같은 신길역이다. 노선마다 역 표시를 달면 역이 두 개인
+          것처럼 읽혀서, 노선 위에는 아무것도 찍지 않고 이름표 하나만 1번 출구 위에 단다.
         */}
-        <StationDot x={p.line5[0]} y={p.line5[1]} color={LINE5} />
-        <StationDot x={p.line1[0]} y={p.line1[1]} color={LINE1} />
         <StationTag x={p.exit1[0] - 2} y={p.exit1[1] - 38} />
 
         {/* ── 길 위 표지 ── */}
@@ -155,11 +153,6 @@ function StationTag({ x, y }: { x: number; y: number }) {
       </text>
     </g>
   );
-}
-
-/** 노선 위 역 자리. */
-function StationDot({ x, y, color }: { x: number; y: number; color: string }) {
-  return <circle cx={x} cy={y} r={4.5} fill="#ffffff" stroke={color} strokeWidth={2.5} />;
 }
 
 function Landmark({
