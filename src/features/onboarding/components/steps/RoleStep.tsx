@@ -21,7 +21,8 @@ const OPTIONS: { value: RoleValue; emoji: string; title: string; detail: string 
   {
     value: "MENTEE",
     emoji: "🎓",
-    title: "고3이에요",
+    // 재수생·검정고시처럼 고3이 아닌 예비 대학생도 망설이지 않고 고르게 넓혔다.
+    title: "고3·예비 27학번이에요",
     detail: "대학 가기 전, 선배가 궁금해요",
   },
   {
@@ -45,8 +46,8 @@ export function RoleStep({ draft, onNext, onChange }: StepProps) {
 
   return (
     <StepLayout
-      eyebrow="명단을 나누기 위해 여쭤봐요"
-      question="어느 쪽에 가까우세요?"
+      eyebrow="참가 구분"
+      question="어떤 분으로 등록하시나요?"
       hint="채플에는 두 분 모두 오실 수 있어요."
       ctaLabel={selected ? "다음" : "하나만 골라주세요"}
       ctaDisabled={!selected}
