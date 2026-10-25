@@ -94,8 +94,6 @@ function arrivalLabel(arrival: Mentee["eventArrival"]): string {
 const mentorColumns: TableColumn<AdminMentor>[] = [
   { key: "code", header: "참여코드", value: (r) => r.participationCode, width: "110px" },
   { key: "name", header: "이름", value: (r) => r.name, width: "80px" },
-  // 운영자가 가장 자주 찾는 값이라 이름 바로 뒤에 둔다.
-  { key: "contact", header: "연락처", value: (r) => r.contact, width: "130px" },
   { key: "gender", header: "성별", value: (r) => genderLabel(r.gender), align: "center", width: "60px" },
   { key: "campus", header: "캠퍼스", value: (r) => r.currentCampus ?? "-" },
   {
@@ -105,6 +103,8 @@ const mentorColumns: TableColumn<AdminMentor>[] = [
     align: "center",
     width: "80px",
   },
+  // 이름·캠퍼스·학번으로 누구인지 확인한 뒤 바로 연락하도록 학번 뒤에 둔다.
+  { key: "contact", header: "연락처", value: (r) => r.contact, width: "130px" },
   { key: "area", header: "멘토링 영역", value: (r) => r.mentoringArea.join(", ") },
   { key: "persona", header: "성향", value: (r) => personaName(r.personaType), align: "center" },
   { key: "mbti", header: "MBTI", value: (r) => r.mbti ?? "-", align: "center", width: "70px" },
