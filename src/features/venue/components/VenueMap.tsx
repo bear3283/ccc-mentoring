@@ -3,18 +3,17 @@
 import { useEffect, useRef, useState } from "react";
 import { animate, stagger } from "animejs";
 import { VENUE } from "@/shared/constants/venue";
+import { VenueIllustration } from "./VenueIllustration";
 
 /**
  * 행사 장소까지 오는 약도.
  *
- * 실제 골목 형태를 그리지 않고 경로 다이어그램으로 만든다.
- * 거리 지형을 정확히 알 수 없는 상태에서 지도를 흉내 내면
- * 당일에 오히려 엉뚱한 길로 보내게 된다.
- * 정확한 길찾기는 네이버 지도로 넘기고, 여기서는 '어느 역 몇 번 출구에서
- * 얼마나 걷는가'만 한눈에 보이게 한다.
+ * 위에 일러스트 약도(실제 길 좌표로 그렸다), 아래에 같은 번호의 글 안내를 둔다.
+ * 그림만으로는 "어디서 꺾는지"를 놓치기 쉬워 꺾는 곳의 표지(대윤병원 정류장)를
+ * 글로 한 번 더 짚는다. 정확한 길찾기는 네이버 지도로 넘긴다.
  */
 export function VenueMap() {
-  const routeRef = useRef<HTMLDivElement>(null);
+  const routeRef = useRef<HTMLOListElement>(null);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -44,60 +43,20 @@ export function VenueMap() {
 
   return (
     <section className="px-5">
-      {/* ── 경로 다이어그램 ── */}
-      <div
-        ref={routeRef}
-        className="rounded-3xl bg-gradient-to-b from-brand-soft to-white p-6"
-      >
-        <p className="text-[13px] font-semibold text-brand">가장 빠른 길</p>
+      {/* ── 일러스트 약도 ── 번호는 아래 안내와 같다. */}
+      <VenueIllustration />
 
-        <div className="mt-4 flex flex-col">
-          {/* 1. 역 */}
-          <div data-route-node className="flex items-start gap-3 opacity-0">
-            <RouteDot label="1" />
-            <div className="pb-1">
-              <div className="flex items-center gap-1.5">
-                <span className="text-[17px] font-bold text-gray-900">{station}</span>
-                {lines.map((line) => (
-                  <span
-                    key={line}
-                    className="rounded-full bg-white px-2 py-0.5 text-[11px] font-bold text-gray-600 ring-1 ring-gray-200"
-                  >
-                    {line}
-                  </span>
-                ))}
-              </div>
-              <p className="mt-0.5 text-[13px] text-gray-500">여기서 내려요</p>
-            </div>
-          </div>
-
-          <RouteLine />
-
-          {/* 2. 출구 */}
-          <div data-route-node className="flex items-start gap-3 opacity-0">
-            <RouteDot label="2" />
-            <div className="pb-1">
-              <p className="text-[17px] font-bold text-gray-900">{exit}</p>
-              <p className="mt-0.5 text-[13px] text-gray-500">
-                5호선으로 오면 1호선 출구 쪽으로 건너가세요
-              </p>
-            </div>
-          </div>
-
-          <RouteLine walk={walkMinutes} />
-
-          {/* 3. 도착 */}
-          <div data-route-node className="flex items-start gap-3 opacity-0">
-            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand text-[14px]">
-              ⛪
-            </div>
-            <div>
-              <p className="text-[17px] font-bold text-brand">{VENUE.name}</p>
-              <p className="mt-0.5 text-[13px] text-gray-500">도착!</p>
-            </div>
-          </div>
-        </div>
-      </div>
+      <ol ref={routeRef} className="mt-4 flex flex-col gap-3">
+        <RouteStep n={1} title={`${station} ${exit}로 나와요`}>
+          {lines.join("·")} 어느 쪽에서 내려도 {exit} 표지판을 따라 나오면 돼요.
+        </RouteStep>
+        <RouteStep n={2} title="영등포로를 따라 쭉 내려와요">
+          약 250m. 대윤병원 버스정류장이 보이면 그 앞 왼쪽 골목으로 들어가요.
+        </RouteStep>
+        <RouteStep n={3} title={`골목 안쪽에 ${VENUE.name}`}>
+          골목을 따라 150m쯤 가면 왼쪽에 있어요. 걸어서 약 {walkMinutes}분.
+        </RouteStep>
+      </ol>
 
       {/* ── 주소 ── */}
       <button
@@ -153,29 +112,18 @@ export function VenueMap() {
   );
 }
 
-/** 경로 단계 번호. */
-function RouteDot({ label }: { label: string }) {
+/** 글 안내 한 단계. 번호는 약도의 배지와 같다. */
+function RouteStep({ n, title, children }: { n: number; title: string; children: React.ReactNode }) {
   return (
-    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white text-[13px] font-bold text-brand ring-1 ring-brand/20">
-      {label}
-    </span>
-  );
-}
-
-/**
- * 단계 사이를 잇는 선.
- * 걷는 구간에는 몇 분인지 함께 띄운다.
- */
-function RouteLine({ walk }: { walk?: number }) {
-  return (
-    <div className="flex items-center gap-3 pl-3">
-      <span className="h-8 w-px bg-brand/25" />
-      {walk !== undefined && (
-        <span className="text-[13px] font-medium text-gray-500">
-          🚶 걸어서 {walk}분
-        </span>
-      )}
-    </div>
+    <li data-route-node className="flex items-start gap-3 opacity-0">
+      <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-brand text-[13px] font-bold text-white">
+        {n}
+      </span>
+      <div className="min-w-0">
+        <p className="text-[16px] font-bold text-gray-900">{title}</p>
+        <p className="mt-0.5 text-[13px] leading-relaxed text-gray-500">{children}</p>
+      </div>
+    </li>
   );
 }
 

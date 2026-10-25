@@ -84,12 +84,13 @@ export const VENUE = {
     station: "신길역",
     lines: ["1호선", "5호선"],
     exit: "1번 출구",
-    walkMinutes: 3,
+    // 1번 출구 → 교회 입구 388m (OSM 도보 길찾기, 네이버 지도 391m). 교회 안내문의 "3분"은 빠듯해 5분으로 둔다.
+    walkMinutes: 5,
   },
 
   subway: [
-    { line: "1호선", color: "#0052A4", detail: "신길역 1번 출구 → 도보 3분" },
-    { line: "5호선", color: "#996CAC", detail: "신길역에서 1호선 1번 출구로 이동 → 도보 3분" },
+    { line: "1호선", color: "#0052A4", detail: "신길역 1번 출구 → 도보 5분" },
+    { line: "5호선", color: "#996CAC", detail: "신길역 1번 출구 표지판을 따라 나와요 → 도보 5분" },
     { line: "1호선", color: "#0052A4", detail: "대방역 → 도보 15분" },
   ] satisfies TransitRoute[],
 
