@@ -110,7 +110,7 @@ export function scoreMbti(mentee: Mentee, mentor: Mentor): number {
 /**
  * 학과 (WEIGHTS.major).
  * 양쪽 다 최대 3개까지 고를 수 있으므로 교집합이 하나라도 있으면 인정한다.
- * 겹치는 개수가 많을수록 점수가 오르되, 하나만 겹쳐도 절반은 준다.
+ * 하나만 겹쳐도 절반 이상을 주고, 적게 고른 쪽의 학과가 모두 겹치면 만점이다.
  *
  * 예전에는 희망 진로도 함께 봤다(학과 6 : 진로 4). 진로를 묻지 않게 되면서
  * 학과만 남았다.
@@ -119,7 +119,8 @@ function overlapScore(a: readonly string[], b: readonly string[]): number {
   if (a.length === 0 || b.length === 0) return 0;
   const matched = a.filter((x) => b.includes(x)).length;
   if (matched === 0) return 0;
-  // 1개 겹침 = 0.5, 전부 겹침 = 1.0
+  // 적게 고른 쪽 기준으로 비율을 본다. 그쪽이 고른 것이 모두 겹치면 1.0,
+  // 3개 중 1개만 겹치면 0.5 + 0.5 × 1/3 ≈ 0.67.
   return 0.5 + 0.5 * (matched / Math.min(a.length, b.length));
 }
 
