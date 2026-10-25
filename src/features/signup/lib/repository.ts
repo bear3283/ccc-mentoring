@@ -29,7 +29,7 @@ interface UserRow {
   name: string;
   gender: Gender | null;
   contact: string;
-  persona_type: PersonaType;
+  persona_type: PersonaType | null;
   mbti: string | null;
   high_school: string | null;
   referrer: string | null;
@@ -78,7 +78,7 @@ function toMentee(user: UserRow, profile: MenteeRow | null): Mentee {
     photoUrl: user.photo_url ?? undefined,
     targetCampus: (profile?.target_campus ?? []) as Campus[],
     desiredAreas: (profile?.desired_areas ?? []) as MentoringArea[],
-    personaType: user.persona_type,
+    personaType: user.persona_type ?? undefined,
     mbti: (user.mbti ?? undefined) as MbtiType | undefined,
     targetMajors: (profile?.target_majors ?? []) as Major[],
     targetCareers: (profile?.target_careers ?? []) as Career[],
@@ -103,7 +103,7 @@ function toMentor(user: UserRow, profile: MentorRow | null): Mentor {
     currentCampus: profile?.current_campus as Campus,
     admissionYear: profile?.admission_year ?? 0,
     mentoringArea: (profile?.mentoring_area ?? []) as MentoringArea[],
-    personaType: user.persona_type,
+    personaType: user.persona_type ?? undefined,
     mbti: (user.mbti ?? undefined) as MbtiType | undefined,
     currentMajors: (profile?.current_majors ?? []) as Major[],
     careerPaths: (profile?.career_paths ?? []) as Career[],
@@ -355,7 +355,8 @@ export async function applyMentoring(
       mentoring_applied: true,
       // 등록 때 받았으면 같은 값이고, 성별을 받기 전 등록자는 여기서 처음 채워진다.
       gender: draft.gender,
-      persona_type: draft.personaType,
+      // "잘 모르겠어요"면 비운다. 다시 신청하며 바꾼 경우도 그대로 반영한다.
+      persona_type: draft.personaType ?? null,
       mbti: draft.mbti ?? null,
       photo_url: draft.photoUrl ?? null,
       // 채플이 지난 뒤에는 묻지 않는다. 다시 신청하며 비워 낸 경우도 그대로 비운다.

@@ -8,7 +8,7 @@ import type { PublicMatchResult } from "@/features/matching/model/types";
 import { AREA_META, type MentoringArea } from "@/shared/constants/domain";
 import { loadDraft } from "@/features/onboarding/lib/draftStore";
 import { MentoringGuide } from "@/features/venue/components/MentoringGuide";
-import { PERSONAS } from "@/shared/constants/persona";
+import { NO_PERSONA_GRADIENT, PERSONAS } from "@/shared/constants/persona";
 import {
   EVENT_ARRIVAL_LABEL,
   EVENT_DATE_LABEL,
@@ -139,8 +139,8 @@ export default function SettledMatchPage() {
   // 고3이 가장 막히는 지점은 번호가 아니라 "뭐라고 보내지"다.
   // 본인이 고른 관심 영역에서 질문 하나를 꺼내 보여주면 그 자리가 메워진다.
   const sampleAsk = areas[0] ? AREA_META[areas[0]].ask : "대학 생활은 어떠세요?";
-  const persona = PERSONAS[mentor.personaType];
-  const [from, to] = persona.gradient;
+  const persona = mentor.personaType ? PERSONAS[mentor.personaType] : undefined;
+  const [from, to] = persona?.gradient ?? NO_PERSONA_GRADIENT;
   const smsHref = `sms:${contact.replace(/-/g, "")}?&body=${encodeURIComponent(
     `안녕하세요! 고3채플에서 매칭된 ${myName}입니다 :)`,
   )}`;
@@ -167,7 +167,7 @@ export default function SettledMatchPage() {
           <span className="min-w-0 flex-1">
             <span className="block text-[16px] font-bold text-gray-900">{mentor.name}</span>
             <span className="mt-0.5 block text-[13px] text-gray-500">
-              {mentor.currentCampus} · {mentor.currentMajors[0] ?? persona.name + "형"}
+              {mentor.currentCampus} · {mentor.currentMajors[0] ?? (persona ? `${persona.name}형` : "")}
             </span>
           </span>
         </div>

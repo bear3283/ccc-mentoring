@@ -36,7 +36,8 @@ export interface Mentee {
   targetCampus: Campus[];
   /** 최대 3개. 하나만 골라도 된다. */
   desiredAreas: MentoringArea[];
-  personaType: PersonaType;
+  /** "잘 모르겠어요"를 고르면 비어 있다. */
+  personaType?: PersonaType;
   /** 아이스브레이킹으로 받은 값. 매칭 점수에는 쓰지 않는다. */
   mbti?: MbtiType;
   targetMajors: Major[];
@@ -66,7 +67,8 @@ export interface Mentor {
   /** 입학 연도. 화면에는 뒤 두 자리를 따 '24학번'으로 보여준다. */
   admissionYear: number;
   mentoringArea: MentoringArea[];
-  personaType: PersonaType;
+  /** "잘 모르겠어요"를 고르면 비어 있다. */
+  personaType?: PersonaType;
   mbti?: MbtiType;
   currentMajors: Major[];
   careerPaths: Career[];
@@ -116,7 +118,8 @@ export interface PublicMentor {
   admissionYear: number;
   careerPaths: Career[];
   mentoringArea: MentoringArea[];
-  personaType: PersonaType;
+  /** "잘 모르겠어요"를 고르면 비어 있다. */
+  personaType?: PersonaType;
   mbti?: MbtiType;
   photoUrl?: string;
   /** 010-****-5678. 전체 번호는 매칭 요청 후에 공개한다. */

@@ -21,6 +21,7 @@ import {
   fallbackReason,
   recommendMentors,
   scoreMbti,
+  scorePersona,
 } from "../src/features/matching/lib/score";
 import { campusDemand } from "../src/features/admin/lib/campusDemand";
 import { CAMPUSES_BY_REGION, regionOf } from "../src/shared/constants/campus";
@@ -477,10 +478,24 @@ check("카드당 해시태그 최대 4개",
     matchMentors(mentee, MOCK_MENTORS, 3).every((r) => r.hashtags.length <= 4),
   ),
 );
-check("모든 멘토가 성향 해시태그 보유",
+check("성경 인물을 고른 멘토는 성향 해시태그 보유",
   MOCK_MENTORS.every((mentor) =>
+    !mentor.personaType ||
     buildHashtags(mentor, MOCK_MENTEES[0]).includes(PERSONAS[mentor.personaType].hashtag),
   ),
+);
+check("성경 인물을 '잘 모르겠어요'로 둔 멘토는 성향 태그 없이도 카드가 만들어짐",
+  buildHashtags({ ...MOCK_MENTORS[0], personaType: undefined }, MOCK_MENTEES[0])
+    .every((t) => t.startsWith("#") && !t.endsWith("형")),
+);
+check("한쪽이라도 '잘 모르겠어요'면 성향 점수는 상대와 무관하게 같음",
+  new Set(
+    MOCK_MENTORS.map((mentor) =>
+      scorePersona({ ...MOCK_MENTEES[0], personaType: undefined }, mentor),
+    ),
+  ).size === 1 &&
+    scorePersona(MOCK_MENTEES[0], { ...MOCK_MENTORS[0], personaType: undefined }) ===
+      WEIGHTS.persona * 0.5,
 );
 
 // ---------------------------------------------------------------- 샘플 출력
@@ -491,7 +506,7 @@ for (const mentee of MOCK_MENTEES.slice(0, 3)) {
     `\n  ▸ ${mentee.name}(${mentee.id}) | 지망: ${mentee.targetCampus.join(" > ")}`,
   );
   console.log(
-    `    관심영역: ${mentee.desiredAreas.join(", ")} | 성향: ${PERSONAS[mentee.personaType].name} | ` +
+    `    관심영역: ${mentee.desiredAreas.join(", ")} | 성향: ${mentee.personaType ? PERSONAS[mentee.personaType].name : "모름"} | ` +
       `목표: ${mentee.targetMajors.join(", ")} / ${mentee.targetCareers.join(", ")}`,
   );
   console.log(`    성별: ${mentee.gender}`);

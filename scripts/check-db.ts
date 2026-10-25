@@ -83,8 +83,8 @@ const ARRIVAL_SQL = readFileSync(
   "utf8",
 ).trim();
 
-const NO_SCHEDULE_SQL = readFileSync(
-  new URL("../supabase/migrations/2026-10-25-no-schedule.sql", import.meta.url),
+const MENTORING_OPTIONAL_SQL = readFileSync(
+  new URL("../supabase/migrations/2026-10-26-mentoring-optional-fields.sql", import.meta.url),
   "utf8",
 ).trim();
 
@@ -380,8 +380,9 @@ const requirements: Requirement[] = [
     sql: ARRIVAL_SQL,
   },
   {
-    // 코드는 더 이상 시간대를 보내지 않는다. 옛 제약이 남아 있으면 멘토링 신청이 전부 실패한다.
-    name: "멘토링 신청에 시간대 불필요 (users_mentoring_fields_required 완화)",
+    // 시간대는 묻지 않고, 성경 인물은 "잘 모르겠어요"면 비어 있다.
+    // 옛 제약이 남아 있으면 그렇게 고른 사람의 멘토링 신청이 실패한다.
+    name: "멘토링 신청에 시간대·성경 인물 불필요 (users_mentoring_fields_required 제거)",
     requires: "행사 등록 컬럼 (church, is_new_friend, mentoring_applied)",
     probe: async () => {
       const res = await fetch(`${url}/rest/v1/users`, {
@@ -393,7 +394,7 @@ const requirements: Requirement[] = [
           name: "시간확인",
           gender: "FEMALE",
           contact: "010-0000-9010",
-          persona_type: "DAVID",
+          persona_type: null,
           mentoring_applied: true,
           available_times: [],
           consented_at: new Date().toISOString(),
@@ -409,7 +410,7 @@ const requirements: Requirement[] = [
       if (body.includes("23514")) return false;
       throw new Error(`검사용 행 생성 실패 — ${body}`);
     },
-    sql: NO_SCHEDULE_SQL,
+    sql: MENTORING_OPTIONAL_SQL,
   },
   {
     name: "선배 알림 기록 컬럼 (matchings.mentor_notified_at, mentor_notified_via)",

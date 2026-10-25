@@ -23,9 +23,23 @@ const COPY = {
   },
 } as const;
 
+/**
+ * "잘 모르겠어요". 닮고 싶은 인물이 없거나 인물을 잘 몰라도 넘어갈 수 있게 한다.
+ * 저장할 때는 비워 두고, 매칭에서는 상대가 누구든 같은 성향 점수를 받는다.
+ */
+const UNKNOWN = "UNKNOWN" as const;
+type Choice = PersonaType | typeof UNKNOWN;
+
 export function PersonaStep({ role, draft, onNext, onChange }: StepProps) {
   const copy = COPY[role];
-  const [selected, setSelected] = useState<PersonaType | undefined>(draft.personaType);
+  // 뒤로 갔다 돌아왔을 때 "잘 모르겠어요"도 골라 둔 채로 보이게 초안에 표시를 남긴다.
+  const [selected, setSelected] = useState<Choice | undefined>(
+    draft.personaType ?? (draft.personaUnknown ? UNKNOWN : undefined),
+  );
+  const patch = (choice: Choice) =>
+    choice === UNKNOWN
+      ? { personaType: undefined, personaUnknown: true }
+      : { personaType: choice, personaUnknown: false };
 
   const optionsRef = useRef<HTMLUListElement>(null);
   const checkRef = useRef<SVGSVGElement>(null);
@@ -50,10 +64,10 @@ export function PersonaStep({ role, draft, onNext, onChange }: StepProps) {
 
   // 고르는 즉시 draft에 반영한다. 뒤로 갔다 돌아와도 선택이 남아 있어야 한다.
   useEffect(() => {
-    if (selected) onChange({ personaType: selected });
+    if (selected) onChange(patch(selected));
   }, [selected, onChange]);
 
-  const handleSelect = (type: PersonaType, element: HTMLElement) => {
+  const handleSelect = (type: Choice, element: HTMLElement) => {
     setSelected(type);
     // 눌린 카드만 살짝 반응시켜 어디를 골랐는지 즉시 알린다.
     animate(element, { scale: [0.98, 1], duration: DURATION.fade, ease: REVEAL_EASE });
@@ -66,7 +80,7 @@ export function PersonaStep({ role, draft, onNext, onChange }: StepProps) {
       hint={copy.hint}
       ctaLabel={selected ? "다음" : "하나만 골라주세요"}
       ctaDisabled={!selected}
-      onCta={() => selected && onNext({ personaType: selected })}
+      onCta={() => selected && onNext(patch(selected))}
     >
       <ul ref={optionsRef} role="radiogroup" className="flex flex-col gap-2">
         {PERSONA_LIST.map((persona) => {
@@ -122,6 +136,49 @@ export function PersonaStep({ role, draft, onNext, onChange }: StepProps) {
             </li>
           );
         })}
+
+        <li data-option>
+          <button
+            type="button"
+            role="radio"
+            aria-checked={selected === UNKNOWN}
+            onClick={(e) => handleSelect(UNKNOWN, e.currentTarget)}
+            className={cn(
+              "flex w-full items-center gap-3.5 rounded-2xl border-2 p-3.5 text-left",
+              "transition-colors duration-150",
+              selected === UNKNOWN ? "border-brand bg-brand-soft" : "border-transparent bg-gray-50",
+            )}
+          >
+            <span
+              className={cn(
+                "flex size-11 shrink-0 items-center justify-center rounded-full text-[22px]",
+                selected === UNKNOWN ? "bg-white" : "bg-white/70",
+              )}
+              aria-hidden
+            >
+              🤔
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-[17px] font-bold text-gray-900">잘 모르겠어요</span>
+              <span className="mt-0.5 block text-[14px] text-gray-500">
+                {role === "MENTEE" ? "아직 떠오르는 인물이 없어요" : "딱 맞는 인물이 없어요"}
+              </span>
+            </span>
+            <span className="size-6 shrink-0">
+              {selected === UNKNOWN && (
+                <svg
+                  ref={checkRef}
+                  viewBox="0 0 24 24"
+                  className="size-6 text-brand"
+                  fill="currentColor"
+                  aria-hidden
+                >
+                  <path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm5.03 7.53-6 6a.75.75 0 0 1-1.06 0l-3-3a.75.75 0 1 1 1.06-1.06l2.47 2.47 5.47-5.47a.75.75 0 0 1 1.06 1.06Z" />
+                </svg>
+              )}
+            </span>
+          </button>
+        </li>
       </ul>
     </StepLayout>
   );

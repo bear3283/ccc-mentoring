@@ -119,6 +119,9 @@ export const PERSONAS: Record<PersonaType, Persona> = {
 
 export const PERSONA_LIST: Persona[] = PERSONA_TYPES.map((t) => PERSONAS[t]);
 
+/** 성경 인물을 고르지 않은("잘 모르겠어요") 사람의 카드 색. 포스터의 주황 계열로 둔다. */
+export const NO_PERSONA_GRADIENT = ["#d9673f", "#f6c9ae"] as const;
+
 /**
  * 페르소나 궁합 점수 (0.0 ~ 1.0).
  * 매칭의 성향 항목(WEIGHTS.persona)에 곱해 쓴다.
@@ -141,7 +144,15 @@ const COMPLEMENTARY: Record<PersonaType, PersonaType[]> = {
   DEBORAH: ["RUTH"],
 };
 
-export function getPersonaAffinity(a: PersonaType, b: PersonaType): number {
+/**
+ * 한쪽이라도 "잘 모르겠어요"를 고르면 상대가 누구든 같은 점수를 준다.
+ * 0.5 는 무작위로 짝지었을 때의 기대값(1/8×1 + 1/8×0.7 + 6/8×0.4 ≈ 0.51)이라
+ * 모른다고 답한 사람이 유리하지도 불리하지도 않다. MBTI 를 비웠을 때와 같은 방식이다.
+ */
+export const UNKNOWN_PERSONA_AFFINITY = 0.5;
+
+export function getPersonaAffinity(a: PersonaType | undefined, b: PersonaType | undefined): number {
+  if (!a || !b) return UNKNOWN_PERSONA_AFFINITY;
   if (a === b) return 1;
   if (COMPLEMENTARY[a].includes(b)) return 0.7;
   return 0.4;

@@ -2,7 +2,7 @@
 
 import { Name } from "@/components/ui/Name";
 import { admissionYearLabel } from "@/shared/constants/domain";
-import { PERSONAS } from "@/shared/constants/persona";
+import { NO_PERSONA_GRADIENT, PERSONAS } from "@/shared/constants/persona";
 import { cn } from "@/shared/lib/cn";
 import { nameInitials } from "@/shared/lib/nameInitials";
 import type { FallbackReason, PublicMatchResult } from "../model/types";
@@ -37,8 +37,8 @@ export function MentorCard({
   settled,
 }: MentorCardProps) {
   const { mentor, score, hashtags } = result;
-  const persona = PERSONAS[mentor.personaType];
-  const [from, to] = persona.gradient;
+  const persona = mentor.personaType ? PERSONAS[mentor.personaType] : undefined;
+  const [from, to] = persona?.gradient ?? NO_PERSONA_GRADIENT;
 
   return (
     <article
@@ -113,8 +113,12 @@ export function MentorCard({
         </ul>
 
         <p className="mt-4 text-[14px] leading-relaxed text-gray-600">
-          {persona.keywords.join("·")} 있는 {persona.name}형 선배예요.
-          <br />
+          {persona && (
+            <>
+              {persona.keywords.join("·")} 있는 {persona.name}형 선배예요.
+              <br />
+            </>
+          )}
           {mentor.mentoringArea.join(", ")} 쪽을 도와줄 수 있어요.
         </p>
 

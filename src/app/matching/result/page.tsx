@@ -18,7 +18,7 @@ interface MenteeSummary {
   participationCode: string;
   targetCampus: string[];
   desiredAreas: string[];
-  personaType: PersonaType;
+  personaType?: PersonaType;
 }
 
 type State =
@@ -221,7 +221,8 @@ export default function MatchingResultPage() {
             {mentee.targetCampus.join(" · ")} 중에서
             <br />
             {areas}
-            {objectParticle(areas)} 도와줄 {PERSONAS[mentee.personaType].name}형 멘티 기준
+            {objectParticle(areas)} 도와줄
+            {mentee.personaType ? ` ${PERSONAS[mentee.personaType].name}형` : ""} 멘티 기준
           </p>
         )}
 

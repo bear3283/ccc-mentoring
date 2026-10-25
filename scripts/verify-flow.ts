@@ -254,6 +254,17 @@ async function main() {
     String(badMbti.json.error ?? ""),
   );
 
+  // 성경 인물을 "잘 모르겠어요"로 고르면 비워서 보낸다. 그래도 신청은 된다.
+  const noPersona = await post("/api/mentoring", {
+    role: "MENTEE",
+    draft: menteeMentoring({ personaType: undefined, personaUnknown: true }),
+    participationCode: menteeCode,
+  });
+  check("성경 인물 '잘 모르겠어요'로도 멘토링 신청 가능", noPersona.status === 200,
+    String(noPersona.json.error ?? ""));
+  // 이후 검사는 성경 인물을 고른 상태를 기준으로 하므로 되돌린다.
+  await post("/api/mentoring", { role: "MENTEE", draft: menteeMentoring(), participationCode: menteeCode });
+
   const noGenderApply = await post("/api/mentoring", {
     role: "MENTEE",
     draft: menteeMentoring({ gender: undefined }),

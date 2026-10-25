@@ -1,6 +1,7 @@
 import { CONSENT_VERSION } from "@/shared/constants/privacy";
 import { GENDERS, MENTOR_CAPACITY_OPTIONS } from "@/shared/constants/domain";
 import { MBTI_TYPES } from "@/shared/constants/mbti";
+import { PERSONA_TYPES } from "@/shared/constants/persona";
 import { isEventArrival } from "@/shared/constants/venue";
 import type { OnboardingDraft } from "@/features/onboarding/model/types";
 
@@ -60,7 +61,10 @@ export function validateMentoring(
 
   // 성별을 받기 전에 등록한 사람은 멘토링 신청에서 처음 고른다.
   if (!isGender(draft.gender)) return "성별을 골라주세요.";
-  if (!draft.personaType) return "성향을 골라주세요.";
+  // 성경 인물은 "잘 모르겠어요"를 고르면 비어 있다. 적었다면 있는 값이어야 한다.
+  if (draft.personaType && !(PERSONA_TYPES as readonly string[]).includes(draft.personaType)) {
+    return "성경 인물을 다시 골라주세요.";
+  }
 
   // MBTI 는 건너뛸 수 있지만, 적었다면 16개 유형 중 하나여야 한다.
   // 여기서 막지 않으면 DB 제약에 걸려 "저장하지 못했어요"만 보게 된다.

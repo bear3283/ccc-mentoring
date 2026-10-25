@@ -10,7 +10,8 @@ import type { Mentee, Mentor } from "../model/types";
  */
 /** 프로필 카드에 노출할 해시태그를 멘토 속성에서 만든다. */
 export function buildHashtags(mentor: Mentor, mentee: Mentee): string[] {
-  const tags = [PERSONAS[mentor.personaType].hashtag];
+  // 성경 인물을 "잘 모르겠어요"로 둔 선배는 성향 태그 없이 시작한다.
+  const tags = mentor.personaType ? [PERSONAS[mentor.personaType].hashtag] : [];
 
   // MBTI는 후배가 가장 먼저 눈여겨보는 정보라 성향 바로 뒤에 세운다.
   if (mentor.mbti) tags.push(`#${mentor.mbti}`);

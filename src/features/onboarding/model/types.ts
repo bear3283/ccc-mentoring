@@ -78,7 +78,10 @@ export interface OnboardingDraft {
    * 이 값이 2단계에서 어떤 질문을 받을지도 정한다.
    */
   role?: Extract<Role, "MENTEE" | "MENTOR">;
+  /** 비어 있으면 성경 인물을 고르지 않은 것이다. "잘 모르겠어요"면 personaUnknown 이 선다. */
   personaType?: PersonaType;
+  /** 성경 인물을 "잘 모르겠어요"로 골랐는지. 화면에서 선택을 되살리는 데만 쓴다. */
+  personaUnknown?: boolean;
   /** 아이스브레이킹용. 모르면 비워둘 수 있다. */
   mbti?: MbtiType;
   name?: string;
