@@ -115,10 +115,13 @@ export type Major = string;
  * 멘토 한 명이 맡을 수 있는 후배 수. 멘토가 신청할 때 고른다.
  *
  * 상한을 두는 이유: 선배 한 명이 후보 목록을 오래 차지하면 그 캠퍼스를
- * 지망한 다른 후배가 모두 그 선배에게 몰린다. DB 제약
- * (mentor_profiles_capacity_range)과 같은 범위여야 한다.
+ * 지망한 다른 후배가 모두 그 선배에게 몰린다.
+ *
+ * 2026-10-26 최대 3명에서 2명으로 줄였다. 한 선배가 셋을 챙기기는 버겁다.
+ * DB 제약(mentor_profiles_capacity_range)은 1~3 그대로 둔다. 이미 3명으로 신청한
+ * 선배의 행이 있어 줄이면 제약을 걸 수 없고, 새 신청은 서버 검증이 2명까지만 받는다.
  */
-export const MENTOR_CAPACITY_OPTIONS = [1, 2, 3] as const;
+export const MENTOR_CAPACITY_OPTIONS = [1, 2] as const;
 export type MentorCapacity = (typeof MENTOR_CAPACITY_OPTIONS)[number];
 
 /**

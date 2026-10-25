@@ -11,7 +11,6 @@ import type { StepProps } from "../../model/types";
 const DESCRIPTION: Record<MentorCapacity, string> = {
   1: "한 명에게 집중할게요",
   2: "두 명까지 챙길 수 있어요",
-  3: "여러 후배를 도울 여유가 있어요",
 };
 
 /**

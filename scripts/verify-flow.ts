@@ -213,7 +213,7 @@ async function main() {
 
   const badCapacity = await post("/api/mentoring", {
     role: "MENTOR",
-    draft: mentorMentoring({ mentorCapacity: 5 }),
+    draft: mentorMentoring({ mentorCapacity: 3 }),
     participationCode: m1Code,
   });
   check(
