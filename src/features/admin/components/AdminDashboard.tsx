@@ -7,6 +7,7 @@ import { downloadCsv, type CsvColumn } from "../lib/csv";
 import type { FallbackReason, Mentee, Mentor } from "@/features/matching/model/types";
 import type { CampusDemandRow } from "../lib/campusDemand";
 import type { MentorNoticeRow } from "@/features/signup/lib/repository";
+import { CampusRoster, rosterColumns, toRosterRows } from "./CampusRoster";
 import { MentorNoticeList } from "./MentorNoticeList";
 import { findIssues, type IssueRow } from "../lib/issues";
 import { admissionYearLabel, GENDER_LABEL } from "@/shared/constants/domain";
@@ -15,7 +16,7 @@ import { WEIGHTS } from "@/features/matching/lib/score";
 import { PERSONAS } from "@/shared/constants/persona";
 import { cn } from "@/shared/lib/cn";
 
-type Tab = "mentee" | "mentor" | "matching" | "unmatched" | "notice" | "check";
+type Tab = "mentee" | "mentor" | "campus" | "matching" | "unmatched" | "notice" | "check";
 
 /** 매칭 표의 한 행. 멘티 1명 x 추천 멘토 1명. */
 export interface MatchRow {
@@ -51,6 +52,8 @@ const FALLBACK_LABEL: Record<FallbackReason, string> = {
 const menteeColumns: TableColumn<Mentee>[] = [
   { key: "code", header: "참여코드", value: (r) => r.participationCode, width: "110px" },
   { key: "name", header: "이름", value: (r) => r.name, width: "80px" },
+  // 운영자가 가장 자주 찾는 값이라 이름 바로 뒤에 둔다.
+  { key: "contact", header: "연락처", value: (r) => r.contact, width: "130px" },
   { key: "gender", header: "성별", value: (r) => genderLabel(r.gender), align: "center", width: "60px" },
   { key: "campus1", header: "1지망", value: (r) => r.targetCampus[0] ?? "-" },
   { key: "campus2", header: "2지망", value: (r) => r.targetCampus[1] ?? "-" },
@@ -68,7 +71,6 @@ const menteeColumns: TableColumn<Mentee>[] = [
     align: "center",
     width: "80px",
   },
-  { key: "contact", header: "연락처", value: (r) => r.contact },
 ];
 
 /**
@@ -92,6 +94,8 @@ function arrivalLabel(arrival: Mentee["eventArrival"]): string {
 const mentorColumns: TableColumn<AdminMentor>[] = [
   { key: "code", header: "참여코드", value: (r) => r.participationCode, width: "110px" },
   { key: "name", header: "이름", value: (r) => r.name, width: "80px" },
+  // 운영자가 가장 자주 찾는 값이라 이름 바로 뒤에 둔다.
+  { key: "contact", header: "연락처", value: (r) => r.contact, width: "130px" },
   { key: "gender", header: "성별", value: (r) => genderLabel(r.gender), align: "center", width: "60px" },
   { key: "campus", header: "캠퍼스", value: (r) => r.currentCampus ?? "-" },
   {
@@ -135,7 +139,6 @@ const mentorColumns: TableColumn<AdminMentor>[] = [
     align: "center",
     width: "80px",
   },
-  { key: "contact", header: "연락처", value: (r) => r.contact },
 ];
 
 const matchColumns: TableColumn<MatchRow>[] = [
@@ -207,6 +210,7 @@ const matchColumns: TableColumn<MatchRow>[] = [
 const TABS: { key: Tab; label: string }[] = [
   { key: "mentee", label: "멘티 신청자" },
   { key: "mentor", label: "멘토 신청자" },
+  { key: "campus", label: "캠퍼스 확인" },
   { key: "matching", label: "매칭 결과" },
   { key: "unmatched", label: "미매칭" },
   { key: "notice", label: "선배 알림" },
@@ -375,6 +379,7 @@ export function AdminDashboard({
     else if (tab === "mentor") downloadCsv("멘토_신청자.csv", mentors, asCsvColumns(mentorColumns));
     else if (tab === "unmatched") downloadCsv("멘토_모집_필요_캠퍼스.csv", demand, asCsvColumns(demandColumns));
     else if (tab === "check") downloadCsv("점검.csv", issues, asCsvColumns(issueColumns));
+    else if (tab === "campus") downloadCsv("캠퍼스확인_전체.csv", toRosterRows(mentors), rosterColumns);
     else downloadCsv("매칭_결과.csv", matchRows, asCsvColumns(matchColumns));
   };
 
@@ -519,6 +524,8 @@ export function AdminDashboard({
       )}
 
       {tab === "notice" && <MentorNoticeList initial={notices} readOnly={readOnly} />}
+
+      {tab === "campus" && <CampusRoster mentors={mentors} />}
 
       {tab === "check" && (
         <>
