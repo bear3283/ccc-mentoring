@@ -7,7 +7,8 @@ import { Name } from "@/components/ui/Name";
 import { SaveCodeImageButton } from "@/features/onboarding/components/SaveCodeImageButton";
 type RosterEntry = { code: string; name: string; role: "MENTEE" | "MENTOR" };
 
-const ROLE_LABEL = { MENTEE: "멘티", MENTOR: "멘토" } as const;
+// 등록 화면과 같은 말을 쓴다. "멘티/멘토"는 참가자에게 낯선 프로그램 용어다.
+const ROLE_LABEL = { MENTEE: "고3·예비 27학번", MENTOR: "대학생" } as const;
 
 /** 입력하는 대로 하이픈을 넣어준다. 신청할 때와 같은 규칙. */
 function formatPhone(raw: string): string {
@@ -78,7 +79,7 @@ export default function LookupPage() {
             <Name>{result.entry.name}</Name>님, 찾았어요
           </p>
           <p className="mt-1 text-[14px] font-semibold text-brand">
-            {ROLE_LABEL[result.entry.role]}로 신청하셨어요
+            {ROLE_LABEL[result.entry.role]}으로 등록하셨어요
           </p>
 
           <div className="mt-5">

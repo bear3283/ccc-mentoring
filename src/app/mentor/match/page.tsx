@@ -106,7 +106,7 @@ export default function MentorMatchPage() {
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-[430px] flex-col bg-white px-6">
       <header className="pt-16 pb-6">
-        <p className="text-[14px] font-medium text-brand">멘토</p>
+        <p className="text-[14px] font-medium text-brand">선배 확인</p>
         <h1 className="mt-1.5 text-[24px] leading-[1.35] font-bold tracking-[-0.02em] text-gray-900">
           어떤 후배와
           <br />
