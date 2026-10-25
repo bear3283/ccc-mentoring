@@ -117,6 +117,8 @@ async function addProfile(m: DemoMentor, userId: string) {
       mentoring_area: m.mentoringArea,
       current_majors: m.currentMajors,
       career_paths: [],
+      // 데모 선배는 바로 추천에 나와야 하므로 인증된 상태로 만든다.
+      verified_at: new Date().toISOString(),
     }),
   });
   if (!res.ok) {

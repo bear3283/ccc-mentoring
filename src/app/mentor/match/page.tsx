@@ -11,6 +11,7 @@ import {
 import {
   EVENT_ARRIVAL_LABEL,
   EVENT_DATE_LABEL,
+  greetingLine,
   isAfterEvent,
   VENUE,
   type EventArrival,
@@ -31,6 +32,10 @@ interface MentorMatch {
   mentorName: string;
   /** 신청할 때 고른 정원 */
   capacity: number;
+  /** 운영자가 캠퍼스를 인증했는지. 인증 전에는 후배 추천에 나오지 않는다. */
+  verified: boolean;
+  /** 선배 자신의 채플 날 도착 시간. 첫 문자에 넣는다. */
+  mentorArrival?: EventArrival;
   /** 이 선배를 고른 후배. 먼저 고른 순서. */
   mentees: LinkedMentee[];
 }
@@ -155,16 +160,32 @@ export default function MentorMatchPage() {
             </p>
           )}
 
+          {/*
+            인증 전에는 후배 추천에 나오지 않는다. "아직 연결된 후배가 없어요"만 보이면
+            기다리면 되는지 알 수 없어서 이유를 먼저 밝힌다.
+          */}
+          {!result.verified && mentees.length === 0 && (
+            <div className="rounded-3xl bg-amber-50 px-6 py-7 text-center">
+              <p className="text-[16px] font-bold text-amber-900">캠퍼스 확인 중이에요</p>
+              <p className="mt-2 text-[14px] leading-relaxed text-amber-900/80">
+                운영진이 캠퍼스 리더께 재학 여부를 확인하고 있어요.
+                <br />
+                확인이 끝나면 후배들의 추천 목록에 올라가요.
+              </p>
+            </div>
+          )}
+
           {mentees.map((mentee) => (
             <MenteeCard
               key={mentee.contact}
               mentee={mentee}
               mentorName={result.mentorName}
+              mentorArrival={result.mentorArrival}
             />
           ))}
 
           {/* 자리가 남았다는 것도 알려야 한다. 그래야 더 기다릴지 판단한다. */}
-          {openSeats > 0 && (
+          {openSeats > 0 && (result.verified || mentees.length > 0) && (
             <div className="rounded-3xl bg-gray-50 px-6 py-8 text-center">
               <p className="text-[16px] font-bold text-gray-900">
                 {mentees.length === 0 ? (
@@ -197,7 +218,17 @@ export default function MentorMatchPage() {
   );
 }
 
-function MenteeCard({ mentee, mentorName }: { mentee: LinkedMentee; mentorName: string }) {
+function MenteeCard({
+  mentee,
+  mentorName,
+  mentorArrival,
+}: {
+  mentee: LinkedMentee;
+  mentorName: string;
+  mentorArrival?: EventArrival;
+}) {
+  const intro = `안녕하세요! 고3채플에서 ${mentee.name}님과 매칭된 ${mentorName}입니다 :)`;
+  const greet = greetingLine(mentorArrival);
   return (
     <div className="rounded-3xl bg-brand p-6 text-white">
       <div className="flex items-center gap-4">
@@ -234,14 +265,17 @@ function MenteeCard({ mentee, mentorName }: { mentee: LinkedMentee; mentorName: 
 
       <p className="mt-5 font-mono text-[20px] font-bold tracking-wide">{mentee.contact}</p>
 
-      {/* 후배가 먼저 연락하기 어려워할 수 있다. 선배가 먼저 여는 길을 준다. */}
+      {/*
+        후배가 먼저 연락하기 어려워할 수 있다. 선배가 인사를 건넬 길을 준다.
+        누구인지와 채플 날 인사(선배 도착 시간)를 미리 채운다. 후배 쪽 첫 문자와 같은 모양이다.
+      */}
       <a
         href={`sms:${mentee.contact.replace(/-/g, "")}?&body=${encodeURIComponent(
-          `안녕하세요! 고3채플에서 ${mentee.name}님과 매칭된 ${mentorName}입니다 :)`,
+          greet ? `${intro}\n${greet}` : intro,
         )}`}
         className="mt-4 flex h-[52px] w-full items-center justify-center gap-1.5 rounded-2xl bg-white text-[16px] font-bold text-brand active:bg-white/85"
       >
-        먼저 문자 보내기
+        문자 보내며 인사하기
         <span className="text-[17px]" aria-hidden>
           →
         </span>

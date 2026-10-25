@@ -90,7 +90,7 @@ export const VENUE = {
 
   subway: [
     { line: "1호선", color: "#0052A4", detail: "신길역 1번 출구 → 도보 5분" },
-    { line: "5호선", color: "#996CAC", detail: "신길역 1번 출구 표지판을 따라 나와요 → 도보 5분" },
+    { line: "5호선", color: "#996CAC", detail: "1호선 방향으로 이동해 1번 출구 → 도보 5분" },
     { line: "1호선", color: "#0052A4", detail: "대방역 → 도보 15분" },
   ] satisfies TransitRoute[],
 
@@ -130,6 +130,19 @@ export const EVENT_ARRIVAL_LABEL: Record<EventArrival, string> = {
   "1900_LATER": "오후 7시 이후 (채플 시작 후)",
   ABSENT: "당일엔 못 와요",
 };
+
+/**
+ * 첫 문자에 넣는 "채플 날 인사" 한 줄. 선배·후배 화면이 같은 문장을 쓴다.
+ *
+ * 약속을 잡자는 말이 아니라, 그날 오면 인사하자는 정도로 가볍게 쓴다.
+ * 채플이 지났거나, 시간을 고르지 않았거나, 당일에 못 오면 넣지 않는다.
+ */
+export function greetingLine(arrival: EventArrival | undefined): string | undefined {
+  if (!arrival || arrival === "ABSENT" || isAfterEvent()) return undefined;
+  // 선택지 이름의 "(채플 시작 후)"는 문자 문장에 넣으면 어색해 뺀다.
+  const when = arrival === "1900_LATER" ? "오후 7시 이후에" : `${EVENT_ARRIVAL_LABEL[arrival]} 사이에`;
+  return `채플 날 저는 ${when} 도착해요. 그날 만나면 인사해요!`;
+}
 
 export function isEventArrival(value: unknown): value is EventArrival {
   return typeof value === "string" && (EVENT_ARRIVALS as readonly string[]).includes(value);

@@ -7,7 +7,7 @@ import { downloadCsv, type CsvColumn } from "../lib/csv";
 import type { FallbackReason, Mentee, Mentor } from "@/features/matching/model/types";
 import type { CampusDemandRow } from "../lib/campusDemand";
 import type { MentorNoticeRow } from "@/features/signup/lib/repository";
-import { CampusRoster, rosterColumns, toRosterRows } from "./CampusRoster";
+import { MentorVerification, rosterColumns, toRosterRows } from "./MentorVerification";
 import { MentorNoticeList } from "./MentorNoticeList";
 import { findIssues, type IssueRow } from "../lib/issues";
 import { admissionYearLabel, GENDER_LABEL } from "@/shared/constants/domain";
@@ -105,6 +105,14 @@ const mentorColumns: TableColumn<AdminMentor>[] = [
   },
   // 이름·캠퍼스·학번으로 누구인지 확인한 뒤 바로 연락하도록 학번 뒤에 둔다.
   { key: "contact", header: "연락처", value: (r) => r.contact, width: "130px" },
+  {
+    key: "verified",
+    header: "인증",
+    // 인증은 "멘토 인증" 탭에서 한다. 여기서는 상태만 본다.
+    value: (r) => (!r.mentoringApplied ? "-" : r.verifiedAt ? "인증됨" : "확인 대기"),
+    align: "center",
+    width: "90px",
+  },
   { key: "area", header: "멘토링 영역", value: (r) => r.mentoringArea.join(", ") },
   { key: "persona", header: "성향", value: (r) => personaName(r.personaType), align: "center" },
   { key: "mbti", header: "MBTI", value: (r) => r.mbti ?? "-", align: "center", width: "70px" },
@@ -210,7 +218,7 @@ const matchColumns: TableColumn<MatchRow>[] = [
 const TABS: { key: Tab; label: string }[] = [
   { key: "mentee", label: "멘티 신청자" },
   { key: "mentor", label: "멘토 신청자" },
-  { key: "campus", label: "캠퍼스 확인" },
+  { key: "campus", label: "멘토 인증" },
   { key: "matching", label: "매칭 결과" },
   { key: "unmatched", label: "미매칭" },
   { key: "notice", label: "선배 알림" },
@@ -306,6 +314,8 @@ export function AdminDashboard({
   // 탭 머리의 숫자만 쓴다. 목록 안에서 "보냄"을 눌러도 새로고침 전까지는 그대로다.
   const pendingNotices = notices.filter((n) => !n.notifiedAt).length;
   const issues = findIssues(mentees, mentors);
+  // 캠퍼스 인증을 기다리는 선배. 인증 전에는 후배에게 보이지 않아 운영자가 먼저 챙겨야 한다.
+  const pendingMentors = mentors.filter((m) => m.mentoringApplied && m.currentCampus && !m.verifiedAt).length;
   const [tab, setTab] = useState<Tab>("matching");
 
   const [running, setRunning] = useState(false);
@@ -379,7 +389,7 @@ export function AdminDashboard({
     else if (tab === "mentor") downloadCsv("멘토_신청자.csv", mentors, asCsvColumns(mentorColumns));
     else if (tab === "unmatched") downloadCsv("멘토_모집_필요_캠퍼스.csv", demand, asCsvColumns(demandColumns));
     else if (tab === "check") downloadCsv("점검.csv", issues, asCsvColumns(issueColumns));
-    else if (tab === "campus") downloadCsv("캠퍼스확인_전체.csv", toRosterRows(mentors), rosterColumns);
+    else if (tab === "campus") downloadCsv("멘토명단_전체.csv", toRosterRows(mentors), rosterColumns);
     else downloadCsv("매칭_결과.csv", matchRows, asCsvColumns(matchColumns));
   };
 
@@ -443,6 +453,11 @@ export function AdminDashboard({
           />
           <Stat label="추천 조합" value={`${matchRows.length}건`} />
           <Stat
+            label="멘토 인증 대기"
+            value={`${pendingMentors}명`}
+            emphasis={pendingMentors > 0}
+          />
+          <Stat
             label="선배 알림 대기"
             value={`${pendingNotices}명`}
             emphasis={pendingNotices > 0}
@@ -463,6 +478,9 @@ export function AdminDashboard({
               {t.label}
               {t.key === "notice" && pendingNotices > 0 && (
                 <span className="ml-1.5 tabular-nums">{pendingNotices}</span>
+              )}
+              {t.key === "campus" && pendingMentors > 0 && (
+                <span className="ml-1.5 tabular-nums">{pendingMentors}</span>
               )}
               {t.key === "check" && issues.length > 0 && (
                 <span className="ml-1.5 tabular-nums">{issues.length}</span>
@@ -525,7 +543,7 @@ export function AdminDashboard({
 
       {tab === "notice" && <MentorNoticeList initial={notices} readOnly={readOnly} />}
 
-      {tab === "campus" && <CampusRoster mentors={mentors} />}
+      {tab === "campus" && <MentorVerification mentors={mentors} readOnly={readOnly} />}
 
       {tab === "check" && (
         <>

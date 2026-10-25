@@ -11,6 +11,7 @@ import { NO_PERSONA_GRADIENT, PERSONAS } from "@/shared/constants/persona";
 import {
   EVENT_ARRIVAL_LABEL,
   EVENT_DATE_LABEL,
+  greetingLine,
   isAfterEvent,
   type EventArrival,
 } from "@/shared/constants/venue";
@@ -134,11 +135,8 @@ export default function SettledMatchPage() {
   const beforeEvent = !isAfterEvent();
   // 채플 전이고 오는 시간을 골랐으면 첫 문자에 "그날 인사" 약속까지 넣는다.
   // 채플이 지났거나 당일에 못 오면 인사 약속 문장은 뺀다.
-  const canGreet = beforeEvent && !!myArrival && myArrival !== "ABSENT";
   const introLine = `안녕하세요! 고3채플에서 매칭된 ${myName}입니다 :)`;
-  const greetLine = canGreet
-    ? `채플 날 저는 ${arrivalPhrase(myArrival as Exclude<EventArrival, "ABSENT">)} 도착해요. 그날 잠깐 인사드려도 될까요?`
-    : undefined;
+  const greetLine = greetingLine(myArrival);
   const persona = mentor.personaType ? PERSONAS[mentor.personaType] : undefined;
   const [from, to] = persona?.gradient ?? NO_PERSONA_GRADIENT;
   const smsHref = `sms:${contact.replace(/-/g, "")}?&body=${encodeURIComponent(
@@ -181,7 +179,7 @@ export default function SettledMatchPage() {
           href={smsHref}
           className="mt-6 flex h-[60px] w-full items-center justify-center gap-2 rounded-2xl bg-brand text-[18px] font-bold text-white active:bg-brand-dark"
         >
-          문자로 먼저 인사하기
+          문자 보내며 인사하기
           <span className="text-[20px]" aria-hidden>
             →
           </span>
@@ -263,7 +261,7 @@ export default function SettledMatchPage() {
           {greetLine && (
             <GuideLine
               step="2"
-              title="채플 날 인사 약속"
+              title="채플 날 인사하기"
               body={greetLine}
               note="고른 도착 시간이 들어가 있어요. 선배님이 언제 오는지도 물어보면 좋아요."
             />
@@ -322,11 +320,4 @@ function GuideLine({
       </div>
     </li>
   );
-}
-
-/** "오후 6시 ~ 6시 30분 사이에" / "오후 7시 이후에". 첫 문자 예시에 그대로 넣는다. */
-function arrivalPhrase(arrival: Exclude<EventArrival, "ABSENT">): string {
-  // 선택지 이름의 "(채플 시작 후)"는 문자 문장에 넣으면 어색해 뺀다.
-  if (arrival === "1900_LATER") return "오후 7시 이후에";
-  return `${EVENT_ARRIVAL_LABEL[arrival]} 사이에`;
 }

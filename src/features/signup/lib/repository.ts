@@ -10,6 +10,7 @@ import { isEventArrival, type EventArrival } from "@/shared/constants/venue";
 import { safeForLog } from "@/shared/lib/security/mask";
 import { getSupabase } from "@/shared/lib/supabase/server";
 import { fallbackReason, isSameGender, recommendMentors } from "@/features/matching/lib/score";
+import { isMatchableMentor } from "@/features/matching/lib/mentorStatus";
 import { MOCK_MENTEES, MOCK_MENTORS } from "@/shared/lib/mock/generate";
 
 /**
@@ -56,6 +57,8 @@ interface MentorRow {
   career_paths: string[];
   /** 정원 컬럼을 추가하기 전의 DB에는 없다. 그때는 예전처럼 1명으로 본다. */
   capacity?: number;
+  /** 운영자 캠퍼스 인증 시각. 비어 있으면 확인 대기라 추천 후보가 아니다. */
+  verified_at?: string | null;
 }
 
 /**
@@ -106,6 +109,7 @@ function toMentor(user: UserRow, profile: MentorRow | null): Mentor {
     mbti: (user.mbti ?? undefined) as MbtiType | undefined,
     currentMajors: (profile?.current_majors ?? []) as Major[],
     capacity: profile?.capacity ?? 1,
+    verifiedAt: profile?.verified_at ?? undefined,
   };
 }
 
@@ -368,6 +372,21 @@ export async function applyMentoring(
   }
 
   /*
+   * 캠퍼스 인증은 그 학교에 대한 확인이다. 다시 신청하며 학교를 바꿨으면 인증을 지워
+   * 새 학교로 다시 확인받게 한다. 학교가 같으면 upsert 가 verified_at 을 건드리지 않아
+   * 인증이 그대로 남는다.
+   */
+  let resetVerification = false;
+  if (role === "MENTOR") {
+    const { data: before } = await supabase
+      .from("mentor_profiles")
+      .select("current_campus, verified_at")
+      .eq("user_id", user.id)
+      .maybeSingle();
+    resetVerification = !!before?.verified_at && before.current_campus !== draft.currentCampus;
+  }
+
+  /*
    * 프로필은 여기서 처음 만들어진다. 등록 단계에서는 캠퍼스를 묻지 않기 때문이다.
    *
    * upsert 를 쓰는 이유: 2단계를 마친 사람이 다시 들어와 고쳐 낼 수 있다.
@@ -399,6 +418,7 @@ export async function applyMentoring(
               career_paths: [],
               // 예전 화면에서 온 신청에는 값이 없다. DB 기본값과 같은 1명으로 둔다.
               capacity: draft.mentorCapacity ?? 1,
+              ...(resetVerification ? { verified_at: null } : {}),
             },
             { onConflict: "user_id" },
           )
@@ -453,6 +473,10 @@ export interface MentorMatchView {
   mentorName: string;
   /** 신청할 때 고른 정원. 몇 자리가 남았는지 함께 보여준다. */
   capacity: number;
+  /** 운영자가 캠퍼스를 인증했는지. 인증 전에는 후배 추천에 나오지 않는다. */
+  verified: boolean;
+  /** 선배 자신의 채플 날 도착 시간. 후배에게 보내는 첫 문자에 넣는다. */
+  mentorArrival?: EventArrival;
   /** 이 선배를 고른 후배. 먼저 고른 순서. 아직 없으면 빈 배열. */
   mentees: {
     name: string;
@@ -479,7 +503,7 @@ export async function findMenteeForMentor(code: string): Promise<MentorMatchView
 
   const { data: mentor, error } = await supabase
     .from("users")
-    .select("id, name, mentor_profiles(*)")
+    .select("id, name, event_arrival, mentor_profiles(*)")
     .eq("participation_code", code)
     .eq("role", "MENTOR")
     .maybeSingle();
@@ -491,6 +515,8 @@ export async function findMenteeForMentor(code: string): Promise<MentorMatchView
   const view: MentorMatchView = {
     mentorName: mentor.name as string,
     capacity: profile?.capacity ?? 1,
+    verified: !!profile?.verified_at,
+    mentorArrival: asEventArrival(mentor.event_arrival as string | null),
     mentees: [],
   };
 
@@ -532,16 +558,17 @@ export async function findMenteeForMentor(code: string): Promise<MentorMatchView
 /**
  * 매칭 후보가 되는 멘토.
  *
- * 두 가지를 걸러낸다.
+ * 세 가지를 걸러낸다.
  *  1. 행사 등록만 한 사람 — 관심사·학교가 비어 있어 점수가 나오지 않는다
- *  2. 정원이 다 찬 사람 — 멘토가 고른 수만큼 후배가 이미 골랐다
+ *  2. 캠퍼스 인증 전인 사람 — 운영자가 캠퍼스 리더에게 확인받기 전이다
+ *  3. 정원이 다 찬 사람 — 멘토가 고른 수만큼 후배가 이미 골랐다
  *
  * 운영자 화면은 listMentors() 로 전원을 본다. 등록만 한 사람도
  * 행사에는 오기 때문에 명단에서 빠지면 안 된다.
  */
 export async function listAvailableMentors(): Promise<Mentor[]> {
   const [mentors, state] = await Promise.all([listMentors(), loadAssignmentState()]);
-  return mentors.filter((m) => m.mentoringApplied && hasOpenSeat(m, state));
+  return mentors.filter((m) => isMatchableMentor(m) && hasOpenSeat(m, state));
 }
 
 /** 멘토 전체. 운영자 표처럼 배정 여부와 무관하게 다 봐야 할 때 쓴다. */
@@ -734,7 +761,7 @@ export async function runMatchingForAll(): Promise<MatchRunResult> {
 
     // 후보는 매번 다시 추린다. 앞선 멘티가 확정해 정원이 차면 그 멘토는 빠져야 한다.
     const state = await loadAssignmentState();
-    const available = mentors.filter((m) => m.mentoringApplied && hasOpenSeat(m, state));
+    const available = mentors.filter((m) => isMatchableMentor(m) && hasOpenSeat(m, state));
 
     const recommended = recommendMentors(mentee, available, MATCH_TOP_N);
     const rows = recommended.map((r, i) => ({
@@ -920,13 +947,18 @@ export async function requestMatch(
      * 넣기 전에 저장된 추천(SUGGESTED)이 남아 있을 수 있어 여기서 한 번 더 막는다.
      * 이미 이어진 짝(위 alreadyMine)은 번호를 다시 보여줘야 해서 건드리지 않는다.
      */
-    const { data: mentorGender } = await supabase
+    const { data: target } = await supabase
       .from("users")
-      .select("gender")
+      .select("gender, mentor_profiles(verified_at)")
       .eq("id", mentorId)
       .maybeSingle();
-    if (!mentee.gender || mentee.gender !== mentorGender?.gender) {
+    if (!mentee.gender || mentee.gender !== target?.gender) {
       return { ok: false, error: "매칭된 멘토가 아니에요." };
+    }
+    // 인증 전 선배는 추천에 나오지 않지만, 인증 전에 저장된 추천이 남아 있을 수 있다.
+    const profile = target?.mentor_profiles as unknown as { verified_at: string | null } | null;
+    if (!profile?.verified_at) {
+      return { ok: false, error: "이 선배는 아직 캠퍼스 확인 중이에요. 다른 선배를 골라주세요." };
     }
 
     // 멘티는 선배를 한 명만 고를 수 있다. 여러 명을 맡는 것은 선배 쪽뿐이다.
@@ -1009,7 +1041,7 @@ export async function listUnmatched(): Promise<UnmatchedReason[]> {
 
   // 정원이 다 찬 멘토는 이 멘티가 만날 수 없다.
   // 전체 수를 세면 "캠퍼스에 3명 있는데 왜 매칭이 안 되지"로 오해한다.
-  const available = mentors.filter((m) => m.mentoringApplied && hasOpenSeat(m, state));
+  const available = mentors.filter((m) => isMatchableMentor(m) && hasOpenSeat(m, state));
   const campusOf = new Map(mentors.map((m) => [m.id, m.currentCampus as string]));
 
   const suggestedCampuses = new Map<string, string[]>();
@@ -1050,6 +1082,33 @@ export async function listUnmatched(): Promise<UnmatchedReason[]> {
         },
       ];
     });
+}
+
+/**
+ * 운영자가 선배들의 캠퍼스를 인증하거나 인증을 거둔다.
+ *
+ * 캠퍼스 리더에게 명단을 확인받은 뒤 한 캠퍼스를 한꺼번에 인증하는 일이 많아 여러 명을 받는다.
+ * 프로필이 없는 사람(멘토링 신청 전)은 인증할 학교가 없어 건너뛴다.
+ */
+export async function setMentorVerified(
+  userIds: string[],
+  verified: boolean,
+): Promise<{ ok: boolean; verifiedAt?: string | null; updated?: number }> {
+  const supabase = getSupabase();
+  if (!supabase || userIds.length === 0) return { ok: false };
+
+  const verifiedAt = verified ? new Date().toISOString() : null;
+  const { data, error } = await supabase
+    .from("mentor_profiles")
+    .update({ verified_at: verifiedAt })
+    .in("user_id", userIds)
+    .select("user_id");
+
+  if (error) {
+    logDbError(verified ? "멘토 인증" : "멘토 인증 취소", error);
+    return { ok: false };
+  }
+  return { ok: true, verifiedAt, updated: data?.length ?? 0 };
 }
 
 /** 선배에게 알렸는지. 운영자 화면과 notify-mentors 스크립트가 같은 값을 쓴다. */

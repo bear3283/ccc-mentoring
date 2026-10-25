@@ -93,6 +93,11 @@ const CONTACT_UNIQUE_SQL = readFileSync(
   "utf8",
 ).trim();
 
+const VERIFY_SQL = readFileSync(
+  new URL("../supabase/migrations/2026-10-26-mentor-verification.sql", import.meta.url),
+  "utf8",
+).trim();
+
 const NOTICE_SQL = readFileSync(
   new URL("../supabase/migrations/2026-10-20-mentor-notice.sql", import.meta.url),
   "utf8",
@@ -416,6 +421,11 @@ const requirements: Requirement[] = [
     name: "선배 알림 기록 컬럼 (matchings.mentor_notified_at, mentor_notified_via)",
     column: { table: "matchings", column: "mentor_notified_at,mentor_notified_via" },
     sql: NOTICE_SQL,
+  },
+  {
+    name: "멘토 캠퍼스 인증 컬럼 (mentor_profiles.verified_at)",
+    column: { table: "mentor_profiles", column: "verified_at" },
+    sql: VERIFY_SQL,
   },
   {
     name: "멘토 정원 컬럼 (mentor_profiles.capacity)",

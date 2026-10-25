@@ -53,7 +53,7 @@ export default function MentoringCompletePage() {
         <p data-reveal className="mt-2 text-[14px] leading-relaxed text-gray-500">
           {isMentee
             ? "잘 맞는 선배를 찾아뒀어요. 아래에서 확인해보세요."
-            : "후배가 선배님을 고르면 연결되고, 문자로 알려드려요."}
+            : "운영진이 캠퍼스 재학 여부를 확인한 뒤 후배 추천 목록에 올라가요. 후배가 선배님을 고르면 문자로 알려드려요."}
         </p>
       </div>
 

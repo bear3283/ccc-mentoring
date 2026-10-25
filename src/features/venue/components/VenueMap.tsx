@@ -48,7 +48,7 @@ export function VenueMap() {
 
       <ol ref={routeRef} className="mt-4 flex flex-col gap-3">
         <RouteStep n={1} title={`${station} ${exit}로 나와요`}>
-          {lines.join("·")} 어느 쪽에서 내려도 {exit} 표지판을 따라 나오면 돼요.
+          {exit}는 1호선 쪽에 있어요. 5호선에서 내리면 1호선 방향 표지판을 따라 나오세요.
         </RouteStep>
         <RouteStep n={2} title="영등포로를 따라 쭉 내려와요">
           약 250m. 대윤병원 버스정류장이 보이면 그 앞 왼쪽 골목으로 들어가요.

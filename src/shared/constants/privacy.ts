@@ -12,7 +12,7 @@
 import { EVENT_DATE } from "./venue";
 
 /** 문구를 수정하면 반드시 올린다. DB의 consent_version 에 함께 저장된다. */
-export const CONSENT_VERSION = "2026-10-26";
+export const CONSENT_VERSION = "2026-10-26.2";
 
 /** 행사 종료 후 보관 기간. 문구와 파기 절차(scripts/purge-expired.ts)가 같은 값을 봐야 한다. */
 export const RETENTION_DAYS = 90;
@@ -77,7 +77,8 @@ export const CONSENT_ITEMS: ConsentItem[] = [
         detail:
           "① 고3채플 참가 등록과 당일 운영(명단 확인) ② 같은 번호의 중복 등록 방지 " +
           "③ 멘토링을 신청한 분의 선배·후배 매칭(같은 성별끼리, 학교·관심사 기준) " +
-          "④ 매칭 결과와 행사 안내 문자 발송",
+          "④ 매칭 결과와 행사 안내 문자 발송 " +
+          "⑤ 대학생 선배의 재학 확인(이름·학교·학번·연락처를 해당 캠퍼스 CCC 리더에게 확인받아요)",
       },
       {
         term: "필수 항목 — 채플 등록",

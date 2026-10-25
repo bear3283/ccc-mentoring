@@ -1,4 +1,5 @@
 import { regionOf, type Region } from "@/shared/constants/campus";
+import { isMatchableMentor } from "@/features/matching/lib/mentorStatus";
 import type { Mentee, Mentor } from "@/features/matching/model/types";
 import type { Gender } from "@/shared/constants/domain";
 
@@ -12,7 +13,7 @@ export interface CampusDemandRow {
   firstChoice: number;
   /** 1~3지망 어디에든 적은, 아직 선배를 고르지 못한 멘티 */
   anyChoice: number;
-  /** 멘토링을 신청한 이 캠퍼스·성별 멘토. 0이면 모집, 1 이상이면 정원 마감이다. */
+  /** 인증된 이 캠퍼스·성별 멘토. 0이면 모집(또는 인증), 1 이상이면 정원 마감이다. */
   mentors: number;
 }
 
@@ -36,7 +37,8 @@ export function campusDemand(
   activeByMentor: ReadonlyMap<string, number>,
   settledMentees: ReadonlySet<string>,
 ): CampusDemandRow[] {
-  const applied = mentors.filter((m) => m.mentoringApplied);
+  // 인증 전 선배는 후배가 고를 수 없으니 자리로 세지 않는다.
+  const applied = mentors.filter(isMatchableMentor);
 
   const sameSlot = (m: Mentor, campus: string, gender: Gender) =>
     m.currentCampus === campus && m.gender === gender;

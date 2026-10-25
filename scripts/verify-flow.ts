@@ -261,6 +261,51 @@ async function main() {
   // 이후 검사는 성경 인물을 고른 상태를 기준으로 하므로 되돌린다.
   await post("/api/mentoring", { role: "MENTEE", draft: menteeMentoring(), participationCode: menteeCode });
 
+  console.log("\n[1-2] 멘토 캠퍼스 인증");
+  // 신청만 한 선배는 후배에게 보이지 않는다. 운영자가 캠퍼스를 인증해야 추천 후보가 된다.
+  const beforeVerify = await post("/api/match", { participationCode: menteeCode });
+  check(
+    "인증 전 선배는 추천에 나오지 않음",
+    beforeVerify.status === 200 &&
+      !((beforeVerify.json.results ?? []) as { mentor: { name: string } }[]).some((r) =>
+        r.mentor.name.startsWith("검증멘토"),
+      ),
+  );
+  const pendingView = await post("/api/mentor/match", { participationCode: m1Code });
+  check("선배 화면에 '확인 중' 상태", pendingView.status === 200 && pendingView.json.verified === false);
+
+  const m1Row = (await (
+    await fetch(`${dbUrl}/rest/v1/users?select=id&participation_code=eq.${m1Code}`, { headers: dbHeaders })
+  ).json()) as { id: string }[];
+  const m1Id = m1Row[0]?.id;
+  const anonVerify = await post("/api/admin/mentor-verify", { userIds: [m1Id] });
+  check("로그인 없이 멘토 인증 거부", anonVerify.status === 401, `HTTP ${anonVerify.status}`);
+
+  const adminLogin = await post("/api/admin/login", { password: loadEnv().ADMIN_PASSWORD });
+  const adminCookie = adminLogin.res.headers.get("set-cookie")?.split(";")[0];
+  const verifyRes = await post("/api/admin/mentor-verify", { userIds: [m1Id] }, adminCookie);
+  check("운영자가 멘토 인증", verifyRes.status === 200 && verifyRes.json.updated === 1,
+    `HTTP ${verifyRes.status} ${String(verifyRes.json.error ?? "")}`);
+  const badVerify = await post("/api/admin/mentor-verify", { userIds: ["not-a-uuid"] }, adminCookie);
+  check("형식이 틀린 id로 인증 거부", badVerify.status === 400, `HTTP ${badVerify.status}`);
+  const verifiedView = await post("/api/mentor/match", { participationCode: m1Code });
+  check("인증 뒤 선배 화면 상태", verifiedView.json.verified === true);
+
+  // 같은 학교로 다시 신청하면 인증이 남고, 학교를 바꾸면 풀린다.
+  await post("/api/mentoring", { role: "MENTOR", draft: mentorMentoring({ mentorCapacity: 2 }), participationCode: m1Code });
+  const keptView = await post("/api/mentor/match", { participationCode: m1Code });
+  check("같은 학교로 다시 신청하면 인증 유지", keptView.json.verified === true);
+  await post("/api/mentoring", {
+    role: "MENTOR",
+    draft: mentorMentoring({ mentorCapacity: 2, currentCampus: "고려대" }),
+    participationCode: m1Code,
+  });
+  const resetView = await post("/api/mentor/match", { participationCode: m1Code });
+  check("학교를 바꿔 다시 신청하면 인증 해제", resetView.json.verified === false);
+  // 이후 검사를 위해 원래 학교로 되돌리고 다시 인증한다.
+  await post("/api/mentoring", { role: "MENTOR", draft: mentorMentoring({ mentorCapacity: 2 }), participationCode: m1Code });
+  await post("/api/admin/mentor-verify", { userIds: [m1Id] }, adminCookie);
+
   const noGenderApply = await post("/api/mentoring", {
     role: "MENTEE",
     draft: menteeMentoring({ gender: undefined }),
