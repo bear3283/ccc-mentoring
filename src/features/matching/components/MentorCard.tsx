@@ -1,7 +1,7 @@
 "use client";
 
 import { Name } from "@/components/ui/Name";
-import { admissionYearLabel, formatTimeSlotShort } from "@/shared/constants/domain";
+import { admissionYearLabel } from "@/shared/constants/domain";
 import { PERSONAS } from "@/shared/constants/persona";
 import { cn } from "@/shared/lib/cn";
 import { nameInitials } from "@/shared/lib/nameInitials";
@@ -112,15 +112,6 @@ export function MentorCard({
           ))}
         </ul>
 
-        {/* 시간이 안 겹쳐도 후보에는 남지만, 모르고 연락하면 서로 곤란하다. */}
-        {result.noTimeOverlap && (
-          <p className="mt-4 rounded-xl bg-gray-100 px-3 py-2.5 text-[13px] leading-relaxed text-gray-600">
-            ⏰ 서로 가능한 시간이 겹치지 않아요.
-            <br />
-            연락해서 일정을 맞추거나 온라인으로 만나보세요.
-          </p>
-        )}
-
         <p className="mt-4 text-[14px] leading-relaxed text-gray-600">
           {persona.keywords.join("·")} 있는 {persona.name}형 선배예요.
           <br />
@@ -135,11 +126,10 @@ export function MentorCard({
             </dd>
           </div>
           <div>
-            <dt className="text-[12px] text-gray-400">멘토링 가능 시간</dt>
+            <dt className="text-[12px] text-gray-400">멘토링 날짜</dt>
             <dd className="mt-0.5 text-[14px] font-semibold text-gray-700">
-              {/* 개수만 보여주면 실제로 만날 수 있는지 판단이 안 된다. */}
-              {mentor.availableTimes.slice(0, 2).map(formatTimeSlotShort).join(", ")}
-              {mentor.availableTimes.length > 2 && ` 외 ${mentor.availableTimes.length - 2}`}
+              {/* 신청할 때 시간을 묻지 않는다. 연결된 뒤 둘이 정한다. */}
+              연결 후 문자로 정해요
             </dd>
           </div>
         </dl>

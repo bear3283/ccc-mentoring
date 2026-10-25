@@ -21,12 +21,10 @@ import {
   fallbackReason,
   recommendMentors,
   scoreMbti,
-  scoreSchedule,
 } from "../src/features/matching/lib/score";
 import { campusDemand } from "../src/features/admin/lib/campusDemand";
 import { CAMPUSES_BY_REGION, regionOf } from "../src/shared/constants/campus";
 import { PERSONAS } from "../src/shared/constants/persona";
-import { formatTimeSlotShort } from "../src/shared/constants/domain";
 
 let failures = 0;
 
@@ -51,7 +49,7 @@ check(
 check(
   "캠퍼스가 가장 무거움",
   Object.entries(WEIGHTS).every(([k, v]) => k === "campus" || v < WEIGHTS.campus),
-  `캠퍼스 ${WEIGHTS.campus} / 영역 ${WEIGHTS.area} / 시간대 ${WEIGHTS.schedule} / MBTI ${WEIGHTS.mbti} / 학과·진로 ${WEIGHTS.majorAndCareer} / 성경인물 ${WEIGHTS.persona}`,
+  `캠퍼스 ${WEIGHTS.campus} / 영역 ${WEIGHTS.area} / MBTI ${WEIGHTS.mbti} / 학과·진로 ${WEIGHTS.majorAndCareer} / 성경인물 ${WEIGHTS.persona}`,
 );
 check(
   "MBTI 4축이 같은 점수로 나뉨",
@@ -98,8 +96,8 @@ check(
   MOCK_MENTEES.every((m) => m.targetCampus.length === 3 && new Set(m.targetCampus).size === 3),
 );
 check(
-  "모든 참여자가 시간대를 1개 이상 보유",
-  [...MOCK_MENTORS, ...MOCK_MENTEES].every((p) => p.availableTimes.length >= 1),
+  "모든 참여자가 성별 보유",
+  [...MOCK_MENTORS, ...MOCK_MENTEES].every((p) => p.gender === "MALE" || p.gender === "FEMALE"),
 );
 check(
   "모든 참여자가 연락처 보유",
@@ -209,23 +207,33 @@ const filteredOut = MOCK_MENTEES.flatMap((mentee) =>
 );
 
 check(
-  "필터 탈락은 캠퍼스 불일치가 유일한 사유",
-  filteredOut.every(({ mentee, mentor }) => !mentee.targetCampus.includes(mentor.currentCampus)),
+  "필터 탈락 사유는 캠퍼스 불일치 또는 성별 다름뿐",
+  filteredOut.every(
+    ({ mentee, mentor }) =>
+      !mentee.targetCampus.includes(mentor.currentCampus) || mentee.gender !== mentor.gender,
+  ),
 );
 
 const results = MOCK_MENTEES.map((m) => matchMentors(m, MOCK_MENTORS, 5));
 check(
-  "시간대가 안 겹쳐도 후보에는 남음 (0점 처리)",
-  MOCK_MENTEES.some((mentee) =>
-    matchMentors(mentee, MOCK_MENTORS, 3).some(
-      (r) => !mentee.availableTimes.some((t) => r.mentor.availableTimes.includes(t)),
-    ),
-  ) ||
-    // 더미 데이터가 우연히 전부 겹칠 수도 있으니, 그때는 점수 함수를 직접 확인한다
-    scoreSchedule(
-      { ...MOCK_MENTEES[0], availableTimes: ["WEEKDAY_MORNING"] },
-      { ...MOCK_MENTORS[0], availableTimes: ["WEEKEND_NIGHT"] },
-    ) === 0,
+  "매칭 결과는 모두 같은 성별",
+  results.every((rs, i) => rs.every((r) => r.mentor.gender === MOCK_MENTEES[i].gender)),
+);
+check(
+  "대체 후보도 모두 같은 성별",
+  MOCK_MENTEES.every((mentee) =>
+    recommendMentors(mentee, MOCK_MENTORS, 5).every((r) => r.mentor.gender === mentee.gender),
+  ),
+);
+check(
+  "성별이 비어 있는 멘티는 후보가 없음",
+  recommendMentors({ ...MOCK_MENTEES[0], gender: undefined }, MOCK_MENTORS, 5).length === 0,
+);
+check(
+  "성별이 비어 있는 멘토는 누구의 후보도 아님",
+  MOCK_MENTEES.every(
+    (mentee) => !passesRequiredFilters(mentee, { ...MOCK_MENTORS[0], gender: undefined }),
+  ),
 );
 check(
   "매칭 결과에 지망 캠퍼스 밖 멘토 없음",
@@ -386,13 +394,17 @@ console.log("\n[5-2] 멘토 모집이 필요한 캠퍼스");
 
 const noAssignments = new Map<string, number>();
 const demand = campusDemand(MOCK_MENTEES, MOCK_MENTORS, noAssignments, new Set());
-const mentorCampuses = new Set(MOCK_MENTORS.map((m) => m.currentCampus as string));
-const wantedCampuses = new Set(MOCK_MENTEES.flatMap((m) => m.targetCampus as string[]));
+// 매칭이 같은 성별끼리라 모집 수요도 캠퍼스·성별 쌍으로 센다.
+const slot = (campus: string, gender: string | undefined) => `${campus}|${gender}`;
+const mentorSlots = new Set(MOCK_MENTORS.map((m) => slot(m.currentCampus, m.gender)));
+const wantedSlots = new Set(
+  MOCK_MENTEES.flatMap((m) => m.targetCampus.map((c) => slot(c, m.gender))),
+);
 
 check(
-  "배정이 없으면 '멘토 없는 지망 캠퍼스'와 정확히 일치",
-  demand.map((d) => d.campus).sort().join() ===
-    [...wantedCampuses].filter((c) => !mentorCampuses.has(c)).sort().join(),
+  "배정이 없으면 '같은 성별 멘토 없는 지망 캠퍼스'와 정확히 일치",
+  demand.map((d) => slot(d.campus, d.gender)).sort().join() ===
+    [...wantedSlots].filter((k) => !mentorSlots.has(k)).sort().join(),
 );
 check(
   "지망한 후배가 많은 캠퍼스가 위",
@@ -402,22 +414,37 @@ check(
   "1지망 수는 전체 지망 수를 넘지 않음",
   demand.every((d) => d.firstChoice <= d.anyChoice),
 );
+check(
+  "성별이 비어 있는 멘티는 수요에 들어가지 않음",
+  campusDemand(
+    MOCK_MENTEES.map((m) => ({ ...m, gender: undefined })),
+    MOCK_MENTORS,
+    noAssignments,
+    new Set(),
+  ).length === 0,
+);
 
-// 지망한 캠퍼스에 멘토가 한 명뿐인 곳을 골라 정원을 채우면 표에 나타나야 한다.
+// 같은 성별 후배가 지망한 캠퍼스에 그 성별 멘토가 한 명뿐인 곳을 골라 정원을 채우면 표에 나타나야 한다.
 const soleMentor = MOCK_MENTORS.find(
   (m) =>
-    wantedCampuses.has(m.currentCampus) &&
-    MOCK_MENTORS.filter((o) => o.currentCampus === m.currentCampus).length === 1,
+    wantedSlots.has(slot(m.currentCampus, m.gender)) &&
+    MOCK_MENTORS.filter((o) => slot(o.currentCampus, o.gender) === slot(m.currentCampus, m.gender))
+      .length === 1,
 );
 if (soleMentor) {
+  const isSole = (d: { campus: string; gender: string }) =>
+    d.campus === soleMentor.currentCampus && d.gender === soleMentor.gender;
   const full = campusDemand(
     MOCK_MENTEES,
     MOCK_MENTORS,
     new Map([[soleMentor.id, soleMentor.capacity]]),
     new Set(),
   );
-  const row = full.find((d) => d.campus === soleMentor.currentCampus);
-  check("정원이 다 찬 캠퍼스는 '정원 마감'으로 포함", row?.mentors === 1, soleMentor.currentCampus);
+  check(
+    "정원이 다 찬 캠퍼스는 '정원 마감'으로 포함",
+    full.find(isSole)?.mentors === 1,
+    `${soleMentor.currentCampus} ${soleMentor.gender}`,
+  );
 
   const oneLeft = campusDemand(
     MOCK_MENTEES,
@@ -425,10 +452,7 @@ if (soleMentor) {
     new Map([[soleMentor.id, soleMentor.capacity - 1]]),
     new Set(),
   );
-  check(
-    "한 자리라도 남으면 포함하지 않음",
-    !oneLeft.some((d) => d.campus === soleMentor.currentCampus),
-  );
+  check("한 자리라도 남으면 포함하지 않음", !oneLeft.some(isSole));
 }
 check(
   "선배를 고른 멘티의 지망은 수요에서 빠짐",
@@ -470,7 +494,7 @@ for (const mentee of MOCK_MENTEES.slice(0, 3)) {
     `    관심영역: ${mentee.desiredAreas.join(", ")} | 성향: ${PERSONAS[mentee.personaType].name} | ` +
       `목표: ${mentee.targetMajors.join(", ")} / ${mentee.targetCareers.join(", ")}`,
   );
-  console.log(`    가능시간: ${mentee.availableTimes.map(formatTimeSlotShort).join(", ")}`);
+  console.log(`    성별: ${mentee.gender}`);
 
   const top = matchMentors(mentee, MOCK_MENTORS, 3);
   if (top.length === 0) {
@@ -483,7 +507,7 @@ for (const mentee of MOCK_MENTEES.slice(0, 3)) {
       `    ${r.score}%  ${r.mentor.name}(${r.mentor.currentCampus}) ${r.hashtags.join(" ")}`,
     );
     console.log(
-      `           캠퍼스 ${b.campus.toFixed(1)} / 영역 ${b.area.toFixed(1)} / 시간대 ${b.schedule.toFixed(1)} / ` +
+      `           캠퍼스 ${b.campus.toFixed(1)} / 영역 ${b.area.toFixed(1)} / ` +
         `MBTI ${b.mbti.toFixed(1)} / 학과·진로 ${b.majorAndCareer.toFixed(1)} / 성경인물 ${b.persona.toFixed(1)}`,
     );
   }

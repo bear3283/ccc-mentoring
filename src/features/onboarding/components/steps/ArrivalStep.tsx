@@ -18,9 +18,8 @@ const PARTNER = { MENTEE: "선배", MENTOR: "후배" } as const;
 /**
  * 채플 당일(목) 몇 시에 올 수 있는지.
  *
- * 다음 스텝(ScheduleStep)은 채플 뒤에 따로 하는 1:1 멘토링 시간을 묻는다.
- * 이 스텝이 먼저 "목요일은 인사하는 날"이라고 못 박아 두어야
- * 다음 질문을 목요일 시간으로 읽지 않는다.
+ * 채플 날은 인사하는 날이다. 1:1 멘토링 날짜는 묻지 않고, 매칭된 뒤
+ * 선배·후배가 문자로 정한다. 그래서 힌트에 그 점을 함께 밝힌다.
  */
 export function ArrivalStep({ role, draft, onNext, onChange }: StepProps) {
   const [selected, setSelected] = useState<EventArrival | undefined>(draft.eventArrival);
@@ -37,7 +36,7 @@ export function ArrivalStep({ role, draft, onNext, onChange }: StepProps) {
     <StepLayout
       eyebrow={`${EVENT_DATE_LABEL} 채플 날`}
       question="채플 당일, 몇 시에 올 수 있어요?"
-      hint={`채플 날에는 매칭된 ${PARTNER[role]}와 얼굴 보고 인사해요. 고른 시간은 매칭된 ${PARTNER[role]}에게 알려줘요.`}
+      hint={`채플 날에는 매칭된 ${PARTNER[role]}와 얼굴 보고 인사해요. 고른 시간은 ${PARTNER[role]}에게 알려주고, 1:1 멘토링 날짜는 매칭된 뒤 문자로 정해요.`}
       ctaLabel={selected ? "다음" : "하나만 골라주세요"}
       ctaDisabled={!selected}
       onCta={() => selected && onNext({ eventArrival: selected })}

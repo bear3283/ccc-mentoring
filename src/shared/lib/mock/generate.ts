@@ -5,9 +5,7 @@ import {
   MAJORS,
   MENTORING_AREAS,
   MENTOR_CAPACITY_OPTIONS,
-  TIME_SLOTS,
   type Campus,
-  type TimeSlot,
 } from "@/shared/constants/domain";
 import { MBTI_TYPES } from "@/shared/constants/mbti";
 import { PERSONA_TYPES } from "@/shared/constants/persona";
@@ -62,15 +60,6 @@ function makeContact(random: Random): string {
   return `010-${mid}-${last}`;
 }
 
-/**
- * 시간대는 2~6개를 뽑는다.
- * 슬롯을 10개로 세분화했기 때문에 예전처럼 1~4개만 고르면
- * 겹치는 사람이 급감해 매칭 자체가 성립하지 않는다.
- */
-function makeTimes(random: Random): TimeSlot[] {
-  return pickMany(random, TIME_SLOTS, 2 + Math.floor(random() * 5));
-}
-
 const HIGH_SCHOOL_PREFIX = [
   "한빛", "동성", "서일", "명진", "청운", "대광", "신영", "수리", "은성", "예일",
 ];
@@ -110,7 +99,6 @@ export function generateMentors(count = 50, seed = 20260827): Mentor[] {
       name: makeName(random),
       gender: pick(random, GENDERS),
       contact: makeContact(random),
-      availableTimes: makeTimes(random),
       currentCampus: pick(random, CAMPUSES),
       admissionYear: CURRENT_YEAR - yearsEnrolled,
       // 멘토는 여러 영역을 도울 수 있다.
@@ -139,7 +127,6 @@ export function generateMentees(count = 50, seed = 19970416): Mentee[] {
     name: makeName(random),
     gender: pick(random, GENDERS),
     contact: makeContact(random),
-    availableTimes: makeTimes(random),
     // 1~3지망. 중복 없이 3개.
     targetCampus: pickMany(random, CAMPUSES, 3) as Campus[],
     // 최대 3개. 하나만 고르는 사람도 많다.

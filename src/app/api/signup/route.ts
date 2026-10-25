@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { findExistingSignup, saveSignup } from "@/features/signup/lib/repository";
+import { duplicateSignupError, findExistingSignup, saveSignup } from "@/features/signup/lib/repository";
 import type { OnboardingDraft } from "@/features/onboarding/model/types";
 import { generateParticipationCode } from "@/features/onboarding/lib/participationCode";
 import { clientKey, rateLimit, tooManyRequestsMessage } from "@/shared/lib/security/rateLimit";
@@ -71,11 +71,10 @@ export async function POST(request: Request) {
   // 같은 사람이 몇 번 더 눌렀다는 이유로 차단된다.
   const existing = await findExistingSignup(role, draft.name ?? "", draft.contact ?? "");
   if (existing) {
-    if (!existing.sameName) {
-      return NextResponse.json(
-        { error: "이미 등록된 연락처예요. 번호를 다시 확인해주세요." },
-        { status: 400 },
-      );
+    // 같은 번호는 고3·대학생을 가리지 않고 하나만 받는다.
+    const duplicate = duplicateSignupError(role, existing);
+    if (duplicate) {
+      return NextResponse.json({ error: duplicate }, { status: 400 });
     }
     console.log(`[signup] ${role} duplicate -> ${existing.code}`);
     return NextResponse.json({ participationCode: existing.code, alreadyRegistered: true });

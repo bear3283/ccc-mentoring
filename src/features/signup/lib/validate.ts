@@ -1,5 +1,5 @@
 import { CONSENT_VERSION } from "@/shared/constants/privacy";
-import { MENTOR_CAPACITY_OPTIONS } from "@/shared/constants/domain";
+import { GENDERS, MENTOR_CAPACITY_OPTIONS } from "@/shared/constants/domain";
 import { MBTI_TYPES } from "@/shared/constants/mbti";
 import { isEventArrival } from "@/shared/constants/venue";
 import type { OnboardingDraft } from "@/features/onboarding/model/types";
@@ -9,8 +9,13 @@ import type { OnboardingDraft } from "@/features/onboarding/model/types";
  * 브라우저 검증은 사용자를 돕는 장치일 뿐, 요청을 직접 만들면 그냥 우회된다.
  *
  * 가입이 두 단계로 나뉘면서 검증도 나뉘었다.
- * 행사 등록만 한 사람에게 성향·시간대를 요구하면 등록 자체가 막힌다.
+ * 행사 등록만 한 사람에게 성향·관심사를 요구하면 등록 자체가 막힌다.
  */
+
+/** 같은 성별끼리만 매칭하므로 두 단계 모두 성별을 확인한다. */
+function isGender(value: unknown): boolean {
+  return typeof value === "string" && (GENDERS as readonly string[]).includes(value);
+}
 
 /** 사진은 data URL로 들어온다. 지나치게 크면 저장소와 응답이 함께 무거워진다. */
 const MAX_PHOTO_BYTES = 400_000;
@@ -27,6 +32,7 @@ export function validateRegistration(
   if (!draft.contact || !/^01[016-9]-\d{3,4}-\d{4}$/.test(draft.contact)) {
     return "연락처 형식을 확인해주세요.";
   }
+  if (!isGender(draft.gender)) return "성별을 골라주세요.";
 
   // 동의는 브라우저에서 체크박스를 지나쳐도 서버가 다시 막는다.
   if (!draft.consentedAt || !draft.consentVersion) {
@@ -60,16 +66,14 @@ export function validateMentoring(
 ): string | null {
   if (!draft) return "잘못된 요청이에요.";
 
+  // 성별을 받기 전에 등록한 사람은 멘토링 신청에서 처음 고른다.
+  if (!isGender(draft.gender)) return "성별을 골라주세요.";
   if (!draft.personaType) return "성향을 골라주세요.";
 
   // MBTI 는 건너뛸 수 있지만, 적었다면 16개 유형 중 하나여야 한다.
   // 여기서 막지 않으면 DB 제약에 걸려 "저장하지 못했어요"만 보게 된다.
   if (draft.mbti && !(MBTI_TYPES as readonly string[]).includes(draft.mbti)) {
     return "MBTI를 다시 확인해주세요.";
-  }
-
-  if (!draft.availableTimes || draft.availableTimes.length === 0) {
-    return "가능한 시간을 골라주세요.";
   }
 
   // 채플이 지난 뒤에는 묻지 않아 비어 있을 수 있다. 적었다면 고를 수 있는 값이어야 한다.

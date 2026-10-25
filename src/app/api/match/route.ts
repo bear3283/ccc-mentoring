@@ -7,7 +7,7 @@ import {
 } from "@/features/signup/lib/repository";
 import {
   fallbackReason,
-  hasNoTimeOverlap,
+  isSameGender,
   matchMentors,
   recommendMentors,
 } from "@/features/matching/lib/score";
@@ -89,13 +89,14 @@ export async function POST(request: Request) {
       recommendMentors(mentee, mentors, TOP_N);
 
   // 결과가 적거나 없을 때 "왜 그런지"를 함께 보낸다.
-  const inCampus = mentors.filter((m) => mentee.targetCampus.includes(m.currentCampus));
+  // 성별이 다른 선배는 이어질 수 없으니 처음부터 세지 않는다.
+  const reachable = mentors.filter((m) => isSameGender(mentee, m));
   const diagnosis = {
-    inTargetCampus: inCampus.length,
-    noTimeOverlap: inCampus.filter((m) => hasNoTimeOverlap(mentee, m)).length,
-    totalMentors: mentors.length,
+    genderMissing: !mentee.gender,
+    inTargetCampus: reachable.filter((m) => mentee.targetCampus.includes(m.currentCampus)).length,
+    totalMentors: reachable.length,
     emptyCampuses: mentee.targetCampus.filter(
-      (campus) => !mentors.some((m) => m.currentCampus === campus),
+      (campus) => !reachable.some((m) => m.currentCampus === campus),
     ),
   };
 
@@ -127,7 +128,6 @@ export async function POST(request: Request) {
     results: results.map((r) => ({
       score: r.score,
       hashtags: r.hashtags,
-      noTimeOverlap: hasNoTimeOverlap(mentee, r.mentor),
       fallback: r.fallback,
       mentor: {
         id: r.mentor.id,
@@ -140,7 +140,6 @@ export async function POST(request: Request) {
         personaType: r.mentor.personaType,
         mbti: r.mentor.mbti,
         photoUrl: r.mentor.photoUrl,
-        availableTimes: r.mentor.availableTimes,
         // 연락처는 가린 값만 보낸다.
         // 전체 번호는 멘티가 '매칭하기'를 눌러 요청한 뒤에 공개한다.
         maskedContact: maskContact(r.mentor.contact),

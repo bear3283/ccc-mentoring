@@ -30,7 +30,6 @@ interface DemoMentor {
   mentoringArea: string[];
   currentMajors: string[];
   careerPaths: string[];
-  availableTimes: string[];
 }
 
 /**
@@ -40,45 +39,35 @@ interface DemoMentor {
 const mentors: DemoMentor[] = [
   { name: "조민준", gender: "MALE", personaType: "SOLOMON", mbti: "INTJ", church: "신길교회",
     currentCampus: "연세대", admissionYear: 2023, mentoringArea: ["학점관리", "전공공부"],
-    currentMajors: ["경영학과"], careerPaths: ["금융권"],
-    availableTimes: ["WEEKDAY_EVENING", "WEEKEND_AFTERNOON"] },
+    currentMajors: ["경영학과"], careerPaths: ["금융권"] },
   { name: "박선우", gender: "FEMALE", personaType: "ESTHER", mbti: "ENFP",
     currentCampus: "연세대", admissionYear: 2022, mentoringArea: ["학점관리", "자취생활"],
-    currentMajors: ["심리학과"], careerPaths: ["대학원 진학"],
-    availableTimes: ["WEEKDAY_EVENING", "WEEKDAY_NIGHT"] },
+    currentMajors: ["심리학과"], careerPaths: ["대학원 진학"] },
   { name: "서준호", gender: "MALE", personaType: "DAVID", mbti: "ESTP", church: "신길교회",
     currentCampus: "서울대", admissionYear: 2023, mentoringArea: ["전공공부", "진로설계"],
-    currentMajors: ["컴퓨터공학과"], careerPaths: ["개발자"],
-    availableTimes: ["WEEKDAY_EVENING", "WEEKEND_AFTERNOON"] },
+    currentMajors: ["컴퓨터공학과"], careerPaths: ["개발자"] },
   { name: "임하늘", gender: "FEMALE", personaType: "ESTHER", mbti: "ENFJ",
     currentCampus: "서울대", admissionYear: 2022, mentoringArea: ["동아리", "대외활동", "진로설계"],
-    currentMajors: ["사회학과"], careerPaths: ["대기업 취업"],
-    availableTimes: ["WEEKEND_MORNING", "WEEKEND_LUNCH"] },
+    currentMajors: ["사회학과"], careerPaths: ["대기업 취업"] },
   { name: "이서연", gender: "FEMALE", personaType: "NOAH", mbti: "ISFJ",
     currentCampus: "고려대", admissionYear: 2021, mentoringArea: ["학점관리", "자취생활", "진로설계"],
-    currentMajors: ["경영학과"], careerPaths: ["금융권"],
-    availableTimes: ["WEEKDAY_EVENING"] },
+    currentMajors: ["경영학과"], careerPaths: ["금융권"] },
   // MBTI 를 적지 않은 멘토. 매칭에서 축마다 절반을 받는 경로를 확인한다.
   { name: "강도윤", gender: "MALE", personaType: "DAVID",
     currentCampus: "서강대", admissionYear: 2024, mentoringArea: ["탐방", "동아리", "대외활동"],
-    currentMajors: ["컴퓨터공학과"], careerPaths: ["개발자"],
-    availableTimes: ["WEEKEND_MORNING", "WEEKEND_AFTERNOON"] },
+    currentMajors: ["컴퓨터공학과"], careerPaths: ["개발자"] },
   { name: "한지우", gender: "FEMALE", personaType: "SOLOMON", mbti: "INFP",
     currentCampus: "성균관대", admissionYear: 2022, mentoringArea: ["학점관리", "교환학생"],
-    currentMajors: ["언론정보학과"], careerPaths: ["언론/방송"],
-    availableTimes: ["WEEKDAY_EVENING", "WEEKEND_EVENING"] },
+    currentMajors: ["언론정보학과"], careerPaths: ["언론/방송"] },
   { name: "정태윤", gender: "MALE", personaType: "SOLOMON", mbti: "INTP",
     currentCampus: "한양대", admissionYear: 2023, mentoringArea: ["전공공부", "교환학생"],
-    currentMajors: ["기계공학과"], careerPaths: ["연구원"],
-    availableTimes: ["WEEKDAY_NIGHT", "WEEKEND_EVENING"] },
+    currentMajors: ["기계공학과"], careerPaths: ["연구원"] },
   { name: "윤채원", gender: "FEMALE", personaType: "NOAH", mbti: "ISTJ", church: "신길교회",
     currentCampus: "이화여대", admissionYear: 2021, mentoringArea: ["학점관리", "전공공부"],
-    currentMajors: ["영어영문학과"], careerPaths: ["교사"],
-    availableTimes: ["WEEKDAY_AFTERNOON", "WEEKDAY_EVENING"] },
+    currentMajors: ["영어영문학과"], careerPaths: ["교사"] },
   { name: "오지훈", gender: "MALE", personaType: "DAVID",
     currentCampus: "중앙대", admissionYear: 2024, mentoringArea: ["탐방", "자취생활", "동아리"],
-    currentMajors: ["경영학과"], careerPaths: ["창업"],
-    availableTimes: ["WEEKEND_AFTERNOON", "WEEKEND_EVENING"] },
+    currentMajors: ["경영학과"], careerPaths: ["창업"] },
 ];
 
 async function clean() {
@@ -109,7 +98,6 @@ async function addUser(m: DemoMentor, contact: string): Promise<string> {
       is_new_friend: false,
       // 이게 false 면 매칭 후보에서 빠진다. 검증용 멘토는 2단계까지 마친 상태여야 한다.
       mentoring_applied: true,
-      available_times: m.availableTimes,
       consented_at: new Date().toISOString(),
       consent_version: CONSENT_VERSION,
     }),

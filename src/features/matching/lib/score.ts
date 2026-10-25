@@ -14,24 +14,18 @@ export const WEIGHTS = {
    * 이 점수가 가르는 것은 "1지망이냐 3지망이냐"뿐이다.
    */
   campus: 35,
-  /** 무엇을 도와주길 원하는가. 성향보다 실질적인 신호라 비중을 뒀다. */
-  area: 25,
   /**
-   * 만날 수 있는 시간이 얼마나 겹치는가.
+   * 무엇을 도와주길 원하는가. 성향보다 실질적인 신호라 비중을 뒀다.
    *
-   * 예전에는 하나도 안 겹치면 후보에서 제외했다. 그러면 같은 캠퍼스에
-   * 관심사까지 맞는 멘토가 시간 한 칸 때문에 통째로 사라져, 멘티는
-   * "0명"만 보고 이유도 알 수 없었다. 일정은 조정할 수 있고 밤 시간대는
-   * 온라인이라, 아예 배제하기보다 크게 깎는 편이 낫다.
-   *
-   * 채플 이후 1:1 멘토링을 한 번 하는 시간이라 문자로 맞출 여지가 크다.
-   * 그래서 학과·진로보다 가볍게 둔다.
+   * 예전에는 멘토링 가능 시간대(10점)도 봤다. 1:1 멘토링 날짜를 매칭 뒤
+   * 문자로 정하기로 하면서 시간대를 묻지 않게 되어, 그 10점을 영역과
+   * 학과·진로에 5점씩 나눴다.
    */
-  schedule: 10,
+  area: 30,
   /** MBTI 4축 x 1.25점. 성경 인물과 같은 보조 지표라 같은 비중이다. */
   mbti: 5,
   /** 고3이 실제로 묻고 싶은 것은 "그 학과 생활"이라 분야 다음으로 무겁게 둔다. */
-  majorAndCareer: 20,
+  majorAndCareer: 25,
   /** 성경 인물 성향. MBTI와 역할이 겹치므로 보조 지표로 둔다. */
   persona: 5,
 } as const;
@@ -138,23 +132,17 @@ export function scoreMajorAndCareer(mentee: Mentee, mentor: Mentor): number {
 }
 
 /**
- * 시간대 (WEIGHTS.schedule).
+ * 같은 성별인지. 매칭은 같은 성별끼리만 한다.
  *
- * 멘티가 고른 시간 중 몇 개가 겹치는지의 비율.
- * 하나도 안 겹치면 0점이지만 후보에서 빠지지는 않는다.
- *
- * 성별은 점수에 넣지 않는다. 예전에는 1.5점을 줬는데 순위를 바꾼 적이
- * 사실상 없었고, 멘토링 상대를 성별로 가점하는 것 자체가 적절하지 않다.
+ * 성별이 비어 있으면(성별을 받기 전에 등록한 사람) 같다고 볼 수 없어 제외한다.
+ * 그런 사람은 멘토링 신청 화면에서 성별을 고르고 다시 내면 후보가 된다.
+ * 점수로 가점하지 않고 필터로만 쓴다.
  */
-export function scoreSchedule(mentee: Mentee, mentor: Mentor): number {
-  if (mentee.availableTimes.length === 0) return 0;
-  const overlap = mentee.availableTimes.filter((t) => mentor.availableTimes.includes(t));
-  return WEIGHTS.schedule * (overlap.length / mentee.availableTimes.length);
-}
-
-/** 겹치는 시간이 하나도 없는지. 카드에 경고를 띄울 때 쓴다. */
-export function hasNoTimeOverlap(mentee: Mentee, mentor: Mentor): boolean {
-  return !mentee.availableTimes.some((t) => mentor.availableTimes.includes(t));
+export function isSameGender(
+  mentee: Pick<Mentee, "gender">,
+  mentor: Pick<Mentor, "gender">,
+): boolean {
+  return !!mentee.gender && mentee.gender === mentor.gender;
 }
 
 /**
@@ -166,8 +154,9 @@ export function passesRequiredFilters(mentee: Mentee, mentor: Mentor): boolean {
   // 연락처가 없으면 매칭돼도 연결할 방법이 없다.
   if (!mentor.contact || !mentee.contact) return false;
 
+  if (!isSameGender(mentee, mentor)) return false;
+
   // 지망 캠퍼스는 멘티가 직접 고른 조건이라 그대로 지킨다.
-  // 시간대와 달리 조정할 수 있는 값이 아니다.
   if (!mentee.targetCampus.includes(mentor.currentCampus)) return false;
 
   return true;
@@ -177,7 +166,6 @@ export function calculateBreakdown(mentee: Mentee, mentor: Mentor): ScoreBreakdo
   return {
     campus: scoreCampus(mentee, mentor),
     area: scoreArea(mentee, mentor),
-    schedule: scoreSchedule(mentee, mentor),
     mbti: scoreMbti(mentee, mentor),
     majorAndCareer: scoreMajorAndCareer(mentee, mentor),
     persona: scorePersona(mentee, mentor),
@@ -247,8 +235,8 @@ export function matchFallbackMentors(
   limit = 5,
 ): MatchResult[] {
   return mentors
-    // 연락처 확인은 대체 후보라고 건너뛸 수 없다. 이어 줄 방법이 없다.
-    .filter((mentor) => mentor.contact && mentee.contact)
+    // 연락처·성별 확인은 대체 후보라고 건너뛸 수 없다.
+    .filter((mentor) => mentor.contact && mentee.contact && isSameGender(mentee, mentor))
     .flatMap((mentor) => {
       const reason = fallbackReason(mentee, mentor);
       return reason ? [toResult(mentee, mentor, reason)] : [];

@@ -70,7 +70,7 @@ export default function OnboardingCompletePage() {
   const passed = isAfterEvent();
   const meetingPoint = passed
     ? "서로 편한 때에 만나요"
-    : `${EVENT_DATE_LABEL} 정해둔 자리에서 직접 만나요`;
+    : `${EVENT_DATE_LABEL} 채플에서 얼굴 보고 인사해요`;
 
   const invite = isMentee
     ? {

@@ -8,13 +8,14 @@ import type { FallbackReason, Mentee, Mentor } from "@/features/matching/model/t
 import type { CampusDemandRow } from "../lib/campusDemand";
 import type { MentorNoticeRow } from "@/features/signup/lib/repository";
 import { MentorNoticeList } from "./MentorNoticeList";
-import { admissionYearLabel, formatTimeSlotShort } from "@/shared/constants/domain";
+import { findIssues, type IssueRow } from "../lib/issues";
+import { admissionYearLabel, GENDER_LABEL } from "@/shared/constants/domain";
 import { EVENT_ARRIVAL_LABEL } from "@/shared/constants/venue";
 import { WEIGHTS } from "@/features/matching/lib/score";
 import { PERSONAS } from "@/shared/constants/persona";
 import { cn } from "@/shared/lib/cn";
 
-type Tab = "mentee" | "mentor" | "matching" | "unmatched" | "notice";
+type Tab = "mentee" | "mentor" | "matching" | "unmatched" | "notice" | "check";
 
 /** 매칭 표의 한 행. 멘티 1명 x 추천 멘토 1명. */
 export interface MatchRow {
@@ -29,7 +30,6 @@ export interface MatchRow {
   score: number;
   campusScore: number;
   areaScore: number;
-  scheduleScore: number;
   mbtiScore: number;
   personaScore: number;
   majorScore: number;
@@ -51,6 +51,7 @@ const FALLBACK_LABEL: Record<FallbackReason, string> = {
 const menteeColumns: TableColumn<Mentee>[] = [
   { key: "code", header: "참여코드", value: (r) => r.participationCode, width: "110px" },
   { key: "name", header: "이름", value: (r) => r.name, width: "80px" },
+  { key: "gender", header: "성별", value: (r) => genderLabel(r.gender), align: "center", width: "60px" },
   {
     key: "church",
     header: "출석 교회",
@@ -67,7 +68,6 @@ const menteeColumns: TableColumn<Mentee>[] = [
   { key: "major", header: "희망 학과", value: (r) => r.targetMajors.join(", ") },
   { key: "career", header: "희망 진로", value: (r) => r.targetCareers.join(", ") },
   { key: "arrival", header: "채플 날 도착", value: (r) => arrivalLabel(r.eventArrival) },
-  { key: "times", header: "멘토링 가능 시간", value: (r) => r.availableTimes.map(formatTimeSlotShort).join(", ") },
   { key: "school", header: "출신 고교", value: (r) => r.highSchool ?? "-" },
   {
     key: "mentoring",
@@ -87,6 +87,11 @@ function personaName(type: Mentee["personaType"] | undefined): string {
   return type ? PERSONAS[type].name : "-";
 }
 
+/** 성별을 받기 전에 등록한 사람은 비어 있다. 그런 사람은 매칭 후보가 되지 않는다. */
+function genderLabel(gender: Mentee["gender"]): string {
+  return gender ? GENDER_LABEL[gender] : "-";
+}
+
 /** 채플이 지난 뒤 신청했거나 이전 신청자라 비어 있을 수 있다. */
 function arrivalLabel(arrival: Mentee["eventArrival"]): string {
   return arrival ? EVENT_ARRIVAL_LABEL[arrival] : "-";
@@ -95,6 +100,7 @@ function arrivalLabel(arrival: Mentee["eventArrival"]): string {
 const mentorColumns: TableColumn<AdminMentor>[] = [
   { key: "code", header: "참여코드", value: (r) => r.participationCode, width: "110px" },
   { key: "name", header: "이름", value: (r) => r.name, width: "80px" },
+  { key: "gender", header: "성별", value: (r) => genderLabel(r.gender), align: "center", width: "60px" },
   {
     key: "church",
     header: "출석 교회",
@@ -116,7 +122,6 @@ const mentorColumns: TableColumn<AdminMentor>[] = [
   { key: "major", header: "학과", value: (r) => r.currentMajors.join(", ") },
   { key: "career", header: "진로", value: (r) => r.careerPaths.join(", ") },
   { key: "arrival", header: "채플 날 도착", value: (r) => arrivalLabel(r.eventArrival) },
-  { key: "times", header: "멘토링 가능 시간", value: (r) => r.availableTimes.map(formatTimeSlotShort).join(", ") },
   {
     key: "seats",
     header: "배정/정원",
@@ -208,18 +213,6 @@ const matchColumns: TableColumn<MatchRow>[] = [
   // 헤더만 옛 값으로 남아 표를 읽는 사람이 잘못 이해한다.
   { key: "campusScore", header: `캠퍼스(${WEIGHTS.campus})`, value: (r) => r.campusScore, align: "right" },
   { key: "areaScore", header: `영역(${WEIGHTS.area})`, value: (r) => r.areaScore, align: "right" },
-  {
-    key: "scheduleScore",
-    header: `시간대(${WEIGHTS.schedule})`,
-    value: (r) => r.scheduleScore,
-    align: "right",
-    // 0점이면 만날 시간이 없다는 뜻이라 운영자가 먼저 확인해야 한다.
-    render: (r) => (
-      <span className={cn(r.scheduleScore === 0 && "font-bold text-red-500")}>
-        {r.scheduleScore}
-      </span>
-    ),
-  },
   { key: "mbtiScore", header: `MBTI(${WEIGHTS.mbti})`, value: (r) => r.mbtiScore, align: "right" },
   { key: "majorScore", header: `학과·진로(${WEIGHTS.majorAndCareer})`, value: (r) => r.majorScore, align: "right" },
   { key: "personaScore", header: `성경인물(${WEIGHTS.persona})`, value: (r) => r.personaScore, align: "right" },
@@ -232,6 +225,7 @@ const TABS: { key: Tab; label: string }[] = [
   { key: "matching", label: "매칭 결과" },
   { key: "unmatched", label: "미매칭" },
   { key: "notice", label: "선배 알림" },
+  { key: "check", label: "점검" },
 ];
 
 export interface UnmatchedRow {
@@ -255,6 +249,7 @@ interface AdminDashboardProps {
 
 const demandColumns: TableColumn<CampusDemandRow>[] = [
   { key: "campus", header: "캠퍼스", value: (r) => r.campus },
+  { key: "gender", header: "성별", value: (r) => GENDER_LABEL[r.gender], align: "center", width: "60px" },
   { key: "region", header: "지역", value: (r) => r.region ?? "-", width: "90px" },
   {
     key: "any",
@@ -268,13 +263,26 @@ const demandColumns: TableColumn<CampusDemandRow>[] = [
     key: "status",
     header: "상태",
     // 둘은 할 일이 다르다. 없는 곳은 모집하고, 찬 곳은 정원을 늘려 달라고 부탁한다.
-    value: (r) => (r.mentors === 0 ? "멘토 없음" : `정원 마감 (멘토 ${r.mentors}명)`),
+    value: (r) => demandStatus(r),
     render: (r) => (
       <span className={cn(r.mentors === 0 ? "font-bold text-red-500" : "text-gray-600")}>
-        {r.mentors === 0 ? "멘토 없음" : `정원 마감 (멘토 ${r.mentors}명)`}
+        {demandStatus(r)}
       </span>
     ),
   },
+];
+
+/** "여자 선배 없음"처럼 누구를 모집할지까지 읽히게 쓴다. */
+function demandStatus(r: CampusDemandRow): string {
+  const who = `${GENDER_LABEL[r.gender]}자 선배`;
+  return r.mentors === 0 ? `${who} 없음` : `정원 마감 (${who} ${r.mentors}명)`;
+}
+
+const issueColumns: TableColumn<IssueRow>[] = [
+  { key: "kind", header: "구분", value: (r) => r.kind, width: "130px" },
+  { key: "contact", header: "연락처", value: (r) => r.contact, width: "140px" },
+  { key: "people", header: "등록된 사람", value: (r) => r.people },
+  { key: "action", header: "할 일", value: (r) => r.action },
 ];
 
 const unmatchedColumns: TableColumn<UnmatchedRow>[] = [
@@ -308,6 +316,7 @@ export function AdminDashboard({
 }: AdminDashboardProps) {
   // 탭 머리의 숫자만 쓴다. 목록 안에서 "보냄"을 눌러도 새로고침 전까지는 그대로다.
   const pendingNotices = notices.filter((n) => !n.notifiedAt).length;
+  const issues = findIssues(mentees, mentors);
   const [tab, setTab] = useState<Tab>("matching");
 
   const [running, setRunning] = useState(false);
@@ -380,6 +389,7 @@ export function AdminDashboard({
     if (tab === "mentee") downloadCsv("멘티_신청자.csv", mentees, asCsvColumns(menteeColumns));
     else if (tab === "mentor") downloadCsv("멘토_신청자.csv", mentors, asCsvColumns(mentorColumns));
     else if (tab === "unmatched") downloadCsv("멘토_모집_필요_캠퍼스.csv", demand, asCsvColumns(demandColumns));
+    else if (tab === "check") downloadCsv("점검.csv", issues, asCsvColumns(issueColumns));
     else downloadCsv("매칭_결과.csv", matchRows, asCsvColumns(matchColumns));
   };
 
@@ -464,6 +474,9 @@ export function AdminDashboard({
               {t.key === "notice" && pendingNotices > 0 && (
                 <span className="ml-1.5 tabular-nums">{pendingNotices}</span>
               )}
+              {t.key === "check" && issues.length > 0 && (
+                <span className="ml-1.5 tabular-nums">{issues.length}</span>
+              )}
             </button>
           ))}
         </div>
@@ -521,6 +534,22 @@ export function AdminDashboard({
       )}
 
       {tab === "notice" && <MentorNoticeList initial={notices} readOnly={readOnly} />}
+
+      {tab === "check" && (
+        <>
+          <p className="mb-3 max-w-[720px] shrink-0 text-[13px] leading-relaxed text-gray-500">
+            같은 번호로 두 번 등록된 사람과, 성별이 비어 매칭 후보가 되지 못하는 사람이에요.
+            새로 등록할 때는 같은 번호를 막지만, 그 전에 들어온 등록은 여기서 확인해요.
+          </p>
+          <DataTable
+            rows={issues}
+            columns={issueColumns}
+            rowKey={(r) => r.id}
+            searchable={(r) => `${r.kind} ${r.contact} ${r.people}`}
+            emptyMessage="점검할 항목이 없습니다."
+          />
+        </>
+      )}
 
       {tab === "matching" && (
         <DataTable

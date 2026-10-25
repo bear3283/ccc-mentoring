@@ -5,7 +5,6 @@ import type {
   Major,
   MentorCapacity,
   MentoringArea,
-  TimeSlot,
 } from "@/shared/constants/domain";
 import type { MbtiType } from "@/shared/constants/mbti";
 import type { PersonaType } from "@/shared/constants/persona";
@@ -39,21 +38,21 @@ export const REGISTER_STEPS = ["consent", "basic", "role", "church"] as const;
  *
  * 캠퍼스는 학과 바로 앞이어야 한다. 학과 선택지가 여기서 고른 학교로 좁혀진다.
  *
- * 멘토의 정원(capacity)은 시간대 바로 앞에 묻는다. 몇 명을 맡을지는
- * 얼마나 시간을 낼 수 있는지와 함께 떠올려야 하는 질문이다.
+ * 1:1 멘토링 날짜는 묻지 않는다. 매칭된 뒤 선배·후배가 문자로 정한다.
+ * 채플 당일 도착 시간(eventArrival)만 받고, 채플이 지난 뒤에는 RoleFunnel 이
+ * 이 스텝을 건너뛴다.
  *
- * 채플 당일 도착 시간(eventArrival)은 1:1 멘토링 시간대(schedule) 바로 앞이다.
- * "목요일엔 인사, 멘토링은 그 뒤에 따로"를 연달아 물어야 둘이 구분된다.
- * 채플이 지난 뒤에는 RoleFunnel 이 이 스텝을 건너뛴다.
+ * 성별(gender)은 등록(BasicStep)에서 받는다. 성별을 받기 전에 등록한 사람만
+ * 멘토링 신청 첫머리에서 한 번 더 묻는다(RoleFunnel 이 고른다).
  */
 export const MENTORING_STEPS_BY_ROLE = {
   MENTEE: [
-    "mentoringIntro", "persona", "mbti", "desiredArea",
-    "targetCampus", "targetMajor", "eventArrival", "schedule", "photo",
+    "mentoringIntro", "gender", "persona", "mbti", "desiredArea",
+    "targetCampus", "targetMajor", "eventArrival", "photo",
   ],
   MENTOR: [
-    "mentoringIntro", "persona", "mbti", "mentoringArea",
-    "currentCampus", "currentMajor", "capacity", "eventArrival", "schedule", "photo",
+    "mentoringIntro", "gender", "persona", "mbti", "mentoringArea",
+    "currentCampus", "currentMajor", "capacity", "eventArrival", "photo",
   ],
 } as const;
 
@@ -81,6 +80,7 @@ export interface OnboardingDraft {
   /** 아이스브레이킹용. 모르면 비워둘 수 있다. */
   mbti?: MbtiType;
   name?: string;
+  /** 같은 성별끼리만 매칭한다. 등록할 때 받는다. */
   gender?: Gender;
   contact?: string;
   /** 출신 고등학교 */
@@ -103,7 +103,6 @@ export interface OnboardingDraft {
   consentedAt?: string;
   /** 동의한 문구의 버전. 문구가 바뀌어도 무엇에 동의했는지 남는다. */
   consentVersion?: string;
-  availableTimes: TimeSlot[];
 
   // 멘티 전용
   targetCampus: Campus[];
@@ -133,7 +132,6 @@ export const EMPTY_DRAFT: OnboardingDraft = {
   mentoringArea: [],
   currentMajors: [],
   careerPaths: [],
-  availableTimes: [],
 };
 
 /** 각 스텝 컴포넌트가 공통으로 받는 props. */

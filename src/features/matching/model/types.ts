@@ -4,7 +4,6 @@ import type {
   Gender,
   Major,
   MentoringArea,
-  TimeSlot,
 } from "@/shared/constants/domain";
 import type { MbtiType } from "@/shared/constants/mbti";
 import type { PersonaType } from "@/shared/constants/persona";
@@ -16,7 +15,8 @@ export interface Mentee {
   /** 신청 완료 시 발급되는 참여코드. 문의·조회의 기준이 된다. */
   participationCode: string;
   name: string;
-  gender: Gender;
+  /** 등록할 때 받는다. 성별을 받기 전에 등록한 사람은 비어 있고, 매칭 후보가 되지 않는다. */
+  gender?: Gender;
   contact: string;
   /** 어느 고등학교에서 왔는지 */
   highSchool?: string;
@@ -32,7 +32,6 @@ export interface Mentee {
   eventArrival?: EventArrival;
   /** 프로필 사진 (data URL). 없으면 페르소나 이모지로 대체한다. */
   photoUrl?: string;
-  availableTimes: TimeSlot[];
   /** 1~3지망. 인덱스 0이 1지망. */
   targetCampus: Campus[];
   /** 최대 3개. 하나만 골라도 된다. */
@@ -49,7 +48,8 @@ export interface Mentor {
   id: string;
   participationCode: string;
   name: string;
-  gender: Gender;
+  /** Mentee.gender 와 같다. 비어 있으면 매칭 후보가 되지 않는다. */
+  gender?: Gender;
   contact: string;
   highSchool?: string;
   referrer?: string;
@@ -62,7 +62,6 @@ export interface Mentor {
   /** 채플 당일 도착 시간. 매칭 점수에는 쓰지 않는다. */
   eventArrival?: EventArrival;
   photoUrl?: string;
-  availableTimes: TimeSlot[];
   currentCampus: Campus;
   /** 입학 연도. 화면에는 뒤 두 자리를 따 '24학번'으로 보여준다. */
   admissionYear: number;
@@ -88,7 +87,6 @@ export type FallbackReason = "MAJOR" | "REGION";
 export interface ScoreBreakdown {
   campus: number;
   area: number;
-  schedule: number;
   mbti: number;
   majorAndCareer: number;
   persona: number;
@@ -121,7 +119,6 @@ export interface PublicMentor {
   personaType: PersonaType;
   mbti?: MbtiType;
   photoUrl?: string;
-  availableTimes: TimeSlot[];
   /** 010-****-5678. 전체 번호는 매칭 요청 후에 공개한다. */
   maskedContact: string;
 }
@@ -130,8 +127,6 @@ export interface PublicMatchResult {
   score: number;
   hashtags: string[];
   mentor: PublicMentor;
-  /** 겹치는 시간이 하나도 없음. 카드에 경고를 띄운다. */
-  noTimeOverlap: boolean;
   /** 지망 캠퍼스 밖의 대체 후보일 때만 있다. 카드는 적합도 대신 이유를 보여준다. */
   fallback?: FallbackReason;
 }
@@ -141,11 +136,11 @@ export interface PublicMatchResult {
  * "조건에 맞는 멘토가 없어요" 만으로는 무엇을 고쳐야 할지 알 수 없다.
  */
 export interface MatchDiagnosis {
-  /** 지망 캠퍼스에 있는 멘토 수 */
+  /** 멘티의 성별이 비어 있음. 같은 성별끼리만 이어서 아무도 후보가 되지 않는다. */
+  genderMissing: boolean;
+  /** 지망 캠퍼스에 있는 같은 성별 멘토 수 */
   inTargetCampus: number;
-  /** 그중 시간이 하나도 안 겹치는 수 */
-  noTimeOverlap: number;
-  /** 전체 멘토 수 */
+  /** 같은 성별의 전체 멘토 수 */
   totalMentors: number;
   /** 멘토가 한 명도 없는 지망 캠퍼스 */
   emptyCampuses: string[];

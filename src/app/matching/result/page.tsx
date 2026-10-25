@@ -341,6 +341,14 @@ function EmptyResult({
   const reason = (() => {
     if (!diagnosis) return null;
 
+    // 성별을 받기 전에 등록한 사람. 같은 성별끼리만 이어서 후보가 0명으로 나온다.
+    if (diagnosis.genderMissing) {
+      return {
+        title: "성별을 알려주시면 선배를 찾아드릴게요",
+        detail: "같은 성별의 선배와 이어드려요. 아래 버튼으로 멘토링 신청을 다시 하면서 성별을 골라주세요.",
+      };
+    }
+
     if (diagnosis.totalMentors === 0) {
       return {
         title: "아직 등록된 선배가 없어요",
@@ -370,8 +378,9 @@ function EmptyResult({
       <p className="mt-2 text-[14px] leading-relaxed text-gray-500">
         {reason?.detail ?? "지망 캠퍼스나 관심 분야를 넓혀보세요."}
       </p>
+      {/* 등록(/onboarding/register)이 아니라 멘토링 신청으로 보낸다. 등록은 이미 끝났다. */}
       <Link
-        href="/onboarding/mentee"
+        href="/onboarding/mentoring/mentee"
         className="mt-5 inline-flex h-11 items-center rounded-xl bg-brand-soft px-5 text-[14px] font-bold text-brand"
       >
         조건 바꿔서 다시 신청하기

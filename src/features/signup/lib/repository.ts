@@ -3,13 +3,13 @@ import "server-only";
 import type { FallbackReason, Mentee, Mentor, ScoreBreakdown } from "@/features/matching/model/types";
 import type { OnboardingDraft } from "@/features/onboarding/model/types";
 import type { Role } from "@/shared/constants/role";
-import type { Campus, Career, Gender, Major, MentoringArea, TimeSlot } from "@/shared/constants/domain";
+import type { Campus, Career, Gender, Major, MentoringArea } from "@/shared/constants/domain";
 import type { MbtiType } from "@/shared/constants/mbti";
 import type { PersonaType } from "@/shared/constants/persona";
 import { isEventArrival, type EventArrival } from "@/shared/constants/venue";
 import { safeForLog } from "@/shared/lib/security/mask";
 import { getSupabase } from "@/shared/lib/supabase/server";
-import { fallbackReason, recommendMentors } from "@/features/matching/lib/score";
+import { fallbackReason, isSameGender, recommendMentors } from "@/features/matching/lib/score";
 import { MOCK_MENTEES, MOCK_MENTORS } from "@/shared/lib/mock/generate";
 
 /**
@@ -27,14 +27,13 @@ interface UserRow {
   role: UserRole;
   participation_code: string;
   name: string;
-  gender: Gender;
+  gender: Gender | null;
   contact: string;
   persona_type: PersonaType;
   mbti: string | null;
   high_school: string | null;
   referrer: string | null;
   photo_url: string | null;
-  available_times: string[];
   church: string | null;
   is_new_friend: boolean;
   mentoring_applied: boolean;
@@ -68,7 +67,7 @@ function toMentee(user: UserRow, profile: MenteeRow | null): Mentee {
     id: user.id,
     participationCode: user.participation_code,
     name: user.name,
-    gender: user.gender,
+    gender: user.gender ?? undefined,
     contact: user.contact,
     highSchool: user.high_school ?? undefined,
     church: user.church ?? undefined,
@@ -77,7 +76,6 @@ function toMentee(user: UserRow, profile: MenteeRow | null): Mentee {
     eventArrival: asEventArrival(user.event_arrival),
     referrer: user.referrer ?? undefined,
     photoUrl: user.photo_url ?? undefined,
-    availableTimes: user.available_times as TimeSlot[],
     targetCampus: (profile?.target_campus ?? []) as Campus[],
     desiredAreas: (profile?.desired_areas ?? []) as MentoringArea[],
     personaType: user.persona_type,
@@ -93,7 +91,7 @@ function toMentor(user: UserRow, profile: MentorRow | null): Mentor {
     id: user.id,
     participationCode: user.participation_code,
     name: user.name,
-    gender: user.gender,
+    gender: user.gender ?? undefined,
     contact: user.contact,
     highSchool: user.high_school ?? undefined,
     church: user.church ?? undefined,
@@ -102,7 +100,6 @@ function toMentor(user: UserRow, profile: MentorRow | null): Mentor {
     eventArrival: asEventArrival(user.event_arrival),
     referrer: user.referrer ?? undefined,
     photoUrl: user.photo_url ?? undefined,
-    availableTimes: user.available_times as TimeSlot[],
     currentCampus: profile?.current_campus as Campus,
     admissionYear: profile?.admission_year ?? 0,
     mentoringArea: (profile?.mentoring_area ?? []) as MentoringArea[],
@@ -164,34 +161,55 @@ export interface SaveResult {
 }
 
 /**
- * 같은 연락처로 이미 신청했는지 본다.
+ * 같은 연락처로 이미 등록했는지 본다. 고3·대학생을 가리지 않는다.
  *
- * 이름까지 같으면 본인이 다시 제출한 것으로 보고 기존 코드를 돌려준다.
- * 이름이 다르면 남의 번호를 잘못 적었거나 번호를 공유하는 경우라
- * 코드를 알려주지 않고 막는다.
+ * DB 유니크 제약은 (연락처, 역할) 이라 같은 번호로 고3과 대학생을 하나씩
+ * 등록할 수 있다. 한 사람이 양쪽으로 등록하면 명단이 부풀고, 남의 번호를
+ * 잘못 적은 경우에는 엉뚱한 사람에게 매칭 문자가 간다. 그래서 역할과
+ * 상관없이 번호 하나에 등록 하나만 받는다.
+ *
+ * 같은 역할에 이름까지 같으면 본인이 다시 제출한 것으로 보고 기존 코드를
+ * 돌려준다. 그 밖에는 코드를 알려주지 않고 막는다.
  */
 export async function findExistingSignup(
   role: UserRole,
   name: string,
   contact: string,
-): Promise<{ sameName: boolean; code: string } | null> {
+): Promise<{ sameRole: boolean; sameName: boolean; code: string } | null> {
   const supabase = getSupabase();
   if (!supabase) return null;
 
   const { data, error } = await supabase
     .from("users")
-    .select("participation_code, name")
-    .eq("contact", contact)
-    .eq("role", role)
-    .maybeSingle();
+    .select("participation_code, name, role")
+    .eq("contact", contact);
 
   // 조회가 실패하면 "처음 신청하는 사람"으로 읽혀 중복 확인이 통째로 건너뛰어진다.
   if (error) logDbError("중복 신청 확인", error);
-  if (!data) return null;
+  if (!data || data.length === 0) return null;
+
+  // 예전 규칙으로 양쪽에 하나씩 있을 수 있다. 같은 역할 행을 먼저 본다.
+  const hit = data.find((row) => row.role === role) ?? data[0];
   return {
-    sameName: (data.name as string).trim() === name.trim(),
-    code: data.participation_code as string,
+    sameRole: hit.role === role,
+    sameName: (hit.name as string).trim() === name.trim(),
+    code: hit.participation_code as string,
   };
+}
+
+/**
+ * 이미 있는 등록을 어떻게 안내할지. undefined 면 본인의 재제출이라 기존 코드를 돌려준다.
+ * 등록 라우트와 saveSignup 이 같은 문구를 쓰도록 한곳에 둔다.
+ */
+export function duplicateSignupError(
+  role: UserRole,
+  existing: { sameRole: boolean; sameName: boolean },
+): string | undefined {
+  if (existing.sameRole && existing.sameName) return undefined;
+  if (existing.sameRole) return "이미 등록된 연락처예요. 번호를 다시 확인해주세요.";
+  return role === "MENTOR"
+    ? "이 번호는 고3으로 이미 등록되어 있어요. 번호를 다시 확인해주세요."
+    : "이 번호는 대학생으로 이미 등록되어 있어요. 번호를 다시 확인해주세요.";
 }
 
 /** 신청서를 저장한다. users 행을 만들고 역할별 프로필을 잇는다. */
@@ -209,12 +227,8 @@ export async function saveSignup(
   // 참여코드만 낭비되고 사용자는 원인을 알 수 없는 오류를 본다.
   const existing = await findExistingSignup(role, draft.name ?? "", draft.contact ?? "");
   if (existing) {
-    return existing.sameName
-      ? { ok: false, existingCode: existing.code }
-      : {
-          ok: false,
-          error: "이미 등록된 연락처예요. 번호를 다시 확인해주세요.",
-        };
+    const error = duplicateSignupError(role, existing);
+    return error ? { ok: false, error } : { ok: false, existingCode: existing.code };
   }
 
   const { data: user, error: userError } = await supabase
@@ -234,7 +248,6 @@ export async function saveSignup(
       high_school: draft.highSchool ?? null,
       referrer: draft.referrer ?? null,
       photo_url: draft.photoUrl ?? null,
-      available_times: draft.availableTimes ?? [],
       consented_at: draft.consentedAt,
       consent_version: draft.consentVersion,
     })
@@ -334,10 +347,11 @@ export async function applyMentoring(
     .from("users")
     .update({
       mentoring_applied: true,
+      // 등록 때 받았으면 같은 값이고, 성별을 받기 전 등록자는 여기서 처음 채워진다.
+      gender: draft.gender,
       persona_type: draft.personaType,
       mbti: draft.mbti ?? null,
       photo_url: draft.photoUrl ?? null,
-      available_times: draft.availableTimes,
       // 채플이 지난 뒤에는 묻지 않는다. 다시 신청하며 비워 낸 경우도 그대로 비운다.
       event_arrival: draft.eventArrival ?? null,
     })
@@ -504,7 +518,7 @@ export async function findMenteeForMentor(code: string): Promise<MentorMatchView
  * 매칭 후보가 되는 멘토.
  *
  * 두 가지를 걸러낸다.
- *  1. 행사 등록만 한 사람 — 관심사·시간대가 비어 있어 점수가 나오지 않는다
+ *  1. 행사 등록만 한 사람 — 관심사·학교가 비어 있어 점수가 나오지 않는다
  *  2. 정원이 다 찬 사람 — 멘토가 고른 수만큼 후배가 이미 골랐다
  *
  * 운영자 화면은 listMentors() 로 전원을 본다. 등록만 한 사람도
@@ -610,13 +624,31 @@ export async function findCodeByNameAndContact(
   };
 }
 
-/** 계산된 매칭 결과를 저장한다. 같은 조합은 덮어쓴다. */
+/**
+ * 계산된 매칭 결과를 저장한다. 같은 조합은 덮어쓴다.
+ *
+ * 이번 계산에 없는 예전 추천(SUGGESTED)은 지운다. 남겨 두면 성별이 다르거나
+ * 정원이 찬 선배가 운영자 매칭 표에 계속 추천으로 보이고, 후배가 그 선배에게
+ * 요청할 길도 열린 채로 남는다. 요청한 짝(REQUESTED/CONFIRMED)은 건드리지 않는다.
+ */
 export async function saveMatchings(
   menteeId: string,
   rows: { mentorId: string; score: number; breakdown: unknown; rank: number }[],
 ): Promise<void> {
   const supabase = getSupabase();
-  if (!supabase || rows.length === 0) return;
+  if (!supabase) return;
+
+  const keep = rows.map((r) => r.mentorId);
+  let stale = supabase
+    .from("matchings")
+    .delete()
+    .eq("mentee_id", menteeId)
+    .eq("status", "SUGGESTED");
+  if (keep.length > 0) stale = stale.not("mentor_id", "in", `(${keep.join(",")})`);
+  const { error: staleError } = await stale;
+  if (staleError) logDbError("지난 추천 정리", staleError);
+
+  if (rows.length === 0) return;
 
   await supabase.from("matchings").upsert(
     rows.map((r) => ({
@@ -697,12 +729,13 @@ export async function runMatchingForAll(): Promise<MatchRunResult> {
       rank: i + 1,
     }));
 
+    // 후보가 없어도 부른다. 예전 추천이 남아 있으면 지워야 한다.
+    await saveMatchings(mentee.id, rows);
     if (rows.length === 0) {
       result.noCandidates++;
       continue;
     }
 
-    await saveMatchings(mentee.id, rows);
     result.computed++;
     if (recommended[0].fallback) result.fallbackOnly++;
   }
@@ -845,7 +878,7 @@ export async function requestMatch(
   // 남의 매칭에 임의로 요청을 넣을 수 있다.
   const { data: mentee } = await supabase
     .from("users")
-    .select("id")
+    .select("id, gender")
     .eq("participation_code", participationCode)
     .eq("role", "MENTEE")
     .maybeSingle();
@@ -867,6 +900,20 @@ export async function requestMatch(
   const alreadyMine = matching.status === "REQUESTED" || matching.status === "CONFIRMED";
 
   if (!alreadyMine) {
+    /*
+     * 같은 성별끼리만 이어 준다. 추천은 이미 그렇게 계산하지만, 성별 조건을
+     * 넣기 전에 저장된 추천(SUGGESTED)이 남아 있을 수 있어 여기서 한 번 더 막는다.
+     * 이미 이어진 짝(위 alreadyMine)은 번호를 다시 보여줘야 해서 건드리지 않는다.
+     */
+    const { data: mentorGender } = await supabase
+      .from("users")
+      .select("gender")
+      .eq("id", mentorId)
+      .maybeSingle();
+    if (!mentee.gender || mentee.gender !== mentorGender?.gender) {
+      return { ok: false, error: "매칭된 멘토가 아니에요." };
+    }
+
     // 멘티는 선배를 한 명만 고를 수 있다. 여러 명을 맡는 것은 선배 쪽뿐이다.
     const { data: myOther } = await supabase
       .from("matchings")
@@ -969,7 +1016,10 @@ export async function listUnmatched(): Promise<UnmatchedReason[]> {
         return [];
       }
 
-      const inCampus = available.filter((m) => mentee.targetCampus.includes(m.currentCampus));
+      // 성별이 다른 선배는 이 후배와 이어질 수 없어 세지 않는다.
+      const inCampus = available.filter(
+        (m) => mentee.targetCampus.includes(m.currentCampus) && isSameGender(mentee, m),
+      );
       return [
         {
           code: mentee.participationCode,

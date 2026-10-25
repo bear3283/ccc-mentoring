@@ -65,6 +65,7 @@ function mentor(n: number, over: Record<string, unknown> = {}) {
     ...empty,
     ...consent,
     name: `검증멘토${n}`,
+    gender: "FEMALE",
     contact: `${TEST_PREFIX}${String(1000 + n).slice(-4)}`,
     church: "신길교회",
     isNewFriend: false,
@@ -72,10 +73,14 @@ function mentor(n: number, over: Record<string, unknown> = {}) {
   };
 }
 
-/** 2단계 — 멘토링 신청 항목. 등록 페이로드 위에 덮어 쓴다. */
+/**
+ * 2단계 — 멘토링 신청 항목. 등록 페이로드 위에 덮어 쓴다.
+ * 실제 화면은 등록 때 고른 성별이 담긴 초안을 그대로 보낸다.
+ */
 function mentorMentoring(over: Record<string, unknown> = {}) {
   return {
     ...empty,
+    gender: "FEMALE",
     personaType: "SOLOMON",
     mbti: "INTJ",
     currentCampus: "연세대",
@@ -83,7 +88,6 @@ function mentorMentoring(over: Record<string, unknown> = {}) {
     mentoringArea: ["학점관리"],
     currentMajors: ["경영학과"],
     careerPaths: ["금융권"],
-    availableTimes: ["WEEKDAY_EVENING"],
     eventArrival: "1830",
     ...over,
   };
@@ -94,6 +98,7 @@ function mentee(over: Record<string, unknown> = {}) {
     ...empty,
     ...consent,
     name: "검증멘티",
+    gender: "FEMALE",
     contact: `${TEST_PREFIX}0001`,
     church: "신길교회",
     isNewFriend: false,
@@ -104,13 +109,13 @@ function mentee(over: Record<string, unknown> = {}) {
 function menteeMentoring(over: Record<string, unknown> = {}) {
   return {
     ...empty,
+    gender: "FEMALE",
     personaType: "ESTHER",
     mbti: "ENFP",
     targetCampus: ["연세대"],
     desiredAreas: ["학점관리"],
     targetMajors: ["경영학과"],
     targetCareers: ["금융권"],
-    availableTimes: ["WEEKDAY_EVENING"],
     eventArrival: "1800",
     ...over,
   };
@@ -253,6 +258,14 @@ async function main() {
     String(badMbti.json.error ?? ""),
   );
 
+  const noGenderApply = await post("/api/mentoring", {
+    role: "MENTEE",
+    draft: menteeMentoring({ gender: undefined }),
+    participationCode: menteeCode,
+  });
+  check("멘토링 신청도 성별 없으면 거부", noGenderApply.status === 400,
+    String(noGenderApply.json.error ?? ""));
+
   const badArrival = await post("/api/mentoring", {
     role: "MENTEE",
     draft: menteeMentoring({ eventArrival: "2500" }),
@@ -295,6 +308,12 @@ async function main() {
   });
   check("옛 동의 문구 거부", oldConsent.status === 400, String(oldConsent.json.error ?? ""));
 
+  const noGender = await post("/api/signup", {
+    role: "MENTEE",
+    draft: { ...mentee({ contact: `${TEST_PREFIX}0013` }), gender: undefined },
+  });
+  check("성별 없으면 거부", noGender.status === 400, String(noGender.json.error ?? ""));
+
   console.log("\n[3] 중복 신청");
   const dup = await post("/api/signup", { role: "MENTEE", draft: mentee() });
   check(
@@ -307,6 +326,16 @@ async function main() {
     draft: mentee({ name: "다른사람" }),
   });
   check("같은 번호 다른 이름 거부", otherName.status === 400, String(otherName.json.error ?? ""));
+  // 같은 번호로 역할만 바꿔 등록하는 것도 막는다. 예전에는 (번호, 역할) 단위라 통과했다.
+  const otherRole = await post("/api/signup", {
+    role: "MENTOR",
+    draft: mentor(9, { name: "검증멘티", contact: `${TEST_PREFIX}0001` }),
+  });
+  check(
+    "같은 번호로 다른 역할 등록 거부",
+    otherRole.status === 400 && String(otherRole.json.error).includes("고3으로"),
+    String(otherRole.json.error ?? ""),
+  );
 
   console.log("\n[4] 매칭");
   const match = await post("/api/match", { participationCode: menteeCode });
@@ -351,6 +380,18 @@ async function main() {
   check(
     "지망 캠퍼스 후보에는 대체 표시가 없음",
     ((near.json.results ?? []) as { fallback?: string }[]).every((r) => !r.fallback),
+  );
+
+  console.log("\n[4-2] 같은 성별끼리만");
+  // 성별을 받기 전에 등록한 사람처럼, 멘토링 신청에서 성별을 처음(다르게) 고른다.
+  // 검증 멘토는 모두 여성이라 이 남성 멘티의 후보에 나오면 안 된다.
+  const maleMentee = await registerAndApply("검증멘티5", "0005", { gender: "MALE" });
+  const male = await post("/api/match", { participationCode: maleMentee });
+  const maleResults = (male.json.results ?? []) as { mentor: { id: string; name: string } }[];
+  check(
+    "다른 성별 선배는 후보에 없음",
+    male.status === 200 && !maleResults.some((r) => r.mentor.name.startsWith("검증멘토")),
+    maleResults.map((r) => r.mentor.name).join(", ") || "후보 0명",
   );
 
   // 실제 멘토가 섞여 있는 DB에서도 검증용 멘토만 건드린다.

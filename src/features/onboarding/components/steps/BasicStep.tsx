@@ -4,11 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { useStaggerReveal } from "@/shared/hooks/useStaggerReveal";
 import { cn } from "@/shared/lib/cn";
 import { StepLayout } from "../StepLayout";
+import { GenderChoice } from "./GenderStep";
 import type { StepProps } from "../../model/types";
-
-const CURRENT_YEAR = 2026;
-/** 재학 중인 멘토가 실제로 고를 만한 범위. 최신 학번이 위로 오게 한다. */
-const ADMISSION_YEARS = Array.from({ length: 8 }, (_, i) => CURRENT_YEAR - i);
 
 /** 010-1234-5678 형태로만 통과시킨다. 연락이 안 되면 등록이 의미가 없다. */
 const PHONE_PATTERN = /^01[016-9]-?\d{3,4}-?\d{4}$/;
@@ -24,11 +21,12 @@ function formatPhone(raw: string): string {
 /**
  * 행사 등록의 기본 정보.
  *
- * 이름과 연락처만 받는다. 성별·고등학교처럼 당장 필요 없는 것을 여기서 물으면
- * 등록 문턱만 높아진다.
+ * 이름·성별·연락처만 받는다. 고등학교처럼 당장 필요 없는 것을 여기서 물으면
+ * 등록 문턱만 높아진다. 성별은 매칭을 같은 성별끼리만 하기 때문에 받는다.
  */
 export function BasicStep({ draft, onNext, onChange }: StepProps) {
   const [name, setName] = useState(draft.name ?? "");
+  const [gender, setGender] = useState(draft.gender);
   const [contact, setContact] = useState(draft.contact ?? "");
 
   const bodyRef = useRef<HTMLDivElement>(null);
@@ -38,13 +36,14 @@ export function BasicStep({ draft, onNext, onChange }: StepProps) {
   useEffect(() => {
     onChange({
       name: name.trim() || undefined,
+      gender,
       contact: contact || undefined,
     });
-  }, [name, contact, onChange]);
+  }, [name, gender, contact, onChange]);
 
   const phoneValid = PHONE_PATTERN.test(contact);
   const nameValid = name.trim().length >= 2;
-  const complete = nameValid && phoneValid;
+  const complete = nameValid && !!gender && phoneValid;
 
   return (
     <StepLayout
@@ -53,7 +52,7 @@ export function BasicStep({ draft, onNext, onChange }: StepProps) {
       hint="연락처는 매칭된 상대에게만 보여요."
       ctaLabel={complete ? "다음" : "빈 칸을 채워주세요"}
       ctaDisabled={!complete}
-      onCta={() => onNext({ name: name.trim(), contact })}
+      onCta={() => onNext({ name: name.trim(), gender, contact })}
     >
       <div ref={bodyRef} className="flex flex-col gap-5">
         <section data-group>
@@ -66,6 +65,11 @@ export function BasicStep({ draft, onNext, onChange }: StepProps) {
             autoComplete="name"
             className="h-[52px] w-full rounded-2xl bg-gray-50 px-4 text-[16px] font-medium text-gray-900 outline-none placeholder:text-gray-300 focus:bg-brand-soft"
           />
+        </section>
+
+        <section data-group>
+          <Label>성별</Label>
+          <GenderChoice value={gender} onChange={setGender} />
         </section>
 
         <section data-group>

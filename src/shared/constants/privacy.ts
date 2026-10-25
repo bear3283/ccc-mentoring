@@ -9,7 +9,7 @@
  */
 
 /** 문구를 수정하면 반드시 올린다. DB의 consent_version 에 함께 저장된다. */
-export const CONSENT_VERSION = "2026-09-03";
+export const CONSENT_VERSION = "2026-10-25";
 
 /** 행사 종료 후 보관 기간. 문구와 파기 절차가 같은 값을 봐야 한다. */
 export const RETENTION_DAYS = 90;
@@ -26,7 +26,7 @@ export interface ConsentItem {
   notice: string;
 }
 
-const COLLECTED_ITEMS = "이름, 연락처, 성별, 참여 가능 시간대, 관심 분야, 지망 캠퍼스, 희망 학과·진로, 성향 정보(성경 인물·MBTI)";
+const COLLECTED_ITEMS = "이름, 연락처, 성별, 관심 분야, 지망 캠퍼스, 희망 학과·진로, 성향 정보(성경 인물·MBTI)";
 const OPTIONAL_ITEMS = "출신 고등학교, 추천인, 프로필 사진, 학번(멘토)";
 
 export const CONSENT_ITEMS: ConsentItem[] = [

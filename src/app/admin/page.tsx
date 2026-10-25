@@ -53,7 +53,6 @@ export default async function AdminPage() {
     score: m.score,
     campusScore: round1(m.breakdown?.campus),
     areaScore: round1(m.breakdown?.area),
-    scheduleScore: round1(m.breakdown?.schedule),
     mbtiScore: round1(m.breakdown?.mbti),
     personaScore: round1(m.breakdown?.persona),
     majorScore: round1(m.breakdown?.majorAndCareer),

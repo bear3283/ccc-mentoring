@@ -83,6 +83,11 @@ const ARRIVAL_SQL = readFileSync(
   "utf8",
 ).trim();
 
+const NO_SCHEDULE_SQL = readFileSync(
+  new URL("../supabase/migrations/2026-10-25-no-schedule.sql", import.meta.url),
+  "utf8",
+).trim();
+
 const NOTICE_SQL = readFileSync(
   new URL("../supabase/migrations/2026-10-20-mentor-notice.sql", import.meta.url),
   "utf8",
@@ -339,6 +344,38 @@ const requirements: Requirement[] = [
         event_arrival: "2500",
       }),
     sql: ARRIVAL_SQL,
+  },
+  {
+    // 코드는 더 이상 시간대를 보내지 않는다. 옛 제약이 남아 있으면 멘토링 신청이 전부 실패한다.
+    name: "멘토링 신청에 시간대 불필요 (users_mentoring_fields_required 완화)",
+    requires: "행사 등록 컬럼 (church, is_new_friend, mentoring_applied)",
+    probe: async () => {
+      const res = await fetch(`${url}/rest/v1/users`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          role: "MENTEE",
+          participation_code: "CHKNSA",
+          name: "시간확인",
+          gender: "FEMALE",
+          contact: "010-0000-9010",
+          persona_type: "DAVID",
+          mentoring_applied: true,
+          available_times: [],
+          consented_at: new Date().toISOString(),
+          consent_version: "check",
+        }),
+      });
+      if (res.ok) {
+        await fetch(`${url}/rest/v1/users?contact=eq.010-0000-9010`, { method: "DELETE", headers });
+        return true;
+      }
+      const body = await res.text();
+      // 23514 = check 제약 위반. 그 밖의 실패는 검사 오류다.
+      if (body.includes("23514")) return false;
+      throw new Error(`검사용 행 생성 실패 — ${body}`);
+    },
+    sql: NO_SCHEDULE_SQL,
   },
   {
     name: "선배 알림 기록 컬럼 (matchings.mentor_notified_at, mentor_notified_via)",
