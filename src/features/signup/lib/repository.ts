@@ -936,7 +936,7 @@ export async function requestMatch(
     .eq("mentor_id", mentorId)
     .maybeSingle();
 
-  if (!matching) return { ok: false, error: "매칭된 멘토가 아니에요." };
+  if (!matching) return { ok: false, error: "추천된 선배가 아니에요." };
 
   // 이미 이 조합으로 요청했으면 연락처만 다시 보여준다.
   const alreadyMine = matching.status === "REQUESTED" || matching.status === "CONFIRMED";
@@ -953,7 +953,7 @@ export async function requestMatch(
       .eq("id", mentorId)
       .maybeSingle();
     if (!mentee.gender || mentee.gender !== target?.gender) {
-      return { ok: false, error: "매칭된 멘토가 아니에요." };
+      return { ok: false, error: "추천된 선배가 아니에요." };
     }
     // 인증 전 선배는 추천에 나오지 않지만, 인증 전에 저장된 추천이 남아 있을 수 있다.
     const profile = target?.mentor_profiles as unknown as { verified_at: string | null } | null;
@@ -997,7 +997,7 @@ export async function requestMatch(
 
   // 매칭은 이미 성사됐는데 여기서 막히면 후배는 번호를 못 받는다. 원인을 남긴다.
   if (mentorError) logDbError("매칭된 멘토 조회", mentorError, { participationCode });
-  if (!mentor) return { ok: false, error: "멘토 정보를 찾지 못했어요." };
+  if (!mentor) return { ok: false, error: "선배 정보를 찾지 못했어요." };
 
   return {
     ok: true,

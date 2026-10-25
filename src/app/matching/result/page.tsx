@@ -14,7 +14,7 @@ import {
   isValidParticipationCode,
   normalizeParticipationCode,
 } from "@/features/onboarding/lib/participationCode";
-import { PERSONAS, type PersonaType } from "@/shared/constants/persona";
+import type { PersonaType } from "@/shared/constants/persona";
 import type { EventArrival } from "@/shared/constants/venue";
 import { useStaggerReveal } from "@/shared/hooks/useStaggerReveal";
 import { objectParticle } from "@/shared/lib/particle";
@@ -251,8 +251,7 @@ export default function MatchingResultPage() {
             {mentee.targetCampus.join(" · ")} 중에서
             <br />
             {areas}
-            {objectParticle(areas)} 도와줄
-            {mentee.personaType ? ` ${PERSONAS[mentee.personaType].name}형` : ""} 멘티 기준
+            {objectParticle(areas)} 도와줄 선배를 찾았어요
           </p>
         )}
 

@@ -75,7 +75,7 @@ export function MentorCard({
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={mentor.photoUrl}
-                alt={`${mentor.name} 멘토 프로필 사진`}
+                alt={`${mentor.name} 선배 프로필 사진`}
                 className="size-full object-cover"
               />
             ) : (

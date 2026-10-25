@@ -47,7 +47,7 @@ export async function POST(request: Request) {
     // 멘티 코드로 들어온 경우도 여기로 떨어진다. 어느 쪽인지 알려주지 않는 편이
     // 낫다 — "이 코드는 멘토가 아니다"는 것도 알려주지 않아야 할 정보다.
     return NextResponse.json(
-      { error: "멘토 참여코드를 찾지 못했어요. 코드를 다시 확인해주세요." },
+      { error: "선배 참여코드를 찾지 못했어요. 코드를 다시 확인해주세요." },
       { status: 404 },
     );
   }
