@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { CodeBadge } from "@/components/ui/CodeBadge";
 import { Name } from "@/components/ui/Name";
+import { SaveCodeImageButton } from "@/features/onboarding/components/SaveCodeImageButton";
 import { loadDraft, type StoredDraft } from "@/features/onboarding/lib/draftStore";
 import { EVENT_DATE_LABEL, isAfterEvent } from "@/shared/constants/venue";
 import { ENTER_SPRING } from "@/shared/lib/anime";
@@ -146,13 +147,14 @@ export default function OnboardingCompletePage() {
             </span>
           </Link>
           <p className="mt-2.5 text-center text-[13px] text-white/70">
-            1분이면 끝나요. 신청은 선착순이 아니에요.
+            3분이면 끝나요. 신청은 선착순이 아니에요.
           </p>
         </div>
 
         {/* 코드는 나중에 다시 꺼내 보는 값이라 참고 크기로 둔다. */}
         <div data-reveal className="mt-7">
           <CodeBadge code={stored.participationCode} size="compact" />
+          <SaveCodeImageButton code={stored.participationCode} name={name} className="mt-2" />
           <p className="mt-2.5 text-[13px] leading-relaxed text-gray-500">
             코드를 눌러 복사해 두세요. 잊어버려도{" "}
             <Link href="/lookup" className="font-semibold text-brand">

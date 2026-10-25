@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { CodeBadge } from "@/components/ui/CodeBadge";
 import { Name } from "@/components/ui/Name";
+import { SaveCodeImageButton } from "@/features/onboarding/components/SaveCodeImageButton";
 type RosterEntry = { code: string; name: string; role: "MENTEE" | "MENTOR" };
 
 const ROLE_LABEL = { MENTEE: "멘티", MENTOR: "멘토" } as const;
@@ -82,6 +83,7 @@ export default function LookupPage() {
 
           <div className="mt-5">
             <CodeBadge code={result.entry.code} />
+            <SaveCodeImageButton code={result.entry.code} name={result.entry.name} className="mt-2" />
           </div>
 
           {/*
