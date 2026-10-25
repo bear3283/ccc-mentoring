@@ -93,8 +93,9 @@ export default function LookupPage() {
             선배에게는 알림이 가지 않아, 직접 확인하러 오는 통로가 특히 필요하다.
           */}
           {result.entry.role === "MENTOR" ? (
+            // 코드를 #뒤에 실어 보내 다음 화면에서 다시 넣지 않게 한다. #뒤는 서버 기록에 남지 않는다.
             <Link
-              href="/mentor/match"
+              href={`/mentor/match#${result.entry.code}`}
               className="mt-4 flex h-[54px] w-full items-center justify-center gap-1.5 rounded-2xl bg-brand text-[17px] font-bold text-white active:bg-brand-dark"
             >
               매칭 확인하기
@@ -104,7 +105,7 @@ export default function LookupPage() {
             </Link>
           ) : (
             <Link
-              href="/matching/result"
+              href={`/matching/result#${result.entry.code}`}
               className="mt-4 flex h-[54px] w-full items-center justify-center gap-1.5 rounded-2xl bg-brand text-[17px] font-bold text-white active:bg-brand-dark"
             >
               매칭 결과 보기

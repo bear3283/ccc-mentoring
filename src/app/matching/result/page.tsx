@@ -8,8 +8,14 @@ import { CodeBadge } from "@/components/ui/CodeBadge";
 import { Name } from "@/components/ui/Name";
 import { MentorCard } from "@/features/matching/components/MentorCard";
 import type { MatchDiagnosis, PublicMatchResult } from "@/features/matching/model/types";
-import { loadDraft } from "@/features/onboarding/lib/draftStore";
+import { loadDraft, saveDraft } from "@/features/onboarding/lib/draftStore";
+import { EMPTY_DRAFT, type OnboardingDraft } from "@/features/onboarding/model/types";
+import {
+  isValidParticipationCode,
+  normalizeParticipationCode,
+} from "@/features/onboarding/lib/participationCode";
 import { PERSONAS, type PersonaType } from "@/shared/constants/persona";
+import type { EventArrival } from "@/shared/constants/venue";
 import { useStaggerReveal } from "@/shared/hooks/useStaggerReveal";
 import { objectParticle } from "@/shared/lib/particle";
 
@@ -19,6 +25,7 @@ interface MenteeSummary {
   targetCampus: string[];
   desiredAreas: string[];
   personaType?: PersonaType;
+  eventArrival?: EventArrival;
 }
 
 type State =
@@ -31,59 +38,89 @@ type State =
       /** 이미 매칭을 마쳤다면 그 멘토의 id. 멘티는 한 명만 고르므로 하나뿐이다. */
       settledMentorId?: string;
     }
-  | { kind: "noSignup" }
-  | { kind: "error"; message: string };
+  /** 참여코드를 모르는 상태. 코드를 넣는 칸을 보여준다. */
+  | { kind: "enterCode"; message?: string; needsMentoring?: boolean };
 
 export default function MatchingResultPage() {
   const router = useRouter();
   const [state, setState] = useState<State>({ kind: "loading" });
 
-  useEffect(() => {
-    const stored = loadDraft();
-    if (!stored || stored.role !== "MENTEE") {
-      setState({ kind: "noSignup" });
-      return;
-    }
-
-    let cancelled = false;
-
-    // 매칭은 서버에서 계산한다. 브라우저로는 상위 3명만, 연락처는 가려서 온다.
-    fetch("/api/match", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ participationCode: stored.participationCode }),
-    })
-      .then(async (res) => {
-        const body = (await res.json()) as {
-          mentee?: MenteeSummary;
-          results?: PublicMatchResult[];
-          diagnosis?: MatchDiagnosis;
-          settledMentorId?: string;
-          error?: string;
-        };
-        if (cancelled) return;
-
-        if (!res.ok || !body.mentee || !body.results) {
-          setState({ kind: "error", message: body.error ?? "결과를 불러오지 못했어요." });
-          return;
-        }
-        setState({
-          kind: "ready",
-          mentee: body.mentee,
-          results: body.results,
-          diagnosis: body.diagnosis,
-          settledMentorId: body.settledMentorId,
-        });
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setState({ kind: "error", message: "연결에 실패했어요. 잠시 후 다시 시도해주세요." });
-        }
+  /**
+   * 결과를 불러온다. 참여코드만 있으면 어느 기기에서든 볼 수 있다.
+   *
+   * 예전에는 이 브라우저에 남은 신청 기록(sessionStorage)으로만 열려서, 탭을 닫았거나
+   * 다른 폰으로 들어오면 코드를 알아도 결과를 볼 수 없었다.
+   * 결과를 받으면 이 탭에도 기록해 둔다. 다음 화면(/matching/settled)이 그 기록을 읽는다.
+   */
+  const load = async (code: string) => {
+    setState({ kind: "loading" });
+    try {
+      const res = await fetch("/api/match", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ participationCode: code }),
       });
+      const body = (await res.json()) as {
+        mentee?: MenteeSummary;
+        results?: PublicMatchResult[];
+        diagnosis?: MatchDiagnosis;
+        settledMentorId?: string;
+        needsMentoring?: boolean;
+        error?: string;
+      };
 
-    return () => {
-      cancelled = true;
-    };
+      if (!res.ok || !body.mentee || !body.results) {
+        setState({
+          kind: "enterCode",
+          message: body.error ?? "결과를 불러오지 못했어요.",
+          needsMentoring: body.needsMentoring,
+        });
+        return;
+      }
+
+      const stored = loadDraft();
+      const sameCode = stored?.participationCode === body.mentee.participationCode;
+      saveDraft(
+        "MENTEE",
+        {
+          ...(sameCode && stored ? stored.draft : EMPTY_DRAFT),
+          name: body.mentee.name,
+          desiredAreas: body.mentee.desiredAreas as OnboardingDraft["desiredAreas"],
+          eventArrival: body.mentee.eventArrival,
+        },
+        body.mentee.participationCode,
+      );
+
+      setState({
+        kind: "ready",
+        mentee: body.mentee,
+        results: body.results,
+        diagnosis: body.diagnosis,
+        settledMentorId: body.settledMentorId,
+      });
+    } catch {
+      setState({ kind: "enterCode", message: "연결에 실패했어요. 잠시 후 다시 시도해주세요." });
+    }
+  };
+
+  /*
+   * 코드를 고르는 순서:
+   *  - 링크의 #뒤 코드(참여코드 조회 화면에서 넘어온 경우). #뒤는 서버 접속 기록에 남지 않는다.
+   *  - 이 브라우저에서 방금 신청한 고3의 코드
+   *  - 둘 다 없으면 코드를 넣는 칸
+   */
+  useEffect(() => {
+    const fromLink = normalizeParticipationCode(decodeURIComponent(window.location.hash.slice(1)));
+    const stored = loadDraft();
+    const code = isValidParticipationCode(fromLink)
+      ? fromLink
+      : stored?.role === "MENTEE"
+        ? stored.participationCode
+        : undefined;
+    if (code) void load(code);
+    else setState({ kind: "enterCode" });
+    // load 는 상태를 바꾸기만 해서 첫 렌더 한 번만 돌리면 된다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const listRef = useRef<HTMLDivElement>(null);
@@ -145,24 +182,17 @@ export default function MatchingResultPage() {
     );
   }
 
-  if (state.kind === "noSignup" || state.kind === "error") {
+  if (state.kind === "enterCode") {
     return (
-      <div className="mx-auto flex min-h-dvh w-full max-w-[430px] flex-col justify-center bg-white px-6">
-        <h1 className="text-[22px] leading-[1.35] font-bold tracking-[-0.02em] text-gray-900">
-          {state.kind === "noSignup" ? "신청 내역이 없어요" : "결과를 불러오지 못했어요"}
-        </h1>
-        <p className="mt-2 text-[14px] leading-relaxed text-gray-500">
-          {state.kind === "noSignup"
-            ? "먼저 신청하시면 잘 맞는 선배를 찾아드려요."
-            : state.message}
-        </p>
-        <Link
-          href={state.kind === "noSignup" ? "/onboarding/mentee" : "/lookup"}
-          className="mt-6 flex h-[54px] w-full items-center justify-center rounded-2xl bg-brand text-[17px] font-bold text-white"
-        >
-          {state.kind === "noSignup" ? "신청하기" : "참여코드로 조회하기"}
-        </Link>
-      </div>
+      <CodeEntry
+        message={state.message}
+        needsMentoring={state.needsMentoring}
+        onSubmit={(code) => {
+          // 새로고침해도 같은 결과가 나오게 주소에도 남긴다.
+          window.history.replaceState(null, "", `#${code}`);
+          void load(code);
+        }}
+      />
     );
   }
 
@@ -390,6 +420,92 @@ function EmptyResult({
       >
         {diagnosis?.genderMissing ? "성별 넣어 다시 등록하기" : "조건 바꿔서 다시 신청하기"}
       </Link>
+    </div>
+  );
+}
+
+/**
+ * 참여코드로 결과 열기. 선배 확인 화면(/mentor/match)과 같은 방식이다.
+ *
+ * 코드를 모를 때만 이름·연락처 조회(/lookup)로 보낸다. "참여코드로 조회하기"를 눌렀는데
+ * 이름과 연락처를 묻는 화면이 나오면 무엇을 해야 하는지 헷갈린다.
+ */
+function CodeEntry({
+  message,
+  needsMentoring,
+  onSubmit,
+}: {
+  message?: string;
+  needsMentoring?: boolean;
+  onSubmit: (code: string) => void;
+}) {
+  const [code, setCode] = useState("");
+  const normalized = normalizeParticipationCode(code);
+  const valid = isValidParticipationCode(normalized);
+
+  return (
+    <div className="mx-auto flex min-h-dvh w-full max-w-[430px] flex-col bg-white px-6">
+      <header className="pt-14 pb-6">
+        <p className="text-[14px] font-medium text-brand">매칭 결과</p>
+        <h1 className="mt-1.5 text-[24px] leading-[1.35] font-bold tracking-[-0.02em] text-gray-900">
+          참여코드를 넣어주세요
+        </h1>
+        <p className="mt-2 text-[14px] leading-relaxed text-gray-500">
+          등록할 때 받은 6자리 코드로 선배 매칭 결과를 볼 수 있어요.
+        </p>
+      </header>
+
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (valid) onSubmit(normalized);
+        }}
+      >
+        <h2 className="mb-2 text-[15px] font-bold text-gray-900">참여코드</h2>
+        <input
+          type="text"
+          value={code}
+          onChange={(e) => setCode(e.target.value.toUpperCase())}
+          placeholder="예: K7PQ4M"
+          autoCapitalize="characters"
+          autoComplete="off"
+          maxLength={8}
+          className="h-[52px] w-full rounded-2xl bg-gray-50 px-4 font-mono text-[18px] tracking-[0.2em] text-gray-900 outline-none placeholder:font-sans placeholder:tracking-normal placeholder:text-gray-300 focus:bg-brand-soft"
+        />
+
+        {message && (
+          <p className="mt-3 rounded-xl bg-red-500/10 px-4 py-3 text-[14px] leading-relaxed text-red-600">
+            {message}
+          </p>
+        )}
+
+        <button
+          type="submit"
+          disabled={!valid}
+          className="mt-4 h-[54px] w-full rounded-2xl bg-brand text-[17px] font-bold text-white active:bg-brand-dark disabled:bg-brand/30"
+        >
+          결과 보기
+        </button>
+      </form>
+
+      {/* 등록만 하고 멘토링을 신청하지 않은 고3. 같은 이름·번호로 다시 등록하면 기존 코드로 이어진다. */}
+      {needsMentoring && (
+        <Link
+          href="/onboarding/register"
+          className="mt-3 flex h-[52px] w-full items-center justify-center rounded-2xl bg-brand-soft text-[16px] font-bold text-brand"
+        >
+          멘토링 신청하러 가기
+        </Link>
+      )}
+
+      <div className="mt-auto pt-8 pb-[max(24px,env(safe-area-inset-bottom))]">
+        <p className="text-center text-[13px] text-gray-400">
+          코드를 잊으셨나요?{" "}
+          <Link href="/lookup" className="font-semibold text-brand">
+            이름과 연락처로 찾기
+          </Link>
+        </p>
+      </div>
     </div>
   );
 }
