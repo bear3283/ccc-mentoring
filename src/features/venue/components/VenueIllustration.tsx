@@ -65,10 +65,13 @@ export function VenueIllustration() {
           </text>
         </g>
 
-        {/* ── 역 ── 노선 색을 쓴다. */}
-        {/* 5호선 역은 약도 왼쪽 끝에 걸려 있어 이름표가 잘리지 않게 안쪽으로 민다. */}
-        <StationTag x={Math.max(p.line5[0], 14)} y={Math.max(p.line5[1], 16)} color={LINE5} line="5" />
-        <StationTag x={p.line1[0]} y={p.line1[1]} color={LINE1} line="1" />
+        {/*
+          ── 역 ── 1호선과 5호선은 같은 신길역이다. 이름표를 따로 달면 역이 두 개인 것처럼
+          읽혀서, 노선 위에는 작은 점만 찍고 이름표는 1번 출구 위에 하나로 단다.
+        */}
+        <StationDot x={p.line5[0]} y={p.line5[1]} color={LINE5} />
+        <StationDot x={p.line1[0]} y={p.line1[1]} color={LINE1} />
+        <StationTag x={p.exit1[0] - 2} y={p.exit1[1] - 38} />
 
         {/* ── 길 위 표지 ── */}
         <Landmark x={p.cu[0]} y={p.cu[1]} label="CU" anchor="start" />
@@ -131,19 +134,32 @@ function Callout({ x, y, text }: { x: number; y: number; text: string }) {
   );
 }
 
-function StationTag({ x, y, color, line }: { x: number; y: number; color: string; line: string }) {
+/** 1·5호선 신길역 이름표 하나. */
+function StationTag({ x, y }: { x: number; y: number }) {
   return (
     <g transform={`translate(${x} ${y})`}>
-      <rect x={-5} y={-9} width={62} height={18} rx={9} fill="#ffffff" stroke={color} strokeWidth={1.5} />
-      <circle cx={4} cy={0} r={6.5} fill={color} />
-      <text x={4} y={3.2} textAnchor="middle" fontSize={8.5} fontWeight={800} fill="#ffffff">
-        {line}
-      </text>
-      <text x={14} y={3.5} fontSize={9.5} fontWeight={700} fill="#3d3530">
+      <rect x={-6} y={-10} width={76} height={20} rx={10} fill="#ffffff" stroke="#d9cfc7" strokeWidth={1.2} />
+      {[
+        { n: "1", color: LINE1, cx: 4 },
+        { n: "5", color: LINE5, cx: 18 },
+      ].map(({ n, color, cx }) => (
+        <g key={n}>
+          <circle cx={cx} cy={0} r={6.5} fill={color} />
+          <text x={cx} y={3.2} textAnchor="middle" fontSize={8.5} fontWeight={800} fill="#ffffff">
+            {n}
+          </text>
+        </g>
+      ))}
+      <text x={28} y={3.6} fontSize={10} fontWeight={800} fill="#3d3530">
         신길역
       </text>
     </g>
   );
+}
+
+/** 노선 위 역 자리. */
+function StationDot({ x, y, color }: { x: number; y: number; color: string }) {
+  return <circle cx={x} cy={y} r={4.5} fill="#ffffff" stroke={color} strokeWidth={2.5} />;
 }
 
 function Landmark({
