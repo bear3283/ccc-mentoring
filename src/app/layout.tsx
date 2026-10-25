@@ -11,7 +11,7 @@ const bodoni = Bodoni_Moda({
 });
 
 export const metadata: Metadata = {
-  title: "CCC 선배·후배 매칭",
+  title: "RE:CHILL 고3*예비27 초청채플",
   description: "예비 대학생과 CCC 선배를 연결해주는 서비스",
 };
 
