@@ -14,6 +14,7 @@
     "verify:flow": "tsx scripts/verify-flow.ts",
     "purge": "tsx scripts/purge-expired.ts",
     "seed:demo": "tsx scripts/seed-demo.ts",
+    "seed:seoul": "tsx scripts/seed-seoul-mentors.ts",
     "notify:mentors": "tsx scripts/notify-mentors.ts"
   },
   "dependencies": {
