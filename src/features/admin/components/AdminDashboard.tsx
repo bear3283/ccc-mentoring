@@ -193,6 +193,8 @@ const matchColumns: TableColumn<MatchRow>[] = [
       </span>
     ),
   },
+  { key: "contact", header: "멘토 연락처", value: (r) => r.contact },
+  // 항목별 점수는 매칭이 왜 이렇게 됐는지 따져 볼 때만 본다. 연락처 뒤로 미뤄 둔다.
   // 헤더의 배점은 WEIGHTS 에서 뽑는다. 숫자를 적어 두면 가중치를 바꿨을 때
   // 헤더만 옛 값으로 남아 표를 읽는 사람이 잘못 이해한다.
   { key: "campusScore", header: `캠퍼스(${WEIGHTS.campus})`, value: (r) => r.campusScore, align: "right" },
@@ -200,7 +202,7 @@ const matchColumns: TableColumn<MatchRow>[] = [
   { key: "mbtiScore", header: `MBTI(${WEIGHTS.mbti})`, value: (r) => r.mbtiScore, align: "right" },
   { key: "majorScore", header: `학과(${WEIGHTS.major})`, value: (r) => r.majorScore, align: "right" },
   { key: "personaScore", header: `성경인물(${WEIGHTS.persona})`, value: (r) => r.personaScore, align: "right" },
-  { key: "contact", header: "멘토 연락처", value: (r) => r.contact },
+
 ];
 
 const TABS: { key: Tab; label: string }[] = [
