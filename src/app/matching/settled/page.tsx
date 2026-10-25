@@ -327,6 +327,7 @@ function GuideLine({
 
 /** "오후 6시 ~ 6시 30분 사이에" / "오후 7시 이후에". 첫 문자 예시에 그대로 넣는다. */
 function arrivalPhrase(arrival: Exclude<EventArrival, "ABSENT">): string {
-  const label = EVENT_ARRIVAL_LABEL[arrival];
-  return arrival === "1900_LATER" ? `${label}에` : `${label} 사이에`;
+  // 선택지 이름의 "(채플 시작 후)"는 문자 문장에 넣으면 어색해 뺀다.
+  if (arrival === "1900_LATER") return "오후 7시 이후에";
+  return `${EVENT_ARRIVAL_LABEL[arrival]} 사이에`;
 }
