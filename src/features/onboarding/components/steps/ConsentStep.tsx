@@ -20,12 +20,12 @@ import type { StepProps } from "../../model/types";
  * 이름·연락처를 묻는 프로필 스텝 바로 앞에 둔다. 개인정보를 요청하기 전에
  * 동의를 받아야 하고, 사진·학교도 뒤에 오므로 이 위치가 전부를 덮는다.
  *
- * 두 항목을 하나로 합치지 않는 이유: 수집·이용과 제3자 제공은 성격이 다른
- * 동의라 각각 받아야 한다. 한 번에 묶으면 무엇에 동의했는지 불분명해진다.
+ * 항목을 하나로 합치지 않는 이유: 수집·이용, 민감정보(출석 교회), 제3자 제공은
+ * 법에서 각각 따로 받도록 한 동의다. 한 번에 묶으면 무엇에 동의했는지 불분명해진다.
  */
 export function ConsentStep({ draft, onNext, onChange }: StepProps) {
   const [agreed, setAgreed] = useState<Record<string, boolean>>(
-    draft.consentedAt ? { collect: true, thirdParty: true } : {},
+    draft.consentedAt ? Object.fromEntries(CONSENT_ITEMS.map((i) => [i.id, true])) : {},
   );
   const [expanded, setExpanded] = useState<string>();
 

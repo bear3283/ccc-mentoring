@@ -69,10 +69,7 @@ export function isAfterEvent(now: Date = new Date()): boolean {
 export const VENUE = {
   name: "신길교회",
 
-  /**
-   * 운영진 확인 필요 — 검색 결과에 인근 교회 주소가 섞여 나온다.
-   * 확정되면 이 줄의 주석을 지운다.
-   */
+  /** 운영진이 확인한 주소 (2026-10-25). */
   address: "서울 영등포구 영등포로67가길 9",
   phone: "02-831-2015",
 

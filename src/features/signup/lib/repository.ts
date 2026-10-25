@@ -258,6 +258,11 @@ export async function saveSignup(
     // 참여코드가 겹치는 건 사실상 없지만(31^6 조합), 겹치면 재발급이 필요하다.
     // 이건 정상 경로라 로그를 남기지 않는다 — 호출부가 코드를 다시 뽑아 재시도한다.
     if (userError?.code === "23505") {
+      // 같은 번호가 동시에 두 번 들어온 경우. 위의 중복 확인을 지나쳐 DB 제약에 걸렸다.
+      // 코드를 다시 뽑아도 소용없으니 재시도로 넘기지 않는다.
+      if (userError.message?.includes("users_contact")) {
+        return { ok: false, error: "이미 등록된 연락처예요. 번호를 다시 확인해주세요." };
+      }
       return { ok: false, error: "코드가 중복되었어요. 다시 시도해주세요.", };
     }
     logDbError(`등록 저장 (${role})`, userError, { participationCode });

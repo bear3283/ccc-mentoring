@@ -88,6 +88,11 @@ const NO_SCHEDULE_SQL = readFileSync(
   "utf8",
 ).trim();
 
+const CONTACT_UNIQUE_SQL = readFileSync(
+  new URL("../supabase/migrations/2026-10-25-contact-unique.sql", import.meta.url),
+  "utf8",
+).trim();
+
 const NOTICE_SQL = readFileSync(
   new URL("../supabase/migrations/2026-10-20-mentor-notice.sql", import.meta.url),
   "utf8",
@@ -320,6 +325,35 @@ const requirements: Requirement[] = [
       return rejected;
     },
     sql: UNIQUE_SQL,
+  },
+  {
+    // 역할이 달라도 같은 번호는 하나만. 코드도 막지만 동시에 들어온 두 요청은 DB만 막는다.
+    name: "같은 번호 중복 방지 (역할 무관, users_contact_digits_unique)",
+    requires: "연락처+역할 중복 방지 제약",
+    probe: async () => {
+      const base = {
+        name: "번호확인",
+        gender: "FEMALE",
+        contact: "010-0000-9011",
+        persona_type: "DAVID",
+        consented_at: new Date().toISOString(),
+        consent_version: "check",
+      };
+      const first = await fetch(`${url}/rest/v1/users`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ ...base, role: "MENTEE", participation_code: "CHKCUA" }),
+      });
+      if (!first.ok) throw new Error(`검사용 행 생성 실패 — ${await first.text()}`);
+      const second = await fetch(`${url}/rest/v1/users`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ ...base, role: "MENTOR", participation_code: "CHKCUB" }),
+      });
+      await fetch(`${url}/rest/v1/users?contact=eq.010-0000-9011`, { method: "DELETE", headers });
+      return !second.ok;
+    },
+    sql: CONTACT_UNIQUE_SQL,
   },
   {
     name: "채플 당일 도착 시간 컬럼 (users.event_arrival)",
