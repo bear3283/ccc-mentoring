@@ -454,7 +454,14 @@ export interface MentorMatchView {
   /** 신청할 때 고른 정원. 몇 자리가 남았는지 함께 보여준다. */
   capacity: number;
   /** 이 선배를 고른 후배. 먼저 고른 순서. 아직 없으면 빈 배열. */
-  mentees: { name: string; contact: string; campus?: string; eventArrival?: EventArrival }[];
+  mentees: {
+    name: string;
+    contact: string;
+    campus?: string;
+    eventArrival?: EventArrival;
+    /** 후배가 올린 사진. 채플 날 얼굴을 알아보는 데 쓴다. */
+    photoUrl?: string;
+  }[];
 }
 
 /**
@@ -492,7 +499,7 @@ export async function findMenteeForMentor(code: string): Promise<MentorMatchView
   // 정원이 2명 이상이면 여러 건이라 maybeSingle 을 쓰면 안 된다.
   const { data: matches, error: matchError } = await supabase
     .from("matchings")
-    .select("mentee:mentee_id (name, contact, event_arrival, mentee_profiles(target_campus))")
+    .select("mentee:mentee_id (name, contact, event_arrival, photo_url, mentee_profiles(target_campus))")
     .eq("mentor_id", mentor.id)
     .in("status", ["REQUESTED", "CONFIRMED"])
     .order("created_at", { ascending: true });
@@ -505,6 +512,7 @@ export async function findMenteeForMentor(code: string): Promise<MentorMatchView
         name: string;
         contact: string;
         event_arrival: string | null;
+        photo_url: string | null;
         mentee_profiles: { target_campus?: string[] } | null;
       } | null;
     }).mentee;
@@ -514,6 +522,7 @@ export async function findMenteeForMentor(code: string): Promise<MentorMatchView
       contact: mentee.contact,
       campus: mentee.mentee_profiles?.target_campus?.[0],
       eventArrival: asEventArrival(mentee.event_arrival),
+      photoUrl: mentee.photo_url ?? undefined,
     });
   }
 

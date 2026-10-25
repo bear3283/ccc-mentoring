@@ -15,6 +15,7 @@ import {
   VENUE,
   type EventArrival,
 } from "@/shared/constants/venue";
+import { nameInitials } from "@/shared/lib/nameInitials";
 
 interface LinkedMentee {
   name: string;
@@ -22,6 +23,8 @@ interface LinkedMentee {
   campus?: string;
   /** 채플 당일 도착 시간. 그날 언제 찾아가 인사할지 정하는 데 쓴다. */
   eventArrival?: EventArrival;
+  /** 후배가 사진을 올렸을 때만 있다. 채플 날 얼굴을 알아보는 데 쓴다. */
+  photoUrl?: string;
 }
 
 interface MentorMatch {
@@ -197,10 +200,27 @@ export default function MentorMatchPage() {
 function MenteeCard({ mentee, mentorName }: { mentee: LinkedMentee; mentorName: string }) {
   return (
     <div className="rounded-3xl bg-brand p-6 text-white">
-      <h2 className="text-[24px] font-bold tracking-[-0.02em]">{mentee.name}</h2>
-      {mentee.campus && (
-        <p className="mt-1 text-[14px] text-white/85">{mentee.campus} 지망</p>
-      )}
+      <div className="flex items-center gap-4">
+        {/* 사진이 있으면 채플 날 처음 보는 후배를 알아보기 쉽다. 없으면 이름 글자로 채운다. */}
+        <span className="flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-white/70 bg-white/20 text-[20px] font-bold">
+          {mentee.photoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={mentee.photoUrl}
+              alt={`${mentee.name} 후배 프로필 사진`}
+              className="size-full object-cover"
+            />
+          ) : (
+            nameInitials(mentee.name)
+          )}
+        </span>
+        <div className="min-w-0">
+          <h2 className="text-[24px] font-bold tracking-[-0.02em]">{mentee.name}</h2>
+          {mentee.campus && (
+            <p className="mt-0.5 text-[14px] text-white/85">{mentee.campus} 지망</p>
+          )}
+        </div>
+      </div>
 
       {/* 채플 날은 인사하는 자리다. 1:1 멘토링 날짜는 그 뒤에 문자로 따로 정한다. */}
       {!isAfterEvent() && (
