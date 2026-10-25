@@ -55,7 +55,8 @@ export default async function AdminPage() {
     areaScore: round1(m.breakdown?.area),
     mbtiScore: round1(m.breakdown?.mbti),
     personaScore: round1(m.breakdown?.persona),
-    majorScore: round1(m.breakdown?.majorAndCareer),
+    // 진로를 빼기 전에 계산해 저장된 추천은 이름이 majorAndCareer 다.
+    majorScore: round1(m.breakdown?.major ?? legacyMajor(m.breakdown)),
     contact: m.mentorContact,
     status: m.status,
     fallback: m.fallback,
@@ -83,6 +84,10 @@ export default async function AdminPage() {
       )}
     />
   );
+}
+
+function legacyMajor(breakdown: unknown): number | undefined {
+  return (breakdown as { majorAndCareer?: number } | undefined)?.majorAndCareer;
 }
 
 function round1(value: number | undefined): number {

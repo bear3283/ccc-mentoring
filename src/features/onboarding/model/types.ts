@@ -1,6 +1,5 @@
 import type {
   Campus,
-  Career,
   Gender,
   Major,
   MentorCapacity,
@@ -114,7 +113,6 @@ export interface OnboardingDraft {
   /** 최대 3개. 하나만 골라도 된다. */
   desiredAreas: MentoringArea[];
   targetMajors: Major[];
-  targetCareers: Career[];
 
   // 멘토 전용
   currentCampus?: Campus;
@@ -122,7 +120,6 @@ export interface OnboardingDraft {
   admissionYear?: number;
   mentoringArea: MentoringArea[];
   currentMajors: Major[];
-  careerPaths: Career[];
   /** 동시에 맡을 후배 수. 비어 있으면 서버가 1명으로 저장한다. */
   mentorCapacity?: MentorCapacity;
 }
@@ -133,10 +130,8 @@ export const EMPTY_DRAFT: OnboardingDraft = {
   targetCampus: [],
   desiredAreas: [],
   targetMajors: [],
-  targetCareers: [],
   mentoringArea: [],
   currentMajors: [],
-  careerPaths: [],
 };
 
 /** 각 스텝 컴포넌트가 공통으로 받는 props. */

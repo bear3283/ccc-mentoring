@@ -19,13 +19,13 @@ export const WEIGHTS = {
    *
    * 예전에는 멘토링 가능 시간대(10점)도 봤다. 1:1 멘토링 날짜를 매칭 뒤
    * 문자로 정하기로 하면서 시간대를 묻지 않게 되어, 그 10점을 영역과
-   * 학과·진로에 5점씩 나눴다.
+   * 학과에 5점씩 나눴다.
    */
   area: 30,
   /** MBTI 4축 x 1.25점. 성경 인물과 같은 보조 지표라 같은 비중이다. */
   mbti: 5,
   /** 고3이 실제로 묻고 싶은 것은 "그 학과 생활"이라 분야 다음으로 무겁게 둔다. */
-  majorAndCareer: 25,
+  major: 25,
   /** 성경 인물 성향. MBTI와 역할이 겹치므로 보조 지표로 둔다. */
   persona: 5,
 } as const;
@@ -48,9 +48,6 @@ export const WEIGHT_TOTAL = Object.values(WEIGHTS).reduce((sum, w) => sum + w, 0
  */
 export const UNSCORED_FIELDS = ["highSchool", "referrer"] as const;
 
-/** WEIGHTS.majorAndCareer 안에서 학과와 진로가 나눠 갖는 비율. */
-const MAJOR_RATIO = 0.6;
-const CAREER_RATIO = 0.4;
 
 /**
  * 지망 캠퍼스 (WEIGHTS.campus).
@@ -111,9 +108,12 @@ export function scoreMbti(mentee: Mentee, mentor: Mentor): number {
 }
 
 /**
- * 학과 / 진로 (WEIGHTS.majorAndCareer).
+ * 학과 (WEIGHTS.major).
  * 양쪽 다 최대 3개까지 고를 수 있으므로 교집합이 하나라도 있으면 인정한다.
  * 겹치는 개수가 많을수록 점수가 오르되, 하나만 겹쳐도 절반은 준다.
+ *
+ * 예전에는 희망 진로도 함께 봤다(학과 6 : 진로 4). 진로를 묻지 않게 되면서
+ * 학과만 남았다.
  */
 function overlapScore(a: readonly string[], b: readonly string[]): number {
   if (a.length === 0 || b.length === 0) return 0;
@@ -123,12 +123,8 @@ function overlapScore(a: readonly string[], b: readonly string[]): number {
   return 0.5 + 0.5 * (matched / Math.min(a.length, b.length));
 }
 
-export function scoreMajorAndCareer(mentee: Mentee, mentor: Mentor): number {
-  const majorScore =
-    WEIGHTS.majorAndCareer * MAJOR_RATIO * overlapScore(mentee.targetMajors, mentor.currentMajors);
-  const careerScore =
-    WEIGHTS.majorAndCareer * CAREER_RATIO * overlapScore(mentee.targetCareers, mentor.careerPaths);
-  return majorScore + careerScore;
+export function scoreMajor(mentee: Mentee, mentor: Mentor): number {
+  return WEIGHTS.major * overlapScore(mentee.targetMajors, mentor.currentMajors);
 }
 
 /**
@@ -167,7 +163,7 @@ export function calculateBreakdown(mentee: Mentee, mentor: Mentor): ScoreBreakdo
     campus: scoreCampus(mentee, mentor),
     area: scoreArea(mentee, mentor),
     mbti: scoreMbti(mentee, mentor),
-    majorAndCareer: scoreMajorAndCareer(mentee, mentor),
+    major: scoreMajor(mentee, mentor),
     persona: scorePersona(mentee, mentor),
   };
 }

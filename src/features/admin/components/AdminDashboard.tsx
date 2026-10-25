@@ -59,7 +59,6 @@ const menteeColumns: TableColumn<Mentee>[] = [
   { key: "persona", header: "성향", value: (r) => personaName(r.personaType), align: "center" },
   { key: "mbti", header: "MBTI", value: (r) => r.mbti ?? "-", align: "center", width: "70px" },
   { key: "major", header: "희망 학과", value: (r) => r.targetMajors.join(", ") },
-  { key: "career", header: "희망 진로", value: (r) => r.targetCareers.join(", ") },
   { key: "arrival", header: "채플 날 도착", value: (r) => arrivalLabel(r.eventArrival) },
   { key: "school", header: "출신 고교", value: (r) => r.highSchool ?? "-" },
   {
@@ -106,7 +105,6 @@ const mentorColumns: TableColumn<AdminMentor>[] = [
   { key: "persona", header: "성향", value: (r) => personaName(r.personaType), align: "center" },
   { key: "mbti", header: "MBTI", value: (r) => r.mbti ?? "-", align: "center", width: "70px" },
   { key: "major", header: "학과", value: (r) => r.currentMajors.join(", ") },
-  { key: "career", header: "진로", value: (r) => r.careerPaths.join(", ") },
   { key: "arrival", header: "채플 날 도착", value: (r) => arrivalLabel(r.eventArrival) },
   {
     key: "seats",
@@ -200,7 +198,7 @@ const matchColumns: TableColumn<MatchRow>[] = [
   { key: "campusScore", header: `캠퍼스(${WEIGHTS.campus})`, value: (r) => r.campusScore, align: "right" },
   { key: "areaScore", header: `영역(${WEIGHTS.area})`, value: (r) => r.areaScore, align: "right" },
   { key: "mbtiScore", header: `MBTI(${WEIGHTS.mbti})`, value: (r) => r.mbtiScore, align: "right" },
-  { key: "majorScore", header: `학과·진로(${WEIGHTS.majorAndCareer})`, value: (r) => r.majorScore, align: "right" },
+  { key: "majorScore", header: `학과(${WEIGHTS.major})`, value: (r) => r.majorScore, align: "right" },
   { key: "personaScore", header: `성경인물(${WEIGHTS.persona})`, value: (r) => r.personaScore, align: "right" },
   { key: "contact", header: "멘토 연락처", value: (r) => r.contact },
 ];

@@ -89,18 +89,12 @@ export function validateMentoring(
     if (draft.targetMajors.length < 1 || draft.targetMajors.length > 3) {
       return "희망 학과를 확인해주세요.";
     }
-    if (draft.targetCareers.length < 1 || draft.targetCareers.length > 3) {
-      return "희망 진로를 확인해주세요.";
-    }
   } else {
     if (!draft.currentCampus) return "학교를 골라주세요.";
     if (!draft.admissionYear) return "학번을 골라주세요.";
     if (draft.mentoringArea.length < 1) return "도와줄 영역을 골라주세요.";
     if (draft.currentMajors.length < 1 || draft.currentMajors.length > 3) {
       return "전공을 확인해주세요.";
-    }
-    if (draft.careerPaths.length < 1 || draft.careerPaths.length > 3) {
-      return "진로를 확인해주세요.";
     }
     // 비어 있으면 1명으로 저장한다(정원을 묻기 전 화면에서 온 신청).
     // 적었다면 고를 수 있는 값이어야 한다. DB 제약에 걸리면 이유를 알 수 없다.

@@ -1,6 +1,5 @@
 import {
   CAMPUSES,
-  CAREERS,
   GENDERS,
   MAJORS,
   MENTORING_AREAS,
@@ -107,7 +106,6 @@ export function generateMentors(count = 50, seed = 20260827): Mentor[] {
       mbti: makeMbti(random),
       // 복수전공·부전공이 흔해 최대 2개까지 잡는다.
       currentMajors: pickMany(random, MAJORS, 1 + Math.floor(random() * 2)),
-      careerPaths: pickMany(random, CAREERS, 1 + Math.floor(random() * 2)),
       highSchool: `${pick(random, HIGH_SCHOOL_PREFIX)}고등학교`,
       // 더미는 매칭 화면 확인용이라 멘토링까지 마친 상태로 만든다.
       mentoringApplied: true,
@@ -134,7 +132,6 @@ export function generateMentees(count = 50, seed = 19970416): Mentee[] {
     personaType: pick(random, PERSONA_TYPES),
     mbti: makeMbti(random),
     targetMajors: pickMany(random, MAJORS, 1 + Math.floor(random() * 3)),
-    targetCareers: pickMany(random, CAREERS, 1 + Math.floor(random() * 3)),
     highSchool: `${pick(random, HIGH_SCHOOL_PREFIX)}고등학교`,
     mentoringApplied: true,
   }));

@@ -2,10 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  CAREERS,
   FIELD_EMOJI,
   MAJOR_FIELDS,
-  type Career,
   type Major,
   type MajorField,
 } from "@/shared/constants/domain";
@@ -14,13 +12,14 @@ import { cn } from "@/shared/lib/cn";
 import { StepLayout } from "../StepLayout";
 import type { StepProps } from "../../model/types";
 
-/** 학과·진로 각각의 상한. 하나만 골라도 넘어간다. */
+/** 학과 상한. 하나만 골라도 넘어간다. */
 const MAX_CHOICES = 3;
 
 /**
- * 학과와 진로를 한 스텝에서 받는다.
- * 둘 다 합쳐도 가중치가 크지 않아 스텝을 나누면 체감 길이만 늘어난다.
- * 항목이 많아 리스트 대신 칩(chip) 격자로 배치했다.
+ * 학과를 받는다. 항목이 많아 리스트 대신 칩(chip) 격자로 배치했다.
+ *
+ * 예전에는 희망 진로도 이 화면에서 받았다. 고3에게 진로까지 고르게 하면
+ * 부담만 늘고 매칭에 보탬이 적어 뺐다(2026-10-26).
  */
 export function MajorStep({ role, draft, onNext, onChange }: StepProps) {
   const isMentee = role === "MENTEE";
@@ -28,22 +27,13 @@ export function MajorStep({ role, draft, onNext, onChange }: StepProps) {
   const [majors, setMajors] = useState<Major[]>(
     isMentee ? draft.targetMajors : draft.currentMajors,
   );
-  const [careers, setCareers] = useState<Career[]>(
-    isMentee ? draft.targetCareers : draft.careerPaths,
-  );
-
   /** 최대 개수까지만 담는 토글. 이미 담긴 것을 누르면 빠진다. */
-  function makeToggle<T>(setter: React.Dispatch<React.SetStateAction<T[]>>) {
-    return (item: T) =>
-      setter((prev) => {
-        if (prev.includes(item)) return prev.filter((x) => x !== item);
-        if (prev.length >= MAX_CHOICES) return prev;
-        return [...prev, item];
-      });
-  }
-
-  const toggleMajor = makeToggle(setMajors);
-  const toggleCareer = makeToggle(setCareers);
+  const toggleMajor = (item: Major) =>
+    setMajors((prev) => {
+      if (prev.includes(item)) return prev.filter((x) => x !== item);
+      if (prev.length >= MAX_CHOICES) return prev;
+      return [...prev, item];
+    });
 
   /**
    * 앞 스텝에서 고른 학교의 학과만 보여준다.
@@ -71,17 +61,11 @@ export function MajorStep({ role, draft, onNext, onChange }: StepProps) {
   }, [campuses]);
 
   /**
-   * 계열을 모두 펼치면 100개가 넘게 쏟아진다.
-   * 하나만 열어 두고, 이미 고른 학과가 있으면 그 계열부터 연다.
+   * 계열을 모두 펼치면 100개가 넘게 쏟아진다. 처음에는 모두 접어 계열 목록만
+   * 보여주고, 누른 계열 하나만 연다. 특정 계열을 미리 열어 두면 그 계열을
+   * 권하는 것처럼 읽힌다. 이미 고른 학과는 위에 따로 보인다.
    */
-  const [openField, setOpenField] = useState<MajorField | null>("공학");
-  useEffect(() => {
-    const first = majors[0];
-    if (!first || !byField) return;
-    setOpenField(MAJOR_FIELDS.find((f) => byField[f].includes(first)) ?? "공학");
-    // 처음 데이터를 받았을 때만 맞춰 연다. 이후 사용자가 접은 것을 되돌리면 안 된다.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [byField]);
+  const [openField, setOpenField] = useState<MajorField | null>(null);
 
   /**
    * 학교에 따라 100개가 넘는 학과가 나온다. 계열을 일일이 펼쳐 훑기는 어렵다.
@@ -102,48 +86,16 @@ export function MajorStep({ role, draft, onNext, onChange }: StepProps) {
 
   // 고르는 즉시 draft에 반영한다. 뒤로 갔다 돌아와도 선택이 남아 있어야 한다.
   useEffect(() => {
-    if (isMentee) onChange({ targetMajors: majors, targetCareers: careers });
-    else onChange({ currentMajors: majors, careerPaths: careers });
-  }, [majors, careers, isMentee, onChange]);
+    if (isMentee) onChange({ targetMajors: majors });
+    else onChange({ currentMajors: majors });
+  }, [majors, isMentee, onChange]);
 
   const handleNext = () => {
-    if (isMentee) onNext({ targetMajors: majors, targetCareers: careers });
-    else onNext({ currentMajors: majors, careerPaths: careers });
+    if (isMentee) onNext({ targetMajors: majors });
+    else onNext({ currentMajors: majors });
   };
 
-  const complete = majors.length > 0 && careers.length > 0;
-
-  /*
-   * 무엇이 빠졌는지 짚어 준다.
-   * 진로 칸은 학과 목록(학교에 따라 100개가 넘는다) 아래라 화면 밖에 있다.
-   * "학과와 진로를 골라주세요" 만 띄우면, 학과를 고른 사람은 다 골랐다고
-   * 믿고 있어서 버튼이 왜 안 열리는지 알 수 없다.
-   */
-  const ctaLabel = complete
-    ? "다음"
-    : majors.length === 0 && careers.length === 0
-      ? "학과와 진로를 골라주세요"
-      : majors.length === 0
-        ? "학과도 골라주세요"
-        : "진로도 골라주세요";
-
-  /*
-   * 학과를 처음 고른 순간 진로 칸을 화면 안으로 데려온다.
-   * 한 번만 움직인다 — 고를 때마다 튀면 목록을 훑는 것을 방해한다.
-   */
-  const careerRef = useRef<HTMLElement>(null);
-  const nudgedRef = useRef(false);
-  useEffect(() => {
-    if (nudgedRef.current) return;
-    if (majors.length === 0 || careers.length > 0) return;
-    nudgedRef.current = true;
-
-    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    careerRef.current?.scrollIntoView({
-      behavior: reduce ? "auto" : "smooth",
-      block: "nearest",
-    });
-  }, [majors.length, careers.length]);
+  const complete = majors.length > 0;
 
   return (
     <StepLayout
@@ -156,7 +108,7 @@ export function MajorStep({ role, draft, onNext, onChange }: StepProps) {
             ? "같은 길을 먼저 걸어본 선배를 찾아드려요."
             : "같은 길을 준비하는 후배와 이어드려요."
       }
-      ctaLabel={ctaLabel}
+      ctaLabel={complete ? "다음" : "학과를 골라주세요"}
       ctaDisabled={!complete}
       onCta={handleNext}
     >
@@ -262,25 +214,6 @@ export function MajorStep({ role, draft, onNext, onChange }: StepProps) {
             })}
           </div>
           )}
-        </section>
-
-        <section data-group ref={careerRef}>
-          <GroupTitle
-            label={isMentee ? "희망 진로" : "준비 중인 진로"}
-            count={careers.length}
-          />
-          <ul role="group" className="flex flex-wrap gap-2">
-            {CAREERS.map((c) => (
-              <li key={c}>
-                <Chip
-                  selected={careers.includes(c)}
-                  blocked={!careers.includes(c) && careers.length >= MAX_CHOICES}
-                  onSelect={() => toggleCareer(c)}
-                  label={c}
-                />
-              </li>
-            ))}
-          </ul>
         </section>
       </div>
     </StepLayout>

@@ -3,7 +3,7 @@ import "server-only";
 import type { FallbackReason, Mentee, Mentor, ScoreBreakdown } from "@/features/matching/model/types";
 import type { OnboardingDraft } from "@/features/onboarding/model/types";
 import type { Role } from "@/shared/constants/role";
-import type { Campus, Career, Gender, Major, MentoringArea } from "@/shared/constants/domain";
+import type { Campus, Gender, Major, MentoringArea } from "@/shared/constants/domain";
 import type { MbtiType } from "@/shared/constants/mbti";
 import type { PersonaType } from "@/shared/constants/persona";
 import { isEventArrival, type EventArrival } from "@/shared/constants/venue";
@@ -81,7 +81,6 @@ function toMentee(user: UserRow, profile: MenteeRow | null): Mentee {
     personaType: user.persona_type ?? undefined,
     mbti: (user.mbti ?? undefined) as MbtiType | undefined,
     targetMajors: (profile?.target_majors ?? []) as Major[],
-    targetCareers: (profile?.target_careers ?? []) as Career[],
   };
 }
 
@@ -106,7 +105,6 @@ function toMentor(user: UserRow, profile: MentorRow | null): Mentor {
     personaType: user.persona_type ?? undefined,
     mbti: (user.mbti ?? undefined) as MbtiType | undefined,
     currentMajors: (profile?.current_majors ?? []) as Major[],
-    careerPaths: (profile?.career_paths ?? []) as Career[],
     capacity: profile?.capacity ?? 1,
   };
 }
@@ -384,7 +382,8 @@ export async function applyMentoring(
               target_campus: draft.targetCampus,
               desired_areas: draft.desiredAreas,
               target_majors: draft.targetMajors,
-              target_careers: draft.targetCareers,
+              // 진로는 묻지 않는다. 컬럼은 이전 신청자의 값 때문에 남겨 두고 비운다.
+              target_careers: [],
             },
             { onConflict: "user_id" },
           )
@@ -397,7 +396,7 @@ export async function applyMentoring(
               admission_year: draft.admissionYear,
               mentoring_area: draft.mentoringArea,
               current_majors: draft.currentMajors,
-              career_paths: draft.careerPaths,
+              career_paths: [],
               // 예전 화면에서 온 신청에는 값이 없다. DB 기본값과 같은 1명으로 둔다.
               capacity: draft.mentorCapacity ?? 1,
             },

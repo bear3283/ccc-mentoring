@@ -1,6 +1,5 @@
 import type {
   Campus,
-  Career,
   Gender,
   Major,
   MentoringArea,
@@ -41,7 +40,6 @@ export interface Mentee {
   /** 아이스브레이킹으로 받은 값. 매칭 점수에는 쓰지 않는다. */
   mbti?: MbtiType;
   targetMajors: Major[];
-  targetCareers: Career[];
 }
 
 /** DB의 Users + Mentor_Profiles를 조인한 형태 */
@@ -71,7 +69,6 @@ export interface Mentor {
   personaType?: PersonaType;
   mbti?: MbtiType;
   currentMajors: Major[];
-  careerPaths: Career[];
   /**
    * 동시에 맡을 수 있는 후배 수. 멘토가 신청할 때 1~3 중에 고른다.
    * 이 수만큼 후배가 '매칭하기'를 누르면 다른 후배의 후보에서 빠진다.
@@ -90,7 +87,7 @@ export interface ScoreBreakdown {
   campus: number;
   area: number;
   mbti: number;
-  majorAndCareer: number;
+  major: number;
   persona: number;
 }
 
@@ -116,7 +113,6 @@ export interface PublicMentor {
   currentCampus: Campus;
   currentMajors: Major[];
   admissionYear: number;
-  careerPaths: Career[];
   mentoringArea: MentoringArea[];
   /** "잘 모르겠어요"를 고르면 비어 있다. */
   personaType?: PersonaType;

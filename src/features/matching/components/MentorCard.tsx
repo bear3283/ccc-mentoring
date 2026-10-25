@@ -124,12 +124,6 @@ export function MentorCard({
 
         <dl className="mt-4 flex justify-center gap-5 border-t border-gray-100 pt-4">
           <div>
-            <dt className="text-[12px] text-gray-400">진로</dt>
-            <dd className="mt-0.5 text-[14px] font-semibold text-gray-700">
-              {mentor.careerPaths.join(", ")}
-            </dd>
-          </div>
-          <div>
             <dt className="text-[12px] text-gray-400">멘토링 날짜</dt>
             <dd className="mt-0.5 text-[14px] font-semibold text-gray-700">
               {/* 신청할 때 시간을 묻지 않는다. 연결된 뒤 둘이 정한다. */}

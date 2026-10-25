@@ -20,12 +20,9 @@ export function buildHashtags(mentor: Mentor, mentee: Mentee): string[] {
   if (mentor.mentoringArea.includes("탐방")) tags.push("#탐방러");
   if (mentor.mentoringArea.includes("교환학생")) tags.push("#교환학생경험");
 
-  // 겹치는 학과·진로가 있으면 그것을 태그로 세운다. 멘티가 자기 관심사를 카드에서 바로 본다.
+  // 겹치는 학과가 있으면 그것을 태그로 세운다. 멘티가 자기 관심사를 카드에서 바로 본다.
   const sharedMajor = mentor.currentMajors.find((m) => mentee.targetMajors.includes(m));
   if (sharedMajor) tags.push(`#${sharedMajor}선배`);
-
-  const sharedCareer = mentor.careerPaths.find((c) => mentee.targetCareers.includes(c));
-  if (sharedCareer) tags.push(`#${sharedCareer}루트`);
 
   // 카드가 지저분해지지 않도록 최대 4개까지만 보여준다.
   return tags.slice(0, 4);

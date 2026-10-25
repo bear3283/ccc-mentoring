@@ -53,10 +53,8 @@ const empty = {
   targetCampus: [],
   desiredAreas: [],
   targetMajors: [],
-  targetCareers: [],
   mentoringArea: [],
   currentMajors: [],
-  careerPaths: [],
 };
 
 /** 1단계 — 고3채플 등록에 필요한 것만. 캠퍼스는 2단계로 옮겼다. */
@@ -85,7 +83,6 @@ function mentorMentoring(over: Record<string, unknown> = {}) {
     admissionYear: 2023,
     mentoringArea: ["학점관리"],
     currentMajors: ["경영학과"],
-    careerPaths: ["금융권"],
     eventArrival: "1830",
     ...over,
   };
@@ -111,7 +108,6 @@ function menteeMentoring(over: Record<string, unknown> = {}) {
     targetCampus: ["연세대"],
     desiredAreas: ["학점관리"],
     targetMajors: ["경영학과"],
-    targetCareers: ["금융권"],
     eventArrival: "1800",
     ...over,
   };

@@ -50,7 +50,7 @@ check(
 check(
   "캠퍼스가 가장 무거움",
   Object.entries(WEIGHTS).every(([k, v]) => k === "campus" || v < WEIGHTS.campus),
-  `캠퍼스 ${WEIGHTS.campus} / 영역 ${WEIGHTS.area} / MBTI ${WEIGHTS.mbti} / 학과·진로 ${WEIGHTS.majorAndCareer} / 성경인물 ${WEIGHTS.persona}`,
+  `캠퍼스 ${WEIGHTS.campus} / 영역 ${WEIGHTS.area} / MBTI ${WEIGHTS.mbti} / 학과 ${WEIGHTS.major} / 성경인물 ${WEIGHTS.persona}`,
 );
 check(
   "MBTI 4축이 같은 점수로 나뉨",
@@ -63,9 +63,9 @@ check(
   `성경인물 ${WEIGHTS.persona} ≤ MBTI ${WEIGHTS.mbti}`,
 );
 check(
-  "실질 신호(학교·분야·학과진로)가 성향(MBTI·성경인물)보다 무거움",
-  WEIGHTS.majorAndCareer > WEIGHTS.mbti + WEIGHTS.persona,
-  `학과·진로 ${WEIGHTS.majorAndCareer} > 성향 ${WEIGHTS.mbti + WEIGHTS.persona}`,
+  "실질 신호(학교·분야·학과)가 성향(MBTI·성경인물)보다 무거움",
+  WEIGHTS.major > WEIGHTS.mbti + WEIGHTS.persona,
+  `학과 ${WEIGHTS.major} > 성향 ${WEIGHTS.mbti + WEIGHTS.persona}`,
 );
 
 // 고등학교/추천인이 점수에 새어 들어가지 않았는지 소스에서 직접 확인한다.
@@ -507,7 +507,7 @@ for (const mentee of MOCK_MENTEES.slice(0, 3)) {
   );
   console.log(
     `    관심영역: ${mentee.desiredAreas.join(", ")} | 성향: ${mentee.personaType ? PERSONAS[mentee.personaType].name : "모름"} | ` +
-      `목표: ${mentee.targetMajors.join(", ")} / ${mentee.targetCareers.join(", ")}`,
+      `목표 학과: ${mentee.targetMajors.join(", ")}`,
   );
   console.log(`    성별: ${mentee.gender}`);
 
@@ -523,7 +523,7 @@ for (const mentee of MOCK_MENTEES.slice(0, 3)) {
     );
     console.log(
       `           캠퍼스 ${b.campus.toFixed(1)} / 영역 ${b.area.toFixed(1)} / ` +
-        `MBTI ${b.mbti.toFixed(1)} / 학과·진로 ${b.majorAndCareer.toFixed(1)} / 성경인물 ${b.persona.toFixed(1)}`,
+        `MBTI ${b.mbti.toFixed(1)} / 학과 ${b.major.toFixed(1)} / 성경인물 ${b.persona.toFixed(1)}`,
     );
   }
 }

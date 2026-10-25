@@ -135,7 +135,6 @@ export async function POST(request: Request) {
         currentCampus: r.mentor.currentCampus,
         currentMajors: r.mentor.currentMajors,
         admissionYear: r.mentor.admissionYear,
-        careerPaths: r.mentor.careerPaths,
         mentoringArea: r.mentor.mentoringArea,
         personaType: r.mentor.personaType,
         mbti: r.mentor.mbti,
