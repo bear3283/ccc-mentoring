@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Name } from "@/components/ui/Name";
 import type { PublicMatchResult } from "@/features/matching/model/types";
-import { AREA_META, type MentoringArea } from "@/shared/constants/domain";
 import { loadDraft } from "@/features/onboarding/lib/draftStore";
 import { MentoringGuide } from "@/features/venue/components/MentoringGuide";
 import { NO_PERSONA_GRADIENT, PERSONAS } from "@/shared/constants/persona";
@@ -37,7 +36,6 @@ type State =
       mentor: PublicMatchResult["mentor"];
       contact: string;
       /** 내가 고른 관심 영역. 첫 문자에 넣을 질문 예시를 여기서 뽑는다. */
-      areas: MentoringArea[];
       /** 채플 당일 도착 시간. 선배 것은 연결된 뒤에만 서버가 알려준다. */
       mentorArrival?: EventArrival;
       myArrival?: EventArrival;
@@ -56,7 +54,6 @@ export default function SettledMatchPage() {
 
     const code = stored.participationCode;
     const myName = stored.draft.name ?? "";
-    const areas = stored.draft.desiredAreas ?? [];
 
     void (async () => {
       // 매칭 결과를 먼저 읽어 확정된 선배가 있는지 본다.
@@ -101,7 +98,6 @@ export default function SettledMatchPage() {
         myName,
         mentor,
         contact: revealBody.contact,
-        areas,
         mentorArrival: revealBody.mentorEventArrival,
         myArrival,
       });
@@ -134,15 +130,19 @@ export default function SettledMatchPage() {
     );
   }
 
-  const { myName, mentor, contact, areas, mentorArrival, myArrival } = state;
+  const { myName, mentor, contact, mentorArrival, myArrival } = state;
   const beforeEvent = !isAfterEvent();
-  // 고3이 가장 막히는 지점은 번호가 아니라 "뭐라고 보내지"다.
-  // 본인이 고른 관심 영역에서 질문 하나를 꺼내 보여주면 그 자리가 메워진다.
-  const sampleAsk = areas[0] ? AREA_META[areas[0]].ask : "대학 생활은 어떠세요?";
+  // 채플 전이고 오는 시간을 골랐으면 첫 문자에 "그날 인사" 약속까지 넣는다.
+  // 채플이 지났거나 당일에 못 오면 인사 약속 문장은 뺀다.
+  const canGreet = beforeEvent && !!myArrival && myArrival !== "ABSENT";
+  const introLine = `안녕하세요! 고3채플에서 매칭된 ${myName}입니다 :)`;
+  const greetLine = canGreet
+    ? `채플 날 저는 ${arrivalPhrase(myArrival as Exclude<EventArrival, "ABSENT">)} 도착해요. 그날 잠깐 인사드려도 될까요?`
+    : undefined;
   const persona = mentor.personaType ? PERSONAS[mentor.personaType] : undefined;
   const [from, to] = persona?.gradient ?? NO_PERSONA_GRADIENT;
   const smsHref = `sms:${contact.replace(/-/g, "")}?&body=${encodeURIComponent(
-    `안녕하세요! 고3채플에서 매칭된 ${myName}입니다 :)`,
+    greetLine ? `${introLine}\n${greetLine}` : introLine,
   )}`;
 
   return (
@@ -248,36 +248,35 @@ export default function SettledMatchPage() {
           짧아도 괜찮아요. 세 줄이면 충분해요.
         </p>
 
+        {/*
+          1·2번은 [문자로 먼저 인사하기]를 누르면 이미 채워져 있다.
+          채플 뒤 만날 약속(마지막 줄)은 채우지 않는다. 첫 문자에 약속까지 넣으면 부담스럽고,
+          채플 날 얼굴을 본 뒤에 잡는 편이 자연스럽다.
+        */}
         <ol className="mt-5 flex flex-col gap-4">
           <GuideLine
             step="1"
             title="누구인지 밝히기"
-            body={`안녕하세요! 고3채플에서 매칭된 ${myName}입니다 :)`}
-            note="버튼을 누르면 이 문장은 이미 채워져 있어요."
+            body={introLine}
+            note={greetLine ? "버튼을 누르면 1·2번 문장이 이미 채워져 있어요." : "버튼을 누르면 이 문장은 이미 채워져 있어요."}
           />
+          {greetLine && (
+            <GuideLine
+              step="2"
+              title="채플 날 인사 약속"
+              body={greetLine}
+              note="고른 도착 시간이 들어가 있어요. 선배님이 언제 오는지도 물어보면 좋아요."
+            />
+          )}
           <GuideLine
-            step="2"
-            title="궁금한 걸 하나만"
-            body={sampleAsk}
+            step={greetLine ? "3" : "2"}
+            title="채플 날 이후의 만날 약속을 잡아보아요"
+            body="채플 끝나고 한 번 더 뵙고 싶은데, 선배님은 언제가 괜찮으세요?"
             note={
-              areas[0]
-                ? `${areas[0]}에 관심 있다고 하셨죠. 이런 식으로 하나만 물어봐도 대화가 열려요.`
-                : "한 번에 여러 개를 묻기보다 하나씩 물어보는 편이 답하기 쉬워요."
+              greetLine
+                ? "이 문장은 미리 적어두지 않았어요. 채플 날 인사한 뒤에 보내도 좋아요."
+                : "이 문장은 미리 적어두지 않았어요. 첫 인사에 답이 오면 이어서 보내보세요."
             }
-          />
-          {/*
-            채플 전이면 "그날 인사"를, 지났거나 당일에 못 오면 "1:1 멘토링 날"을 묻는다.
-            둘을 한 문장에 섞으면 목요일에 멘토링까지 하자는 말로 읽힌다.
-          */}
-          <GuideLine
-            step="3"
-            title={beforeEvent && myArrival && myArrival !== "ABSENT" ? "채플 날 인사 약속" : "만날 날 묻기"}
-            body={
-              beforeEvent && myArrival && myArrival !== "ABSENT"
-                ? `채플 날 저는 ${arrivalPhrase(myArrival)} 도착해요. 그날 잠깐 인사드려도 될까요?`
-                : "채플 끝나고 한 번 뵙고 싶은데, 선배님은 언제가 괜찮으세요?"
-            }
-            note="답장 부담이 줄어들어요."
           />
         </ol>
 
