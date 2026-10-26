@@ -69,19 +69,20 @@ export default function OnboardingCompletePage() {
    * 날짜를 전제하는 문장만 갈라 준다.
    */
   const passed = isAfterEvent();
-  const meetingPoint = passed
-    ? "서로 편한 때에 만나요"
-    : `${EVENT_DATE_LABEL} 채플에서 얼굴 보고 인사해요`;
+  // 채플 날은 인사하는 자리다. 채플이 지나면 이 줄은 빠진다.
+  const meetingPoint = `${EVENT_DATE_LABEL} 채플에서 얼굴 보고 인사해요`;
 
   const invite = isMentee
     ? {
         title: "선배와 이어드릴까요?",
+        // 만남은 채플 이후에 약속을 잡아 한 번 한다. 채플 날은 얼굴을 익히는 인사 자리다.
         body: passed
-          ? "대학에 먼저 간 CCC 선배와 짝이 되어요. 문자로 인사하고, 편한 때에 만나 이야기 나눠요."
-          : `대학에 먼저 간 CCC 선배와 짝이 되어요. 문자로 미리 인사하고, ${EVENT_DATE_LABEL}에 얼굴을 보고 만나요.`,
+          ? "대학에 먼저 간 CCC 선배와 짝이 되어요. 문자로 인사하고, 약속을 잡아 한 번 만나 이야기 나눠요."
+          : `대학에 먼저 간 CCC 선배와 짝이 되어요. ${EVENT_DATE_LABEL} 채플에서 인사하고, 채플 이후에 약속을 잡아 한 번 만나요.`,
         points: [
           { emoji: "💬", text: "전공·입시 뒤의 생활, 궁금한 걸 편하게 물어봐요" },
-          { emoji: "⛪", text: meetingPoint },
+          ...(passed ? [] : [{ emoji: "⛪", text: meetingPoint }]),
+          { emoji: "📅", text: passed ? "약속을 잡고 1회 만남을 가져요" : "채플 이후에 약속을 잡고 1회 만남을 가져요" },
         ],
         cta: "멘토링 신청하기",
       }
@@ -92,12 +93,13 @@ export default function OnboardingCompletePage() {
       {
         title: "한 영혼 품기 운동에 함께해요",
         body: passed
-          ? "고3·예비 27학번 후배 한 명을 품어 주세요. 먼저 대학에 간 선배로서 문자로 인사하고, 편한 때에 만나 이야기를 나눠요."
-          : `고3·예비 27학번 후배 한 명을 품어 주세요. 먼저 대학에 간 선배로서 문자로 인사하고, ${EVENT_DATE_LABEL} 채플에서 얼굴을 보고 만나요.`,
+          ? "고3·예비 27학번 후배 한 명을 품어 주세요. 먼저 대학에 간 선배로서 문자로 인사하고, 약속을 잡아 한 번 만나요."
+          : `고3·예비 27학번 후배 한 명을 품어 주세요. ${EVENT_DATE_LABEL} 채플에서 인사하고, 채플 이후에 약속을 잡아 한 번 만나요.`,
         points: [
           { emoji: "🙏", text: "후배 한 영혼을 마음에 품고 기도해 주세요" },
           { emoji: "💬", text: "먼저 걸어온 대학 생활과 신앙 이야기를 들려주세요" },
-          { emoji: "⛪", text: meetingPoint },
+          ...(passed ? [] : [{ emoji: "⛪", text: meetingPoint }]),
+          { emoji: "📅", text: passed ? "약속을 잡고 1회 만남을 가져요" : "채플 이후에 약속을 잡고 1회 만남을 가져요" },
         ],
         cta: "멘토로 신청하기",
       };
