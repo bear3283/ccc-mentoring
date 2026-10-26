@@ -17,14 +17,23 @@ interface UseFunnelResult {
   back: () => void;
   /** 스텝을 넘기지 않고 draft만 갱신한다. */
   update: (patch: Partial<OnboardingDraft>) => void;
+  /** 건너뛸 스텝을 뺀, 지금 보여주는 스텝 목록 */
+  steps: readonly OnboardingStep[];
 }
 
 export function useFunnel(
-  steps: readonly OnboardingStep[],
+  allSteps: readonly OnboardingStep[],
   initialDraft: OnboardingDraft | undefined = EMPTY_DRAFT,
+  /**
+   * 지금까지의 답으로 건너뛸 스텝. 예: 대학생은 등록 마지막 화면(추천인·출신 고교)에
+   * 답할 칸이 없어 건너뛴다. 건너뛰는 스텝은 그 답을 정하는 스텝보다 뒤에 있어야
+   * 지금 보고 있는 스텝의 순번이 흔들리지 않는다.
+   */
+  skip?: (step: OnboardingStep, draft: OnboardingDraft) => boolean,
 ): UseFunnelResult {
   const [stepIndex, setStepIndex] = useState(0);
   const [draft, setDraft] = useState<OnboardingDraft>(initialDraft ?? EMPTY_DRAFT);
+  const steps = skip ? allSteps.filter((s) => !skip(s, draft)) : allSteps;
 
   const next = useCallback(
     (patch: Partial<OnboardingDraft>) => {
@@ -43,6 +52,7 @@ export function useFunnel(
   }, []);
 
   return {
+    steps,
     step: steps[stepIndex],
     stepIndex,
     progress: (stepIndex + 1) / steps.length,

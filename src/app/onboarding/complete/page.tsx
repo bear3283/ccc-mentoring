@@ -85,16 +85,21 @@ export default function OnboardingCompletePage() {
         ],
         cta: "멘토링 신청하기",
       }
-    : {
-        title: "후배와 이어드릴까요?",
+    : /*
+       * CCC 대학생에게는 "한 영혼 품기 운동"으로 권한다. 짝을 맞춰 주는 서비스가 아니라
+       * 고3·예비 27학번 한 명을 맡아 품는 운동에 참여하는 것이라는 뜻을 먼저 전한다.
+       */
+      {
+        title: "한 영혼 품기 운동에 함께해요",
         body: passed
-          ? "고3 후배와 짝이 되어요. 문자로 인사하고, 편한 때에 만나 이야기 나눠요."
-          : `고3 후배와 짝이 되어요. 문자로 미리 인사하고, ${EVENT_DATE_LABEL}에 얼굴을 보고 만나요.`,
+          ? "고3·예비 27학번 후배 한 명을 품어 주세요. 먼저 대학에 간 선배로서 문자로 인사하고, 편한 때에 만나 이야기를 나눠요."
+          : `고3·예비 27학번 후배 한 명을 품어 주세요. 먼저 대학에 간 선배로서 문자로 인사하고, ${EVENT_DATE_LABEL} 채플에서 얼굴을 보고 만나요.`,
         points: [
-          { emoji: "💬", text: "먼저 겪어본 이야기를 들려주세요" },
+          { emoji: "🙏", text: "후배 한 영혼을 마음에 품고 기도해 주세요" },
+          { emoji: "💬", text: "먼저 걸어온 대학 생활과 신앙 이야기를 들려주세요" },
           { emoji: "⛪", text: meetingPoint },
         ],
-        cta: "멘토링 신청하기",
+        cta: "멘토로 신청하기",
       };
 
   return (
@@ -122,7 +127,9 @@ export default function OnboardingCompletePage() {
 
         {/* 이 화면에서 실제로 정해야 하는 것. 화면의 절반을 준다. */}
         <div ref={inviteRef} className="mt-6 rounded-3xl bg-brand p-6 text-white">
-          <p className="text-[13px] font-semibold text-white/75">등록은 끝났어요</p>
+          <p className="text-[13px] font-semibold text-white/75">
+            {isMentee ? "등록은 끝났어요" : "등록은 끝났어요 · 한 영혼 품기 운동"}
+          </p>
           <h2 className="mt-1.5 text-[22px] leading-[1.35] font-bold tracking-[-0.02em]">
             {invite.title}
           </h2>
@@ -147,7 +154,9 @@ export default function OnboardingCompletePage() {
             </span>
           </Link>
           <p className="mt-2.5 text-center text-[13px] text-white/70">
-            3분이면 끝나요. 신청은 선착순이 아니에요.
+            {isMentee
+              ? "3분이면 끝나요. 신청은 선착순이 아니에요."
+              : "3분이면 끝나요. 캠퍼스 확인을 거쳐 후배에게 소개돼요."}
           </p>
         </div>
 

@@ -65,15 +65,17 @@ export function SaveCodeImageButton({
       type="button"
       onClick={handleSave}
       disabled={!file}
+      // 참여코드는 나중에 결과를 보고 선배를 확인하는 열쇠다. 복사보다 사진첩에 남기는 편이
+      // 잃어버리지 않아, 진한 버튼으로 눈에 띄게 둔다.
       className={cn(
-        "flex h-11 w-full items-center justify-center gap-1.5 rounded-xl border border-brand/30 text-[14px] font-bold text-brand active:bg-brand-soft disabled:opacity-50",
+        "flex h-[52px] w-full items-center justify-center gap-2 rounded-2xl bg-gray-900 text-[16px] font-bold text-white shadow-sm active:bg-gray-700 disabled:opacity-50",
         className,
       )}
     >
-      <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth={2.2} aria-hidden>
+      <svg viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth={2.2} aria-hidden>
         <path d="M12 4v11m0 0-4-4m4 4 4-4M5 19h14" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
-      참여코드 이미지로 저장
+      참여코드 이미지로 저장하기
     </button>
   );
 }

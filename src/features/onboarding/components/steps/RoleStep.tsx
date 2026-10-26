@@ -49,7 +49,8 @@ export function RoleStep({ draft, onNext, onChange }: StepProps) {
       eyebrow="참가 구분"
       question="어떤 분으로 등록하시나요?"
       hint="채플에는 두 분 모두 오실 수 있어요."
-      ctaLabel={selected ? "다음" : "하나만 골라주세요"}
+      // 대학생은 이 화면이 등록의 마지막이다(추천인 화면을 건너뛴다).
+      ctaLabel={!selected ? "하나만 골라주세요" : selected === "MENTOR" ? "등록 완료하기" : "다음"}
       ctaDisabled={!selected}
       onCta={() => selected && onNext({ role: selected })}
     >

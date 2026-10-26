@@ -21,6 +21,8 @@ interface OnboardingFunnelProps {
   registry: StepRegistry;
   /** 2단계는 1단계에서 받은 내용 위에 이어 쓴다. */
   initialDraft?: OnboardingDraft;
+  /** 지금까지의 답으로 건너뛸 스텝. useFunnel 참고. */
+  skip?: (step: OnboardingStep, draft: OnboardingDraft) => boolean;
   onComplete: (draft: OnboardingDraft) => void | Promise<void>;
 }
 
@@ -29,10 +31,11 @@ export function OnboardingFunnel({
   steps,
   registry,
   initialDraft,
+  skip,
   onComplete,
 }: OnboardingFunnelProps) {
-  const { step, stepIndex, progress, draft, isFirst, isLast, next, back, update } =
-    useFunnel(steps, initialDraft);
+  const { step, stepIndex, progress, draft, isFirst, isLast, next, back, update, steps: visibleSteps } =
+    useFunnel(steps, initialDraft, skip);
 
   const mainRef = useRef<HTMLElement>(null);
   const previousStepRef = useRef(step);
@@ -96,11 +99,11 @@ export function OnboardingFunnel({
         </button>
 
         <div className="flex-1">
-          <ProgressBar value={progress} steps={steps.length} />
+          <ProgressBar value={progress} steps={visibleSteps.length} />
         </div>
 
         <span className="w-10 text-right text-[13px] font-medium tabular-nums text-gray-400">
-          {stepIndex + 1}/{steps.length}
+          {stepIndex + 1}/{visibleSteps.length}
         </span>
       </header>
 

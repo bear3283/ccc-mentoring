@@ -40,7 +40,7 @@ export default function MentoringCompletePage() {
     <div className="mx-auto flex min-h-dvh w-full max-w-[430px] flex-col bg-white">
       <div ref={headRef} className="px-6 pt-16">
         <p data-reveal className="text-[14px] font-medium text-brand">
-          멘토링 신청 완료
+          {isMentee ? "멘토링 신청 완료" : "멘토 신청 완료 · 한 영혼 품기 운동"}
         </p>
 
         <h1

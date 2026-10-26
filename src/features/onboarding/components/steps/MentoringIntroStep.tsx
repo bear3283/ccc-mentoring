@@ -44,12 +44,12 @@ export function MentoringIntroStep({ role, onNext }: StepProps) {
 
   return (
     <StepLayout
-      eyebrow="멘토링 신청"
-      question={isMentee ? "선배와 이어드릴게요" : "후배와 이어드릴게요"}
+      eyebrow={isMentee ? "멘토링 신청" : "한 영혼 품기 운동 · 멘토 신청"}
+      question={isMentee ? "선배와 이어드릴게요" : "후배 한 영혼을 품어 주세요"}
       hint={
         isMentee
           ? "궁금한 걸 먼저 겪어본 선배에게 물어볼 수 있어요."
-          : "먼저 걸어온 길을 후배에게 나눠줄 수 있어요."
+          : "고3·예비 27학번 후배에게 먼저 걸어온 길을 나눠 주세요."
       }
       ctaLabel="시작할게요"
       onCta={() => onNext({})}

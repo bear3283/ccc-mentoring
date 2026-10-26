@@ -154,6 +154,8 @@ export function RoleFunnel({ role, phase }: RoleFunnelProps) {
         steps={activeSteps}
         registry={REGISTRY}
         initialDraft={initialDraft}
+        // 대학생은 등록 마지막 화면(추천인·출신 고교)에 답할 칸이 없다. 고3·대학생 선택에서 끝낸다.
+        skip={(step, draft) => step === "extra" && draft.role === "MENTOR"}
         onComplete={handleComplete}
       />
 
