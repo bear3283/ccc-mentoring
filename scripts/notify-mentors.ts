@@ -5,6 +5,10 @@
  * 켜 두면, 메시지 앱이 그 아이폰 번호로 문자를 보낸다.
  *   아이폰 설정 → 메시지 → 문자 메시지 전달 → 이 맥 켜기
  *
+ * 보내는 동안 아이폰의 잠금을 풀고 메시지 앱을 열어 둔다. 아이폰이 잠겨 쉬고 있으면
+ * 맥이 넘긴 문자가 나가지 않고 기다리다가, 아이폰에서 메시지 앱을 여는 순간에야
+ * 한꺼번에 나간다(2026-10-26 실측). 아이폰은 맥 가까이, 같은 Wi-Fi 에 둔다.
+ *
  * 실행:
  *   npm run notify:mentors                         # 보낼 목록과 문구만 확인
  *   npm run notify:mentors -- --test 010-1234-5678 # 다른 사람 번호로 한 통만 시험 (기록 안 함)
@@ -23,6 +27,9 @@ import { mentorNoticeText } from "../src/features/admin/lib/mentorNotice";
 import { supabaseAccess } from "./lib/env";
 
 const { url, headers } = supabaseAccess();
+
+const RELAY_HINT =
+  "아이폰 잠금을 풀고 메시지 앱을 열어 두세요. 잠겨 있으면 메시지 앱을 열 때까지 나가지 않습니다.";
 const args = process.argv.slice(2);
 
 const send = args.includes("--send");
@@ -104,6 +111,7 @@ async function main() {
     console.log("실제로 나갔는지는 아래로 확인하세요:");
     console.log("  · 받는 휴대폰에 문자가 왔는지");
     console.log("  · 맥 메시지 앱의 그 말풍선에 빨간 느낌표(!)가 없는지");
+    console.log(RELAY_HINT);
     console.log("안 갔다면 아이폰 → 설정 → 메시지 → 문자 메시지 전달에서 이 맥을 껐다 켜 보세요.");
     return;
   }
@@ -154,6 +162,8 @@ async function main() {
     return;
   }
 
+  // 아이폰이 잠겨 있으면 맥이 넘긴 문자가 쌓여 있다가 나중에 한꺼번에 나간다.
+  console.log("\n" + RELAY_HINT);
   console.log("");
   let sent = 0;
   for (const [i, p] of batch.entries()) {
