@@ -8,6 +8,7 @@ import type { FallbackReason, Mentee, Mentor } from "@/features/matching/model/t
 import type { CampusDemandRow } from "../lib/campusDemand";
 import type { MentorNoticeRow } from "@/features/signup/lib/repository";
 import { MentorVerification, rosterColumns, toRosterRows } from "./MentorVerification";
+import { verificationStatus } from "@/features/matching/lib/mentorStatus";
 import { MentorNoticeList } from "./MentorNoticeList";
 import { findIssues, type IssueRow } from "../lib/issues";
 import { admissionYearLabel, GENDER_LABEL } from "@/shared/constants/domain";
@@ -109,7 +110,8 @@ const mentorColumns: TableColumn<AdminMentor>[] = [
     key: "verified",
     header: "인증",
     // 인증은 "멘토 인증" 탭에서 한다. 여기서는 상태만 본다.
-    value: (r) => (!r.mentoringApplied ? "-" : r.verifiedAt ? "인증됨" : "확인 대기"),
+    value: (r) =>
+      !r.mentoringApplied ? "-" : { pending: "확인 대기", verified: "인증됨", rejected: "미인증" }[verificationStatus(r)],
     align: "center",
     width: "90px",
   },
@@ -315,7 +317,10 @@ export function AdminDashboard({
   const pendingNotices = notices.filter((n) => !n.notifiedAt).length;
   const issues = findIssues(mentees, mentors);
   // 캠퍼스 인증을 기다리는 선배. 인증 전에는 후배에게 보이지 않아 운영자가 먼저 챙겨야 한다.
-  const pendingMentors = mentors.filter((m) => m.mentoringApplied && m.currentCampus && !m.verifiedAt).length;
+  // 미인증으로 둔 선배는 이미 결정한 사람이라 대기에서 뺀다.
+  const pendingMentors = mentors.filter(
+    (m) => m.mentoringApplied && m.currentCampus && verificationStatus(m) === "pending",
+  ).length;
   const [tab, setTab] = useState<Tab>("matching");
 
   /**

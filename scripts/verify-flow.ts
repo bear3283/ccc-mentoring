@@ -291,6 +291,24 @@ async function main() {
   const verifiedView = await post("/api/mentor/match", { participationCode: m1Code });
   check("인증 뒤 선배 화면 상태", verifiedView.json.verified === true);
 
+  // 미인증으로 두면 추천에서 빠지고 선배 화면이 알려 준다. 취소하면 확인 대기로 돌아간다.
+  const rejectRes = await post("/api/admin/mentor-verify", { userIds: [m1Id], action: "reject" }, adminCookie);
+  check("운영자가 미인증 처리", rejectRes.status === 200 && rejectRes.json.updated === 1, `HTTP ${rejectRes.status}`);
+  const rejectedView = await post("/api/mentor/match", { participationCode: m1Code });
+  check("미인증 뒤 선배 화면 상태", rejectedView.json.verified === false && rejectedView.json.rejected === true);
+  const afterReject = await post("/api/match", { participationCode: menteeCode });
+  check(
+    "미인증 선배는 추천에 나오지 않음",
+    !((afterReject.json.results ?? []) as { mentor: { name: string } }[]).some((r) => r.mentor.name.startsWith("검증멘토")),
+  );
+  const resetRes = await post("/api/admin/mentor-verify", { userIds: [m1Id], action: "reset" }, adminCookie);
+  const resetToPending = await post("/api/mentor/match", { participationCode: m1Code });
+  check(
+    "미인증 취소하면 확인 대기로",
+    resetRes.status === 200 && resetToPending.json.verified === false && resetToPending.json.rejected === false,
+  );
+  await post("/api/admin/mentor-verify", { userIds: [m1Id], action: "verify" }, adminCookie);
+
   // 같은 학교로 다시 신청하면 인증이 남고, 학교를 바꾸면 풀린다.
   await post("/api/mentoring", { role: "MENTOR", draft: mentorMentoring({ mentorCapacity: 2 }), participationCode: m1Code });
   const keptView = await post("/api/mentor/match", { participationCode: m1Code });

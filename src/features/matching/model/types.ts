@@ -79,6 +79,8 @@ export interface Mentor {
    * 인증된 선배만 후배의 추천 후보가 된다.
    */
   verifiedAt?: string;
+  /** 캠퍼스 리더가 그 캠퍼스 학생이 아니라고 답해 운영자가 미인증으로 둔 시각. */
+  rejectedAt?: string;
 }
 
 /**

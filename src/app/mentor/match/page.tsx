@@ -34,6 +34,8 @@ interface MentorMatch {
   capacity: number;
   /** 운영자가 캠퍼스를 인증했는지. 인증 전에는 후배 추천에 나오지 않는다. */
   verified: boolean;
+  /** 캠퍼스 리더 확인 결과 미인증. */
+  rejected: boolean;
   /** 선배 자신의 채플 날 도착 시간. 첫 문자에 넣는다. */
   mentorArrival?: EventArrival;
   /** 이 선배를 고른 후배. 먼저 고른 순서. */
@@ -164,7 +166,21 @@ export default function MentorMatchPage() {
             인증 전에는 후배 추천에 나오지 않는다. "아직 연결된 후배가 없어요"만 보이면
             기다리면 되는지 알 수 없어서 이유를 먼저 밝힌다.
           */}
-          {!result.verified && mentees.length === 0 && (
+          {/* 미인증: 잘못 적은 학교일 수 있다. 다시 기다리라고만 하면 계속 기다린다. */}
+          {result.rejected && mentees.length === 0 && (
+            <div className="rounded-3xl bg-gray-50 px-6 py-7 text-center">
+              <p className="text-[16px] font-bold text-gray-900">캠퍼스 확인이 되지 않았어요</p>
+              <p className="mt-2 text-[14px] leading-relaxed text-gray-600">
+                신청하신 학교의 CCC 명단에서 확인되지 않았어요.
+                <br />
+                학교를 잘못 고르셨다면 멘토 신청을 다시 해 주시고,
+                <br />
+                그 밖의 경우는 운영진에게 문의해 주세요.
+              </p>
+            </div>
+          )}
+
+          {!result.verified && !result.rejected && mentees.length === 0 && (
             <div className="rounded-3xl bg-amber-50 px-6 py-7 text-center">
               <p className="text-[16px] font-bold text-amber-900">캠퍼스 확인 중이에요</p>
               <p className="mt-2 text-[14px] leading-relaxed text-amber-900/80">

@@ -12,3 +12,12 @@ import type { Mentor } from "../model/types";
 export function isMatchableMentor(mentor: Pick<Mentor, "mentoringApplied" | "verifiedAt">): boolean {
   return !!mentor.mentoringApplied && !!mentor.verifiedAt;
 }
+
+/** 운영자 화면과 선배 화면이 쓰는 인증 상태. 확인 대기 = 아직 아무 결정도 없음. */
+export type VerificationStatus = "pending" | "verified" | "rejected";
+
+export function verificationStatus(mentor: Pick<Mentor, "verifiedAt" | "rejectedAt">): VerificationStatus {
+  if (mentor.verifiedAt) return "verified";
+  if (mentor.rejectedAt) return "rejected";
+  return "pending";
+}

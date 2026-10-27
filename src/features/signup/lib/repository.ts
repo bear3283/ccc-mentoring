@@ -59,6 +59,8 @@ interface MentorRow {
   capacity?: number;
   /** 운영자 캠퍼스 인증 시각. 비어 있으면 확인 대기라 추천 후보가 아니다. */
   verified_at?: string | null;
+  /** 운영자 미인증 시각. 미인증 컬럼을 추가하기 전의 DB에는 없다. */
+  rejected_at?: string | null;
 }
 
 /**
@@ -110,6 +112,7 @@ function toMentor(user: UserRow, profile: MentorRow | null): Mentor {
     currentMajors: (profile?.current_majors ?? []) as Major[],
     capacity: profile?.capacity ?? 1,
     verifiedAt: profile?.verified_at ?? undefined,
+    rejectedAt: profile?.rejected_at ?? undefined,
   };
 }
 
@@ -380,10 +383,11 @@ export async function applyMentoring(
   if (role === "MENTOR") {
     const { data: before } = await supabase
       .from("mentor_profiles")
-      .select("current_campus, verified_at")
+      .select("*")
       .eq("user_id", user.id)
       .maybeSingle();
-    resetVerification = !!before?.verified_at && before.current_campus !== draft.currentCampus;
+    const decided = !!before?.verified_at || !!before?.rejected_at;
+    resetVerification = decided && before?.current_campus !== draft.currentCampus;
   }
 
   /*
@@ -418,7 +422,8 @@ export async function applyMentoring(
               career_paths: [],
               // 예전 화면에서 온 신청에는 값이 없다. DB 기본값과 같은 1명으로 둔다.
               capacity: draft.mentorCapacity ?? 1,
-              ...(resetVerification ? { verified_at: null } : {}),
+              // 학교를 바꾸면 인증·미인증을 모두 비워 확인 대기로 되돌린다.
+              ...(resetVerification ? { verified_at: null, rejected_at: null } : {}),
             },
             { onConflict: "user_id" },
           )
@@ -475,6 +480,8 @@ export interface MentorMatchView {
   capacity: number;
   /** 운영자가 캠퍼스를 인증했는지. 인증 전에는 후배 추천에 나오지 않는다. */
   verified: boolean;
+  /** 캠퍼스 리더 확인 결과 미인증. 선배 화면에서 문의를 안내한다. */
+  rejected: boolean;
   /** 선배 자신의 채플 날 도착 시간. 후배에게 보내는 첫 문자에 넣는다. */
   mentorArrival?: EventArrival;
   /** 이 선배를 고른 후배. 먼저 고른 순서. 아직 없으면 빈 배열. */
@@ -516,6 +523,7 @@ export async function findMenteeForMentor(code: string): Promise<MentorMatchView
     mentorName: mentor.name as string,
     capacity: profile?.capacity ?? 1,
     verified: !!profile?.verified_at,
+    rejected: !profile?.verified_at && !!profile?.rejected_at,
     mentorArrival: asEventArrival(mentor.event_arrival as string | null),
     mentees: [],
   };
@@ -1110,30 +1118,38 @@ export async function deleteUser(userId: string): Promise<{ ok: boolean; code?: 
 }
 
 /**
- * 운영자가 선배들의 캠퍼스를 인증하거나 인증을 거둔다.
+ * 운영자가 선배들의 캠퍼스 인증 상태를 바꾼다.
  *
- * 캠퍼스 리더에게 명단을 확인받은 뒤 한 캠퍼스를 한꺼번에 인증하는 일이 많아 여러 명을 받는다.
- * 프로필이 없는 사람(멘토링 신청 전)은 인증할 학교가 없어 건너뛴다.
+ *  verify = 인증. 후배 추천 후보가 된다.
+ *  reject = 미인증. 캠퍼스 리더가 그 캠퍼스 학생이 아니라고 답한 경우.
+ *  reset  = 확인 대기로 되돌린다(잘못 누른 경우).
+ *
+ * 캠퍼스 리더에게 명단을 확인받은 뒤 한꺼번에 처리하는 일이 많아 여러 명을 받는다.
+ * 프로필이 없는 사람(멘토링 신청 전)은 처리할 학교가 없어 건너뛴다.
  */
-export async function setMentorVerified(
+export type VerificationAction = "verify" | "reject" | "reset";
+
+export async function setMentorVerification(
   userIds: string[],
-  verified: boolean,
-): Promise<{ ok: boolean; verifiedAt?: string | null; updated?: number }> {
+  action: VerificationAction,
+): Promise<{ ok: boolean; verifiedAt?: string | null; rejectedAt?: string | null; updated?: number }> {
   const supabase = getSupabase();
   if (!supabase || userIds.length === 0) return { ok: false };
 
-  const verifiedAt = verified ? new Date().toISOString() : null;
+  const now = new Date().toISOString();
+  const verifiedAt = action === "verify" ? now : null;
+  const rejectedAt = action === "reject" ? now : null;
   const { data, error } = await supabase
     .from("mentor_profiles")
-    .update({ verified_at: verifiedAt })
+    .update({ verified_at: verifiedAt, rejected_at: rejectedAt })
     .in("user_id", userIds)
     .select("user_id");
 
   if (error) {
-    logDbError(verified ? "멘토 인증" : "멘토 인증 취소", error);
+    logDbError(`멘토 인증 상태 변경 (${action})`, error);
     return { ok: false };
   }
-  return { ok: true, verifiedAt, updated: data?.length ?? 0 };
+  return { ok: true, verifiedAt, rejectedAt, updated: data?.length ?? 0 };
 }
 
 /** 선배에게 알렸는지. 운영자 화면과 notify-mentors 스크립트가 같은 값을 쓴다. */
