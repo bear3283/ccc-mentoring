@@ -469,15 +469,29 @@ export function AdminDashboard({
     // 운영자 화면은 모바일 셸(430px)에 가두지 않는다. 열이 많아 넓을수록 유리하다.
     <div className="flex h-dvh flex-col bg-white px-6 py-5">
       <header className="shrink-0">
-        <div className="flex items-end justify-between">
-          <div>
+        <div className="flex flex-wrap items-end gap-x-8 gap-y-3 border-b border-gray-100 pb-3">
+          <div className="shrink-0">
             <p className="text-[13px] font-medium text-brand">{readOnly ? "보기 전용" : "운영자"}</p>
             <h1 className="mt-0.5 text-[22px] font-bold tracking-[-0.02em] text-gray-900">
               신청 현황 및 매칭 결과
             </h1>
           </div>
 
-          <div className="flex items-center gap-2">
+          {/*
+            운영 판단에 필요한 수치. 제목과 같은 줄에 둬서 표가 세로로 더 많이 보이게 한다
+            (따로 한 줄을 차지하면 노트북 화면에서 표가 열 줄 남짓밖에 안 보였다).
+          */}
+          <dl className="flex flex-1 flex-wrap items-end gap-x-5 gap-y-1">
+            <Stat label="멘티" value={`${mentees.length}명`} />
+            <Stat label="멘토" value={`${mentors.length}명`} />
+            <Stat label="매칭 성사" value={`${mentees.length - unmatched.length}명`} />
+            <Stat label="미매칭" value={`${unmatched.length}명`} emphasis={unmatched.length > 0} />
+            <Stat label="추천 조합" value={`${matchRows.length}건`} />
+            <Stat label="멘토 인증 대기" value={`${pendingMentors}명`} emphasis={pendingMentors > 0} />
+            <Stat label="선배 알림 대기" value={`${pendingNotices}명`} emphasis={pendingNotices > 0} />
+          </dl>
+
+          <div className="flex shrink-0 items-center gap-2">
             {!readOnly && (
               <button
                 type="button"
@@ -513,30 +527,8 @@ export function AdminDashboard({
           </p>
         )}
 
-        {/* 운영 판단에 필요한 수치를 표 위에 고정해 둔다. */}
-        <dl className="mt-4 flex flex-wrap gap-x-6 gap-y-2 border-y border-gray-100 py-3">
-          <Stat label="멘티" value={`${mentees.length}명`} />
-          <Stat label="멘토" value={`${mentors.length}명`} />
-          <Stat label="매칭 성사" value={`${mentees.length - unmatched.length}명`} />
-          <Stat
-            label="미매칭"
-            value={`${unmatched.length}명`}
-            emphasis={unmatched.length > 0}
-          />
-          <Stat label="추천 조합" value={`${matchRows.length}건`} />
-          <Stat
-            label="멘토 인증 대기"
-            value={`${pendingMentors}명`}
-            emphasis={pendingMentors > 0}
-          />
-          <Stat
-            label="선배 알림 대기"
-            value={`${pendingNotices}명`}
-            emphasis={pendingNotices > 0}
-          />
-        </dl>
 
-        <div className="flex flex-wrap gap-1 py-3">
+        <div className="flex flex-wrap gap-1 py-2.5">
           {TABS.map((t) => (
             <button
               key={t.key}
@@ -683,10 +675,10 @@ function Stat({
 }) {
   return (
     <div>
-      <dt className="text-[12px] text-gray-400">{label}</dt>
+      <dt className="text-[11px] leading-tight text-gray-400">{label}</dt>
       <dd
         className={cn(
-          "mt-0.5 text-[18px] font-bold tabular-nums",
+          "text-[16px] leading-tight font-bold tabular-nums",
           emphasis ? "text-red-500" : "text-gray-900",
         )}
       >

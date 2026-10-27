@@ -191,40 +191,6 @@ export function MentorVerification({ mentors, readOnly }: { mentors: AdminMentor
 
   return (
     <>
-      {/*
-        "모두 인증"은 맨 위에 둔다. 캠퍼스 리더 확인 없이 전원을 한꺼번에 인증해야 할 때가 있다.
-        고른 캠퍼스가 있으면 그 캠퍼스, 없으면 전체의 확인 대기 선배가 대상이다.
-      */}
-      {!readOnly && (
-        <div className="mb-3 flex shrink-0 flex-wrap items-center gap-2">
-          {confirmBulk ? (
-            <span className="flex flex-wrap items-center gap-1.5 rounded-lg bg-brand-soft px-3 py-1.5 text-[13px] font-semibold text-brand">
-              {campus || "전체 캠퍼스"} 확인 대기 {pendingInScope.length}명을 모두 인증할까요? 인증하면 바로 후배 추천에 나와요.
-              <button
-                type="button"
-                onClick={() => void apply(pendingInScope.map((r) => r.id), "verify")}
-                disabled={busy}
-                className="h-7 rounded-md bg-brand px-3 font-bold text-white disabled:opacity-40"
-              >
-                {busy ? "저장 중…" : "모두 인증"}
-              </button>
-              <button type="button" onClick={() => setConfirmBulk(false)} className="h-7 px-2 text-gray-500">
-                취소
-              </button>
-            </span>
-          ) : (
-            <button
-              type="button"
-              onClick={() => setConfirmBulk(true)}
-              disabled={pendingInScope.length === 0}
-              className="h-10 rounded-lg bg-brand px-4 text-[14px] font-bold text-white active:bg-brand-dark disabled:bg-brand/30"
-            >
-              {campus || "전체"} 확인 대기 {pendingInScope.length}명 모두 인증
-            </button>
-          )}
-        </div>
-      )}
-
       <div className="mb-3 flex shrink-0 flex-wrap items-center gap-2">
         <select
           value={campus}
@@ -279,13 +245,47 @@ export function MentorVerification({ mentors, readOnly }: { mentors: AdminMentor
         >
           {copied ? "복사했어요" : "캠퍼스 리더에게 보낼 글 복사"}
         </button>
+
+        {/*
+          "모두 인증"은 같은 줄 오른쪽 끝에 둔다(따로 줄을 차지하면 표가 덜 보인다).
+          고른 캠퍼스가 있으면 그 캠퍼스, 없으면 전체의 확인 대기 선배가 대상이다.
+          캠퍼스 리더 확인 없이 전원을 한꺼번에 인증해야 할 때가 있다.
+        */}
+        {!readOnly && (
+          <div className="ml-auto">
+            {confirmBulk ? (
+              <span className="flex flex-wrap items-center gap-1.5 rounded-lg bg-brand-soft px-3 py-1.5 text-[13px] font-semibold text-brand">
+                {campus || "전체 캠퍼스"} 확인 대기 {pendingInScope.length}명을 모두 인증할까요? 인증하면 바로 후배 추천에 나와요.
+                <button
+                  type="button"
+                  onClick={() => void apply(pendingInScope.map((r) => r.id), "verify")}
+                  disabled={busy}
+                  className="h-7 rounded-md bg-brand px-3 font-bold text-white disabled:opacity-40"
+                >
+                  {busy ? "저장 중…" : "모두 인증"}
+                </button>
+                <button type="button" onClick={() => setConfirmBulk(false)} className="h-7 px-2 text-gray-500">
+                  취소
+                </button>
+              </span>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setConfirmBulk(true)}
+                disabled={pendingInScope.length === 0}
+                className="h-9 rounded-lg bg-brand px-4 text-[13px] font-bold text-white active:bg-brand-dark disabled:bg-brand/30"
+              >
+                {campus || "전체"} 확인 대기 {pendingInScope.length}명 모두 인증
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
-      <p className="mb-3 max-w-[760px] shrink-0 text-[12px] leading-relaxed text-gray-500">
-        ① 캠퍼스를 골라 명단을 캠퍼스 리더에게 보내요 → ② 실제 그 캠퍼스 학생인지 확인받아요 →
-        ③ 확인된 선배는 인증, 그 캠퍼스 학생이 아니면 미인증으로 둬요.{" "}
-        <b className="text-gray-700">인증된 선배만 후배의 추천 후보가 돼요.</b> 잘못 눌렀으면 "취소"로
-        확인 대기로 되돌릴 수 있어요. 다시 신청하며 학교를 바꾸면 확인 대기로 돌아가요.
+      <p className="mb-2 shrink-0 text-[12px] text-gray-500">
+        명단을 캠퍼스 리더에게 보내 확인받고 → 맞으면 인증, 아니면 미인증.{" "}
+        <b className="text-gray-700">인증된 선배만 후배 추천에 나와요.</b> 잘못 누르면 "취소"로 확인 대기로
+        돌아가요.
       </p>
 
       {error && (
