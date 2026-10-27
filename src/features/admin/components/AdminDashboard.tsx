@@ -7,6 +7,7 @@ import { downloadCsv, type CsvColumn } from "../lib/csv";
 import type { FallbackReason, Mentee, Mentor } from "@/features/matching/model/types";
 import type { CampusDemandRow } from "../lib/campusDemand";
 import type { MentorNoticeRow } from "@/features/signup/lib/repository";
+import { MentorRoster } from "./MentorRoster";
 import { MentorVerification, rosterColumns, toRosterRows } from "./MentorVerification";
 import { verificationStatus } from "@/features/matching/lib/mentorStatus";
 import { MentorNoticeList } from "./MentorNoticeList";
@@ -219,8 +220,9 @@ const matchColumns: TableColumn<MatchRow>[] = [
 
 const TABS: { key: Tab; label: string }[] = [
   { key: "mentee", label: "멘티 신청자" },
-  { key: "mentor", label: "멘토 신청자" },
-  { key: "campus", label: "멘토 인증" },
+  // "멘토 신청자" = 인증을 처리하는 곳(확인 대기·미인증), "멘토 인증" = 인증받은 선배 명단.
+  { key: "campus", label: "멘토 신청자" },
+  { key: "mentor", label: "멘토 인증" },
   { key: "matching", label: "매칭 결과" },
   { key: "unmatched", label: "미매칭" },
   { key: "notice", label: "선배 알림" },
@@ -456,7 +458,7 @@ export function AdminDashboard({
       cols.map((c) => ({ key: c.key, header: c.header, value: c.value }));
 
     if (tab === "mentee") downloadCsv("멘티_신청자.csv", mentees, asCsvColumns(menteeColumns));
-    else if (tab === "mentor") downloadCsv("멘토_신청자.csv", mentors, asCsvColumns(mentorColumns));
+    else if (tab === "mentor") downloadCsv("멘토_전체.csv", mentors, asCsvColumns(mentorColumns));
     else if (tab === "unmatched") downloadCsv("멘토_모집_필요_캠퍼스.csv", demand, asCsvColumns(demandColumns));
     else if (tab === "check") downloadCsv("점검.csv", issues, asCsvColumns(issueColumns));
     else if (tab === "campus") downloadCsv("멘토명단_전체.csv", toRosterRows(mentors), rosterColumns);
@@ -602,12 +604,7 @@ export function AdminDashboard({
       )}
 
       {tab === "mentor" && (
-        <DataTable
-          rows={mentors}
-          columns={[...mentorColumns, ...deleteColumn<AdminMentor>("MENTOR")]}
-          rowKey={(r) => r.id}
-          searchable={(r) => `${r.participationCode} ${r.name} ${r.currentCampus} ${r.currentMajors.join(" ")} ${r.mentoringArea.join(" ")}`}
-        />
+        <MentorRoster mentors={mentors} columns={[...mentorColumns, ...deleteColumn<AdminMentor>("MENTOR")]} />
       )}
 
       {tab === "unmatched" && (

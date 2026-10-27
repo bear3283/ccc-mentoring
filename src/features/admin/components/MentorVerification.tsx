@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { admissionYearLabel } from "@/shared/constants/domain";
 import { verificationStatus, type VerificationStatus } from "@/features/matching/lib/mentorStatus";
 import { cn } from "@/shared/lib/cn";
@@ -75,6 +76,9 @@ const RESULT: Record<Action, VerificationStatus> = { verify: "verified", reject:
 export function MentorVerification({ mentors, readOnly }: { mentors: AdminMentor[]; readOnly: boolean }) {
   // 인증을 누르면 새로고침 없이 바로 반영되도록 이 표만 따로 들고 있는다.
   const [all, setAll] = useState(() => toRosterRows(mentors));
+  // 서버에서 명단을 다시 받으면(다른 탭에서 삭제 등) 이 표도 맞춘다.
+  useEffect(() => setAll(toRosterRows(mentors)), [mentors]);
+  const router = useRouter();
   const campuses = useMemo(() => {
     const count = new Map<string, { total: number; pending: number }>();
     for (const r of all) {
@@ -117,6 +121,8 @@ export function MentorVerification({ mentors, readOnly }: { mentors: AdminMentor
       }
       const set = new Set(ids);
       setAll((prev) => prev.map((r) => (set.has(r.id) ? { ...r, status: RESULT[action] } : r)));
+      // "멘토 인증" 탭과 위쪽 숫자판이 같은 명단을 쓴다. 서버에서 다시 받아 함께 맞춘다.
+      router.refresh();
     } catch {
       setError("연결에 실패했어요.");
     } finally {
