@@ -7,6 +7,7 @@ import { verificationStatus, type VerificationStatus } from "@/features/matching
 import { cn } from "@/shared/lib/cn";
 import { DataTable, type TableColumn } from "./DataTable";
 import { downloadCsv } from "../lib/csv";
+import { createdAtColumn, NEWEST_FIRST } from "../lib/time";
 import type { AdminMentor } from "./AdminDashboard";
 
 /** 멘토 인증 표의 한 줄. 캠퍼스 리더에게 넘길 정보만 담는다. */
@@ -17,6 +18,8 @@ export interface RosterRow {
   admission: string;
   contact: string;
   status: VerificationStatus;
+  /** 등록 시각(ISO). 운영자 표에서만 쓰고 캠퍼스 리더용 CSV 에는 싣지 않는다. */
+  createdAt?: string;
 }
 
 /** CSV·복사로 캠퍼스 리더에게 넘기는 열. 인증 상태는 운영자만 보면 된다. */
@@ -41,6 +44,7 @@ export function toRosterRows(mentors: AdminMentor[]): RosterRow[] {
       admission: m.admissionYear ? admissionYearLabel(m.admissionYear) : "-",
       contact: m.contact,
       status: verificationStatus(m),
+      createdAt: m.createdAt,
     }))
     .sort((a, b) => a.campus.localeCompare(b.campus, "ko") || a.name.localeCompare(b.name, "ko"));
 }
@@ -157,6 +161,7 @@ export function MentorVerification({ mentors, readOnly }: { mentors: AdminMentor
         </span>
       ),
     },
+    createdAtColumn<RosterRow>(),
     ...rosterColumns,
     ...(readOnly
       ? []
@@ -298,6 +303,7 @@ export function MentorVerification({ mentors, readOnly }: { mentors: AdminMentor
         rows={rows}
         columns={columns}
         rowKey={(r) => r.id}
+        initialSort={NEWEST_FIRST}
         searchable={(r) => `${r.campus} ${r.name} ${r.contact}`}
         emptyMessage={
           status === "pending"

@@ -21,9 +21,11 @@ interface DataTableProps<T> {
   /** 검색어가 걸리는 대상 문자열 */
   searchable?: (row: T) => string;
   emptyMessage?: string;
+  /** 처음 열었을 때의 정렬. 예: 등록 시각 최신순. 헤더를 누르면 바뀐다. */
+  initialSort?: SortState;
 }
 
-type SortState = { key: string; direction: "asc" | "desc" } | null;
+export type SortState = { key: string; direction: "asc" | "desc" } | null;
 
 /**
  * 엑셀에 가까운 밀도의 표.
@@ -36,8 +38,9 @@ export function DataTable<T>({
   rowKey,
   searchable,
   emptyMessage = "데이터가 없습니다.",
+  initialSort = null,
 }: DataTableProps<T>) {
-  const [sort, setSort] = useState<SortState>(null);
+  const [sort, setSort] = useState<SortState>(initialSort);
   const [query, setQuery] = useState("");
 
   const visibleRows = useMemo(() => {

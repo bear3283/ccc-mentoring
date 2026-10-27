@@ -40,6 +40,7 @@ interface UserRow {
   mentoring_applied: boolean;
   /** 도착 시간 컬럼을 추가하기 전의 DB에는 없다. */
   event_arrival?: string | null;
+  created_at?: string;
 }
 
 interface MenteeRow {
@@ -79,6 +80,7 @@ function toMentee(user: UserRow, profile: MenteeRow | null): Mentee {
     isNewFriend: user.is_new_friend ?? false,
     mentoringApplied: user.mentoring_applied ?? false,
     eventArrival: asEventArrival(user.event_arrival),
+    createdAt: user.created_at,
     referrer: user.referrer ?? undefined,
     photoUrl: user.photo_url ?? undefined,
     targetCampus: (profile?.target_campus ?? []) as Campus[],
@@ -102,6 +104,7 @@ function toMentor(user: UserRow, profile: MentorRow | null): Mentor {
     isNewFriend: user.is_new_friend ?? false,
     mentoringApplied: user.mentoring_applied ?? false,
     eventArrival: asEventArrival(user.event_arrival),
+    createdAt: user.created_at,
     referrer: user.referrer ?? undefined,
     photoUrl: user.photo_url ?? undefined,
     currentCampus: profile?.current_campus as Campus,

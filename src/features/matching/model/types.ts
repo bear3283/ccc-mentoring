@@ -29,6 +29,8 @@ export interface Mentee {
   mentoringApplied?: boolean;
   /** 채플 당일 도착 시간. 매칭 점수에는 쓰지 않는다. */
   eventArrival?: EventArrival;
+  /** 등록한 시각(ISO). 운영자 표에서 시간순으로 볼 때 쓴다. */
+  createdAt?: string;
   /** 프로필 사진 (data URL). 없으면 페르소나 이모지로 대체한다. */
   photoUrl?: string;
   /** 1~3지망. 인덱스 0이 1지망. */
@@ -60,6 +62,8 @@ export interface Mentor {
   mentoringApplied?: boolean;
   /** 채플 당일 도착 시간. 매칭 점수에는 쓰지 않는다. */
   eventArrival?: EventArrival;
+  /** 등록한 시각(ISO). 운영자 표에서 시간순으로 볼 때 쓴다. */
+  createdAt?: string;
   photoUrl?: string;
   currentCampus: Campus;
   /** 입학 연도. 화면에는 뒤 두 자리를 따 '24학번'으로 보여준다. */

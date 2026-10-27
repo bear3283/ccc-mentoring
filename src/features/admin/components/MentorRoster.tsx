@@ -5,6 +5,7 @@ import { verificationStatus } from "@/features/matching/lib/mentorStatus";
 import { cn } from "@/shared/lib/cn";
 import { DataTable, type TableColumn } from "./DataTable";
 import { downloadCsv } from "../lib/csv";
+import { NEWEST_FIRST } from "../lib/time";
 import { rosterColumns, toRosterRows } from "./MentorVerification";
 import type { AdminMentor } from "./AdminDashboard";
 
@@ -106,6 +107,7 @@ export function MentorRoster({
           `${r.participationCode} ${r.name} ${r.currentCampus} ${r.currentMajors.join(" ")} ${r.mentoringArea.join(" ")}`
         }
         emptyMessage={scope === "verified" ? "아직 인증된 선배가 없습니다." : "등록한 대학생이 없습니다."}
+        initialSort={NEWEST_FIRST}
       />
     </>
   );

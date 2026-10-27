@@ -7,6 +7,7 @@ import { downloadCsv, type CsvColumn } from "../lib/csv";
 import type { FallbackReason, Mentee, Mentor } from "@/features/matching/model/types";
 import type { CampusDemandRow } from "../lib/campusDemand";
 import type { MentorNoticeRow } from "@/features/signup/lib/repository";
+import { createdAtColumn, NEWEST_FIRST } from "../lib/time";
 import { MentorRoster } from "./MentorRoster";
 import { MentorVerification, rosterColumns, toRosterRows } from "./MentorVerification";
 import { verificationStatus } from "@/features/matching/lib/mentorStatus";
@@ -52,6 +53,7 @@ const FALLBACK_LABEL: Record<FallbackReason, string> = {
 };
 
 const menteeColumns: TableColumn<Mentee>[] = [
+  createdAtColumn<Mentee>(),
   { key: "code", header: "참여코드", value: (r) => r.participationCode, width: "110px" },
   { key: "name", header: "이름", value: (r) => r.name, width: "80px" },
   // 운영자가 가장 자주 찾는 값이라 이름 바로 뒤에 둔다.
@@ -94,6 +96,7 @@ function arrivalLabel(arrival: Mentee["eventArrival"]): string {
 }
 
 const mentorColumns: TableColumn<AdminMentor>[] = [
+  createdAtColumn<AdminMentor>(),
   { key: "code", header: "참여코드", value: (r) => r.participationCode, width: "110px" },
   { key: "name", header: "이름", value: (r) => r.name, width: "80px" },
   { key: "gender", header: "성별", value: (r) => genderLabel(r.gender), align: "center", width: "60px" },
@@ -590,6 +593,7 @@ export function AdminDashboard({
         <DataTable
           rows={mentees}
           columns={[...menteeColumns, ...deleteColumn<Mentee>("MENTEE")]}
+          initialSort={NEWEST_FIRST}
           rowKey={(r) => r.id}
           searchable={(r) => `${r.participationCode} ${r.name} ${r.targetCampus.join(" ")} ${r.targetMajors.join(" ")} ${r.desiredAreas.join(" ")}`}
         />
