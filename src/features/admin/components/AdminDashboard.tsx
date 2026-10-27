@@ -318,6 +318,71 @@ export function AdminDashboard({
   const pendingMentors = mentors.filter((m) => m.mentoringApplied && m.currentCampus && !m.verifiedAt).length;
   const [tab, setTab] = useState<Tab>("matching");
 
+  /**
+   * 지우려고 고른 사람. 브라우저 확인 창 대신 표 위의 막대로 한 번 더 묻는다.
+   * 지우면 프로필과 매칭까지 함께 사라지고 되돌릴 수 없다.
+   */
+  const [pendingDelete, setPendingDelete] = useState<{
+    id: string;
+    name: string;
+    code: string;
+    role: "MENTEE" | "MENTOR";
+  }>();
+  const [deleting, setDeleting] = useState(false);
+  const [deleteMessage, setDeleteMessage] = useState<string>();
+
+  const confirmDelete = async () => {
+    if (!pendingDelete || deleting) return;
+    setDeleting(true);
+    try {
+      const res = await fetch("/api/admin/delete-user", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: pendingDelete.id }),
+      });
+      const body = (await res.json()) as { error?: string };
+      if (!res.ok) {
+        setDeleteMessage(body.error ?? "지우지 못했어요.");
+        return;
+      }
+      setDeleteMessage(`${pendingDelete.name}(${pendingDelete.code})을 지웠어요.`);
+      setPendingDelete(undefined);
+      // 표·통계·매칭 탭이 모두 같은 명단을 쓰므로 서버에서 다시 받아온다.
+      router.refresh();
+    } catch {
+      setDeleteMessage("연결에 실패했어요.");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  /** 운영자만 보는 삭제 열. 보기 전용 계정에는 붙이지 않는다. */
+  const deleteColumn = <T extends { id: string; name: string; participationCode: string }>(
+    role: "MENTEE" | "MENTOR",
+  ): TableColumn<T>[] =>
+    readOnly
+      ? []
+      : [
+          {
+            key: "delete",
+            header: "",
+            value: () => "",
+            width: "70px",
+            render: (r) => (
+              <button
+                type="button"
+                onClick={() => {
+                  setDeleteMessage(undefined);
+                  setPendingDelete({ id: r.id, name: r.name, code: r.participationCode, role });
+                }}
+                className="text-[12px] font-semibold text-red-500 underline"
+              >
+                삭제
+              </button>
+            ),
+          },
+        ];
+
   const [running, setRunning] = useState(false);
   const [runMessage, setRunMessage] = useState<string>();
 
@@ -490,10 +555,42 @@ export function AdminDashboard({
         </div>
       </header>
 
+      {(tab === "mentee" || tab === "mentor") && (pendingDelete || deleteMessage) && (
+        <div className="mb-3 flex max-w-[760px] shrink-0 flex-wrap items-center gap-2 rounded-lg bg-red-500/10 px-4 py-2.5 text-[13px] text-red-700">
+          {pendingDelete ? (
+            <>
+              <span className="font-semibold">
+                {pendingDelete.name}({pendingDelete.role === "MENTOR" ? "대학생" : "고3"}, {pendingDelete.code})을
+                지울까요?
+              </span>
+              <span>
+                {pendingDelete.role === "MENTOR"
+                  ? "이 선배를 고른 후배의 연결도 함께 지워져요."
+                  : "이 후배의 추천·연결 기록도 함께 지워져요."}{" "}
+                되돌릴 수 없어요.
+              </span>
+              <button
+                type="button"
+                onClick={() => void confirmDelete()}
+                disabled={deleting}
+                className="h-7 rounded-md bg-red-600 px-3 font-bold text-white disabled:opacity-40"
+              >
+                {deleting ? "지우는 중…" : "삭제"}
+              </button>
+              <button type="button" onClick={() => setPendingDelete(undefined)} className="h-7 px-2 text-gray-600">
+                취소
+              </button>
+            </>
+          ) : (
+            <span>{deleteMessage}</span>
+          )}
+        </div>
+      )}
+
       {tab === "mentee" && (
         <DataTable
           rows={mentees}
-          columns={menteeColumns}
+          columns={[...menteeColumns, ...deleteColumn<Mentee>("MENTEE")]}
           rowKey={(r) => r.id}
           searchable={(r) => `${r.participationCode} ${r.name} ${r.targetCampus.join(" ")} ${r.targetMajors.join(" ")} ${r.desiredAreas.join(" ")}`}
         />
@@ -502,7 +599,7 @@ export function AdminDashboard({
       {tab === "mentor" && (
         <DataTable
           rows={mentors}
-          columns={mentorColumns}
+          columns={[...mentorColumns, ...deleteColumn<AdminMentor>("MENTOR")]}
           rowKey={(r) => r.id}
           searchable={(r) => `${r.participationCode} ${r.name} ${r.currentCampus} ${r.currentMajors.join(" ")} ${r.mentoringArea.join(" ")}`}
         />

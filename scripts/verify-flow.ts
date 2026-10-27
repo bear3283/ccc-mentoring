@@ -624,6 +624,24 @@ async function main() {
     console.log("  - 보기 전용 점검 건너뜀 (VIEWER_PASSWORD 없음)");
   }
 
+  console.log("\n[8] 운영자 명단 삭제");
+  // 지운 사람은 이름·연락처 조회에서도 사라져야 한다. 프로필·매칭은 DB 가 함께 지운다.
+  const victimCode = newFriend.json.participationCode as string | undefined;
+  const victim = (await (
+    await fetch(`${dbUrl}/rest/v1/users?select=id&participation_code=eq.${victimCode}`, { headers: dbHeaders })
+  ).json()) as { id: string }[];
+  const victimId = victim[0]?.id;
+  const anonDelete = await post("/api/admin/delete-user", { userId: victimId });
+  check("로그인 없이 삭제 거부", anonDelete.status === 401, `HTTP ${anonDelete.status}`);
+  const delLogin = await post("/api/admin/login", { password: loadEnv().ADMIN_PASSWORD });
+  const delCookie = delLogin.res.headers.get("set-cookie")?.split(";")[0];
+  const del = await post("/api/admin/delete-user", { userId: victimId }, delCookie);
+  check("운영자가 명단에서 삭제", del.status === 200, `HTTP ${del.status} ${String(del.json.error ?? "")}`);
+  const afterDelete = await post("/api/lookup", { name: "새친구검증", contact: `${TEST_PREFIX}0012` });
+  check("지운 사람은 조회되지 않음", afterDelete.json.found !== true, JSON.stringify(afterDelete.json));
+  const badDelete = await post("/api/admin/delete-user", { userId: "not-a-uuid" }, delCookie);
+  check("형식이 틀린 id로 삭제 거부", badDelete.status === 400, `HTTP ${badDelete.status}`);
+
   await cleanup();
 
   console.log("\n" + "=".repeat(56));

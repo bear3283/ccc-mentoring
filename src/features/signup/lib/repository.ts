@@ -1085,6 +1085,31 @@ export async function listUnmatched(): Promise<UnmatchedReason[]> {
 }
 
 /**
+ * 운영자가 등록 한 건을 지운다. 되돌릴 수 없다.
+ *
+ * 프로필(mentee_profiles·mentor_profiles)과 그 사람이 낀 매칭(matchings)은 DB 외래키의
+ * on delete cascade 로 함께 지워진다. 선배를 지우면 그 선배를 고른 후배는 다시 선배를
+ * 골라야 하고, 후배를 지우면 선배의 자리가 하나 빈다.
+ */
+export async function deleteUser(userId: string): Promise<{ ok: boolean; code?: string }> {
+  const supabase = getSupabase();
+  if (!supabase) return { ok: false };
+
+  const { data, error } = await supabase
+    .from("users")
+    .delete()
+    .eq("id", userId)
+    .select("participation_code");
+
+  if (error) {
+    logDbError("등록 삭제", error);
+    return { ok: false };
+  }
+  // 이미 지워진 행이면 빈 배열이다. 화면은 새로고침하면 맞춰진다.
+  return { ok: true, code: data?.[0]?.participation_code as string | undefined };
+}
+
+/**
  * 운영자가 선배들의 캠퍼스를 인증하거나 인증을 거둔다.
  *
  * 캠퍼스 리더에게 명단을 확인받은 뒤 한 캠퍼스를 한꺼번에 인증하는 일이 많아 여러 명을 받는다.
