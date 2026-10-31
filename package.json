@@ -12,6 +12,7 @@
     "reset-data": "tsx scripts/reset-data.ts",
     "check:db": "tsx scripts/check-db.ts",
     "verify:flow": "tsx scripts/verify-flow.ts",
+    "verify:scale": "tsx scripts/verify-scale.ts",
     "purge": "tsx scripts/purge-expired.ts",
     "seed:demo": "tsx scripts/seed-demo.ts",
     "seed:seoul": "tsx scripts/seed-seoul-mentors.ts",
@@ -36,5 +37,8 @@
     "tailwindcss": "^4.0.0",
     "tsx": "^4.23.13",
     "typescript": "^5.7.2"
+  },
+  "overrides": {
+    "postcss": "^8.5.32"
   }
 }

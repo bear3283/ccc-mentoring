@@ -93,3 +93,11 @@ export function passwordMatches(input: string, expected: string): boolean {
 }
 
 export const SESSION_MAX_AGE_SECONDS = SESSION_MS / 1000;
+
+/**
+ * 로그인 후 돌아갈 주소. 운영자 화면 안쪽만 허용한다.
+ * 주소의 next 를 그대로 따라가면 로그인 링크로 외부 사이트에 보낼 수 있다.
+ */
+export function safeAdminPath(next: string | null): string {
+  return next && /^\/admin(?:[/?#]|$)/.test(next) ? next : "/admin";
+}

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import {
+  fetchMentorPhotos,
   findMenteeByCode,
   findSettledMatch,
   listAvailableMentors,
@@ -27,7 +28,7 @@ import { clientKey, rateLimit, tooManyRequestsMessage } from "@/shared/lib/secur
 const TOP_N = 3;
 
 /** 코드를 바꿔가며 남의 매칭 결과를 훑는 것을 막는다. */
-const MAX_REQUESTS = 200;
+const MAX_REQUESTS = 1000;
 const WINDOW_MS = 10 * 60 * 1000;
 
 export async function POST(request: Request) {
@@ -112,6 +113,9 @@ export async function POST(request: Request) {
     })),
   );
 
+  // 목록에는 사진이 없다. 보여줄 선배의 사진만 읽는다.
+  const photos = await fetchMentorPhotos(results.map((r) => r.mentor.id));
+
   return NextResponse.json({
     diagnosis,
     // 이미 매칭을 마친 멘티에게는 그 한 명만 보여준다.
@@ -138,7 +142,7 @@ export async function POST(request: Request) {
         mentoringArea: r.mentor.mentoringArea,
         personaType: r.mentor.personaType,
         mbti: r.mentor.mbti,
-        photoUrl: r.mentor.photoUrl,
+        photoUrl: photos.get(r.mentor.id) ?? r.mentor.photoUrl,
         // 연락처는 가린 값만 보낸다.
         // 전체 번호는 멘티가 '매칭하기'를 눌러 요청한 뒤에 공개한다.
         maskedContact: maskContact(r.mentor.contact),

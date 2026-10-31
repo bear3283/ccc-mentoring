@@ -34,13 +34,49 @@ interface UserRow {
   mbti: string | null;
   high_school: string | null;
   referrer: string | null;
-  photo_url: string | null;
+  /** 목록 조회에서는 읽지 않는다. USER_COLUMNS 참고. */
+  photo_url?: string | null;
   church: string | null;
   is_new_friend: boolean;
   mentoring_applied: boolean;
   /** 도착 시간 컬럼을 추가하기 전의 DB에는 없다. */
   event_arrival?: string | null;
   created_at?: string;
+}
+
+/**
+ * photo_url 을 뺀 사용자 컬럼.
+ *
+ * 사진은 행마다 수십 KB 라 전원을 읽으면 조회 한 번에 수십 MB 가 된다.
+ * 필요한 사람의 사진만 fetchMentorPhotos 로 따로 읽는다.
+ */
+const USER_COLUMNS =
+  "id, role, participation_code, name, gender, contact, persona_type, mbti, high_school, referrer, church, is_new_friend, mentoring_applied, event_arrival, created_at";
+
+const PAGE_SIZE = 1000;
+
+/**
+ * 조건에 맞는 행을 끝까지 나눠 읽는다. 조회가 실패하면 null.
+ *
+ * Supabase 는 한 번에 돌려주는 행 수를 제한하고(기본 1,000행), 넘치면 알리지 않고 자른다.
+ * 페이지가 어긋나지 않도록 page 는 유일한 값으로 끝나는 정렬을 써야 한다.
+ * 빈 페이지가 나올 때까지 읽는 이유: 서버 제한이 PAGE_SIZE 보다 작아도 멈추지 않게 한다.
+ */
+async function fetchAllRows(
+  where: string,
+  page: (from: number, to: number) => PromiseLike<{ data: unknown; error: DbError | null }>,
+): Promise<unknown[] | null> {
+  const rows: unknown[] = [];
+  for (;;) {
+    const { data, error } = await page(rows.length, rows.length + PAGE_SIZE - 1);
+    if (error) {
+      logDbError(where, error);
+      return null;
+    }
+    const batch = (data ?? []) as unknown[];
+    if (batch.length === 0) return rows;
+    rows.push(...batch);
+  }
 }
 
 interface MenteeRow {
@@ -256,7 +292,8 @@ export async function saveSignup(
       mbti: draft.mbti ?? null,
       high_school: draft.highSchool ?? null,
       referrer: draft.referrer ?? null,
-      photo_url: draft.photoUrl ?? null,
+      // 사진은 2단계에서 받고 거기서 검사한다. 화면을 거치지 않은 요청이 보내도 저장하지 않는다.
+      photo_url: null,
       consented_at: draft.consentedAt,
       consent_version: draft.consentVersion,
     })
@@ -306,19 +343,21 @@ export async function loadAssignmentState(): Promise<AssignmentState> {
   const supabase = getSupabase();
   if (!supabase) return state;
 
-  const { data, error } = await supabase
-    .from("matchings")
-    .select("mentee_id, mentor_id")
-    .in("status", ["REQUESTED", "CONFIRMED"]);
-
   // 조회가 실패하면 모든 멘토가 빈자리로 보인다. 정원은 DB 트리거가 지키지만
-  // 후보 목록이 틀어지므로 드러나야 한다.
-  if (error) logDbError("배정 상태 조회", error);
+  // 후보 목록이 틀어지므로 드러나야 한다. 실패 기록은 fetchAllRows 가 남긴다.
+  const rows = await fetchAllRows("배정 상태 조회", (from, to) =>
+    supabase
+      .from("matchings")
+      .select("mentee_id, mentor_id")
+      .in("status", ["REQUESTED", "CONFIRMED"])
+      .order("id")
+      .range(from, to),
+  );
 
-  for (const row of data ?? []) {
-    const mentorId = row.mentor_id as string;
+  for (const row of (rows ?? []) as { mentee_id: string; mentor_id: string }[]) {
+    const mentorId = row.mentor_id;
     state.activeByMentor.set(mentorId, (state.activeByMentor.get(mentorId) ?? 0) + 1);
-    state.settledMentees.add(row.mentee_id as string);
+    state.settledMentees.add(row.mentee_id);
   }
   return state;
 }
@@ -469,10 +508,21 @@ export async function findSettledMatch(
 
   if (!data) return undefined;
 
-  const mentor = (await listMentors()).find((m) => m.id === data.mentor_id);
-  if (!mentor) return undefined;
+  const { data: row, error } = await supabase
+    .from("users")
+    .select(`${USER_COLUMNS}, mentor_profiles(*)`)
+    .eq("id", data.mentor_id)
+    .maybeSingle();
 
-  return { mentor, score: data.score as number, breakdown: data.breakdown };
+  if (error) logDbError("확정된 멘토 조회", error);
+  if (!row) return undefined;
+
+  const { mentor_profiles, ...user } = row as unknown as UserRow & { mentor_profiles: MentorRow | null };
+  return {
+    mentor: toMentor(user, mentor_profiles),
+    score: data.score as number,
+    breakdown: data.breakdown,
+  };
 }
 
 /** 멘토가 자기 후배를 확인할 때 돌려주는 값. */
@@ -587,19 +637,40 @@ export async function listMentors(): Promise<Mentor[]> {
   const supabase = getSupabase();
   if (!supabase) return MOCK_MENTORS;
 
-  const { data, error } = await supabase
-    .from("users")
-    // !inner 로 두면 멘토링을 신청하지 않은 등록자가 표에서 통째로 사라진다.
-    .select("*, mentor_profiles(*)")
-    .eq("role", "MENTOR");
+  const rows = await fetchAllRows("멘토 목록 조회", (from, to) =>
+    supabase
+      .from("users")
+      // !inner 로 두면 멘토링을 신청하지 않은 등록자가 표에서 통째로 사라진다.
+      .select(`${USER_COLUMNS}, mentor_profiles(*)`)
+      .eq("role", "MENTOR")
+      .order("created_at", { ascending: false })
+      .order("id")
+      .range(from, to),
+  );
 
-  if (error) logDbError("멘토 목록 조회", error);
-  if (error || !data) return [];
-
-  return data.map((row) => {
+  return (rows ?? []).map((row) => {
     const { mentor_profiles, ...user } = row as UserRow & { mentor_profiles: MentorRow | null };
     return toMentor(user, mentor_profiles);
   });
+}
+
+/** 추천된 선배의 사진만 읽는다. 사진이 없는 선배는 결과에 없다. */
+export async function fetchMentorPhotos(mentorIds: string[]): Promise<Map<string, string>> {
+  const photos = new Map<string, string>();
+  const supabase = getSupabase();
+  if (!supabase || mentorIds.length === 0) return photos;
+
+  const { data, error } = await supabase
+    .from("users")
+    .select("id, photo_url")
+    .in("id", mentorIds)
+    .not("photo_url", "is", null);
+
+  // 사진을 못 읽어도 추천은 보여줄 수 있다. 이니셜로 대신 표시된다.
+  if (error) logDbError("추천 선배 사진 조회", error);
+
+  for (const row of data ?? []) photos.set(row.id as string, row.photo_url as string);
+  return photos;
 }
 
 /** 참여코드로 멘티 한 명을 찾는다. 매칭 결과 화면에서 쓴다. */
@@ -618,7 +689,7 @@ export async function findMenteeByCode(code: string): Promise<Mentee | null> {
      * 그러면 등록이 안 된 줄 알고 다시 등록한다 —
      * 멘토링을 신청하지 않았다는 안내(409)를 하려면 사람은 찾아야 한다.
      */
-    .select("*, mentee_profiles(*)")
+    .select(`${USER_COLUMNS}, mentee_profiles(*)`)
     .eq("participation_code", code)
     .eq("role", "MENTEE")
     .maybeSingle();
@@ -627,7 +698,7 @@ export async function findMenteeByCode(code: string): Promise<Mentee | null> {
   if (error) logDbError("참여코드로 멘티 조회", error);
   if (error || !data) return null;
 
-  const { mentee_profiles, ...user } = data as UserRow & {
+  const { mentee_profiles, ...user } = data as unknown as UserRow & {
     mentee_profiles: MenteeRow | null;
   };
   return toMentee(user, mentee_profiles);
@@ -763,15 +834,17 @@ export async function runMatchingForAll(): Promise<MatchRunResult> {
     noCandidates: 0,
   };
 
+  // 배정 상태는 한 번만 읽는다. 여기서 만드는 것은 추천뿐이라 자리를 차지하지 않고,
+  // 도중에 누가 확정해 자리가 차도 요청 단계의 정원 트리거가 막는다.
+  // 멘티마다 다시 읽으면 2,000명일 때 이 조회만 수천 번이 되어 시간 한도를 넘을 수 있다.
+  const state = await loadAssignmentState();
+
   for (const mentee of applicants) {
-    const settledMatch = await findSettledMatch(mentee.id);
-    if (settledMatch) {
+    if (state.settledMentees.has(mentee.id)) {
       result.settled++;
       continue;
     }
 
-    // 후보는 매번 다시 추린다. 앞선 멘티가 확정해 정원이 차면 그 멘토는 빠져야 한다.
-    const state = await loadAssignmentState();
     const available = mentors.filter((m) => isMatchableMentor(m) && hasOpenSeat(m, state));
 
     const recommended = recommendMentors(mentee, available, MATCH_TOP_N);
@@ -801,17 +874,18 @@ export async function listMentees(): Promise<Mentee[]> {
   const supabase = getSupabase();
   if (!supabase) return MOCK_MENTEES;
 
-  const { data, error } = await supabase
-    .from("users")
-    // 등록만 한 멘티도 운영자 표에는 보여야 한다.
-    .select("*, mentee_profiles(*)")
-    .eq("role", "MENTEE")
-    .order("created_at", { ascending: false });
+  const rows = await fetchAllRows("멘티 목록 조회", (from, to) =>
+    supabase
+      .from("users")
+      // 등록만 한 멘티도 운영자 표에는 보여야 한다.
+      .select(`${USER_COLUMNS}, mentee_profiles(*)`)
+      .eq("role", "MENTEE")
+      .order("created_at", { ascending: false })
+      .order("id")
+      .range(from, to),
+  );
 
-  if (error) logDbError("멘티 목록 조회", error);
-  if (error || !data) return [];
-
-  return data.map((row) => {
+  return (rows ?? []).map((row) => {
     const { mentee_profiles, ...user } = row as UserRow & { mentee_profiles: MenteeRow | null };
     return toMentee(user, mentee_profiles);
   });
@@ -843,19 +917,20 @@ export async function listMatchings(): Promise<MatchingRow[]> {
   const supabase = getSupabase();
   if (!supabase) return [];
 
-  const { data, error } = await supabase
-    .from("matchings")
-    .select(
-      `score, rank, status, breakdown,
-       mentee:mentee_id (participation_code, name, mentee_profiles(target_campus, target_majors)),
-       mentor:mentor_id (participation_code, name, contact, mentor_profiles(current_campus, current_majors))`,
-    )
-    .order("rank", { ascending: true });
+  const rows = await fetchAllRows("매칭 목록 조회", (from, to) =>
+    supabase
+      .from("matchings")
+      .select(
+        `score, rank, status, breakdown,
+         mentee:mentee_id (participation_code, name, mentee_profiles(target_campus, target_majors)),
+         mentor:mentor_id (participation_code, name, contact, mentor_profiles(current_campus, current_majors))`,
+      )
+      .order("rank", { ascending: true })
+      .order("id")
+      .range(from, to),
+  );
 
-  if (error) logDbError("매칭 목록 조회", error);
-  if (error || !data) return [];
-
-  return (data as unknown[]).map((raw) => {
+  return (rows ?? []).map((raw) => {
     const row = raw as {
       score: number;
       rank: number;
@@ -1045,10 +1120,10 @@ export async function listUnmatched(): Promise<UnmatchedReason[]> {
     listMentees(),
     listMentors(),
     loadAssignmentState(),
-    supabase.from("matchings").select("mentee_id, mentor_id"),
+    fetchAllRows("미매칭 계산 - 매칭 조회", (from, to) =>
+      supabase.from("matchings").select("mentee_id, mentor_id").order("id").range(from, to),
+    ),
   ]);
-
-  if (matchings.error) logDbError("미매칭 계산 - 매칭 조회", matchings.error);
 
   // 정원이 다 찬 멘토는 이 멘티가 만날 수 없다.
   // 전체 수를 세면 "캠퍼스에 3명 있는데 왜 매칭이 안 되지"로 오해한다.
@@ -1056,9 +1131,9 @@ export async function listUnmatched(): Promise<UnmatchedReason[]> {
   const campusOf = new Map(mentors.map((m) => [m.id, m.currentCampus as string]));
 
   const suggestedCampuses = new Map<string, string[]>();
-  for (const row of matchings.data ?? []) {
-    const menteeId = row.mentee_id as string;
-    const campus = campusOf.get(row.mentor_id as string);
+  for (const row of (matchings ?? []) as { mentee_id: string; mentor_id: string }[]) {
+    const menteeId = row.mentee_id;
+    const campus = campusOf.get(row.mentor_id);
     if (!campus) continue;
     suggestedCampuses.set(menteeId, [...(suggestedCampuses.get(menteeId) ?? []), campus]);
   }
@@ -1181,20 +1256,21 @@ export async function listMentorNotices(): Promise<MentorNoticeRow[]> {
   const supabase = getSupabase();
   if (!supabase) return [];
 
-  const { data, error } = await supabase
-    .from("matchings")
-    .select(
-      `id, created_at, mentor_notified_at, mentor_notified_via,
-       mentee:mentee_id (name, event_arrival),
-       mentor:mentor_id (participation_code, name, contact)`,
-    )
-    .in("status", ["REQUESTED", "CONFIRMED"])
-    .order("created_at", { ascending: true });
+  const data = await fetchAllRows("선배 알림 목록 조회", (from, to) =>
+    supabase
+      .from("matchings")
+      .select(
+        `id, created_at, mentor_notified_at, mentor_notified_via,
+         mentee:mentee_id (name, event_arrival),
+         mentor:mentor_id (participation_code, name, contact)`,
+      )
+      .in("status", ["REQUESTED", "CONFIRMED"])
+      .order("created_at", { ascending: true })
+      .order("id")
+      .range(from, to),
+  );
 
-  if (error) logDbError("선배 알림 목록 조회", error);
-  if (error || !data) return [];
-
-  const rows = (data as unknown[]).flatMap((raw): MentorNoticeRow[] => {
+  const rows = (data ?? []).flatMap((raw): MentorNoticeRow[] => {
     const row = raw as {
       id: string;
       mentor_notified_at: string | null;

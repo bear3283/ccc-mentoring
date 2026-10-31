@@ -112,6 +112,8 @@ export function generateMentors(count = 50, seed = 20260827): Mentor[] {
       // random() 을 더 부르면 뒤 멘토들의 값이 전부 바뀌어 검증 기준이 흔들린다.
       // 정원은 순번으로 돌려 1~3명을 고르게 섞는다.
       capacity: MENTOR_CAPACITY_OPTIONS[i % MENTOR_CAPACITY_OPTIONS.length],
+      // 인증된 선배만 추천 후보가 된다. 없으면 더미 화면과 검증에서 자리가 0으로 세어진다.
+      verifiedAt: "2026-10-01T00:00:00.000Z",
     };
   });
 }

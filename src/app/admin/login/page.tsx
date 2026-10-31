@@ -2,6 +2,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
+import { safeAdminPath } from "@/shared/lib/security/adminSession";
 
 function LoginForm() {
   const router = useRouter();
@@ -27,7 +28,7 @@ function LoginForm() {
 
       if (res.ok) {
         // replace 로 보내야 뒤로가기로 로그인 화면에 다시 걸리지 않는다.
-        router.replace(params.get("next") ?? "/admin");
+        router.replace(safeAdminPath(params.get("next")));
         router.refresh();
         return;
       }

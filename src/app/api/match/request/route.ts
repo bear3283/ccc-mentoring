@@ -16,8 +16,8 @@ import { clientKey, rateLimit, tooManyRequestsMessage } from "@/shared/lib/secur
  *  - 요청 기록이 남아 운영자가 누가 누구에게 연락했는지 볼 수 있다
  */
 
-/** 한 멘티가 받는 상대는 3명뿐이므로 넉넉해도 이 정도면 충분하다. */
-const MAX_REQUESTS = 60;
+/** 한 사람이 아니라 한 네트워크(같은 Wi-Fi) 기준이다. rateLimit.ts 참고. */
+const MAX_REQUESTS = 300;
 const WINDOW_MS = 10 * 60 * 1000;
 
 export async function POST(request: Request) {

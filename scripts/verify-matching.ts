@@ -454,6 +454,14 @@ if (soleMentor) {
     new Set(),
   );
   check("한 자리라도 남으면 포함하지 않음", !oneLeft.some(isSole));
+
+  const unverified = campusDemand(
+    MOCK_MENTEES,
+    MOCK_MENTORS.map((m) => (m.id === soleMentor.id ? { ...m, verifiedAt: undefined } : m)),
+    noAssignments,
+    new Set(),
+  );
+  check("인증 전 선배는 자리로 세지 않음", unverified.find(isSole)?.mentors === 0);
 }
 check(
   "선배를 고른 멘티의 지망은 수요에서 빠짐",

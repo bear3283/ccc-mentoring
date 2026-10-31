@@ -21,6 +21,9 @@ function isGender(value: unknown): boolean {
 /** 사진은 data URL로 들어온다. 지나치게 크면 저장소와 응답이 함께 무거워진다. */
 const MAX_PHOTO_BYTES = 400_000;
 
+/** 외부 주소를 받으면 사진을 여는 상대의 IP 가 그 서버에 남는다. 이미지 data URL 만 받는다. */
+const PHOTO_DATA_URL = /^data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+/]+={0,2}$/;
+
 /** 1단계 — 행사 등록. 행사에 오는 모든 사람이 통과해야 한다. */
 export function validateRegistration(
   role: "MENTEE" | "MENTOR",
@@ -106,8 +109,13 @@ export function validateMentoring(
     }
   }
 
-  if (draft.photoUrl && draft.photoUrl.length > MAX_PHOTO_BYTES) {
-    return "사진 용량이 너무 커요.";
+  if (draft.photoUrl) {
+    if (typeof draft.photoUrl !== "string" || !draft.photoUrl.startsWith("data:image/")) {
+      return "사진을 다시 골라주세요.";
+    }
+    // 정규식보다 먼저 본다. 지나치게 긴 값을 끝까지 훑지 않는다.
+    if (draft.photoUrl.length > MAX_PHOTO_BYTES) return "사진 용량이 너무 커요.";
+    if (!PHOTO_DATA_URL.test(draft.photoUrl)) return "사진을 다시 골라주세요.";
   }
 
   return null;

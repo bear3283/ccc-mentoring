@@ -69,6 +69,9 @@ function mentor(n: number, over: Record<string, unknown> = {}) {
   };
 }
 
+/** 1×1 JPEG 머리 부분. 저장·반환만 확인하므로 실제로 열릴 필요는 없다. */
+const TEST_PHOTO = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQ==";
+
 /**
  * 2단계 — 멘토링 신청 항목. 등록 페이로드 위에 덮어 쓴다.
  * 실제 화면은 등록 때 고른 성별이 담긴 초안을 그대로 보낸다.
@@ -84,6 +87,7 @@ function mentorMentoring(over: Record<string, unknown> = {}) {
     mentoringArea: ["학점관리"],
     currentMajors: ["경영학과"],
     eventArrival: "1830",
+    photoUrl: TEST_PHOTO,
     ...over,
   };
 }
@@ -221,6 +225,19 @@ async function main() {
     badCapacity.status === 400 && String(badCapacity.json.error ?? "").includes("후배 수"),
     String(badCapacity.json.error ?? ""),
   );
+
+  for (const [label, photoUrl] of [
+    ["외부 주소", "https://example.com/a.jpg"],
+    ["SVG", "data:image/svg+xml;base64,PHN2Zz4="],
+    ["너무 큰 사진", `data:image/jpeg;base64,${"A".repeat(400_000)}`],
+  ] as const) {
+    const badPhoto = await post("/api/mentoring", {
+      role: "MENTOR",
+      draft: mentorMentoring({ photoUrl }),
+      participationCode: m1Code,
+    });
+    check(`사진 거부: ${label}`, badPhoto.status === 400, String(badPhoto.json.error ?? `HTTP ${badPhoto.status}`));
+  }
 
   const menteeApply = await post("/api/mentoring", {
     role: "MENTEE",
@@ -410,6 +427,8 @@ async function main() {
     "연락처가 마스킹됨",
     results.every((r) => String(r.mentor.maskedContact).includes("****")),
   );
+  // 목록 조회에서 사진을 뺐으므로 추천된 선배의 사진을 따로 읽어 붙여야 한다.
+  check("추천 선배 사진이 응답에 포함됨", results.some((r) => r.mentor.photoUrl === TEST_PHOTO));
   // 형식이 틀린 것과, 형식은 맞지만 없는 것을 구분해서 응답해야 한다.
   // XXXXXX 는 허용 문자로만 되어 있어 형식상 유효하다 -> 404 가 맞다.
   const malformed = await post("/api/match", { participationCode: "0OIL11" });
