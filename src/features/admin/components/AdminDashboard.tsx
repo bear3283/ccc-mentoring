@@ -8,6 +8,7 @@ import type { FallbackReason, Mentee, Mentor } from "@/features/matching/model/t
 import type { CampusDemandRow } from "../lib/campusDemand";
 import type { MentorNoticeRow } from "@/features/signup/lib/repository";
 import { createdAtColumn, NEWEST_FIRST } from "../lib/time";
+import { MenteeRoster } from "./MenteeRoster";
 import { MentorRoster } from "./MentorRoster";
 import { MentorVerification, rosterColumns, toRosterRows } from "./MentorVerification";
 import { verificationStatus } from "@/features/matching/lib/mentorStatus";
@@ -222,10 +223,11 @@ const matchColumns: TableColumn<MatchRow>[] = [
 ];
 
 const TABS: { key: Tab; label: string }[] = [
-  { key: "mentee", label: "멘티 신청자" },
-  // "멘토 신청자" = 인증을 처리하는 곳(확인 대기·미인증), "멘토 인증" = 인증받은 선배 명단.
+  // 고3·대학생 모두 행사만 등록하고 멘토링은 신청하지 않을 수 있어 명단 탭에서 신청/일반/전체를 나눠 본다.
+  { key: "mentee", label: "고3 명단" },
+  // "멘토 신청자" = 인증을 처리하는 곳(확인 대기·미인증), "대학생 명단" = 신청·인증·일반·전체 명단.
   { key: "campus", label: "멘토 신청자" },
-  { key: "mentor", label: "멘토 인증" },
+  { key: "mentor", label: "대학생 명단" },
   { key: "matching", label: "매칭 결과" },
   { key: "unmatched", label: "미매칭" },
   { key: "notice", label: "선배 알림" },
@@ -325,6 +327,12 @@ export function AdminDashboard({
   // 미인증으로 둔 선배는 이미 결정한 사람이라 대기에서 뺀다.
   const pendingMentors = mentors.filter(
     (m) => m.mentoringApplied && m.currentCampus && verificationStatus(m) === "pending",
+  ).length;
+  // 고3·대학생 모두 "등록"과 "멘토링 신청"이 따로다. 신청자만 매칭 대상이다.
+  const appliedMentees = mentees.filter((m) => m.mentoringApplied).length;
+  const appliedMentors = mentors.filter((m) => m.mentoringApplied).length;
+  const verifiedMentors = mentors.filter(
+    (m) => m.mentoringApplied && verificationStatus(m) === "verified",
   ).length;
   const [tab, setTab] = useState<Tab>("matching");
 
@@ -460,8 +468,8 @@ export function AdminDashboard({
     const asCsvColumns = <T,>(cols: TableColumn<T>[]): CsvColumn<T>[] =>
       cols.map((c) => ({ key: c.key, header: c.header, value: c.value }));
 
-    if (tab === "mentee") downloadCsv("멘티_신청자.csv", mentees, asCsvColumns(menteeColumns));
-    else if (tab === "mentor") downloadCsv("멘토_전체.csv", mentors, asCsvColumns(mentorColumns));
+    if (tab === "mentee") downloadCsv("고3_전체.csv", mentees, asCsvColumns(menteeColumns));
+    else if (tab === "mentor") downloadCsv("대학생_전체.csv", mentors, asCsvColumns(mentorColumns));
     else if (tab === "unmatched") downloadCsv("멘토_모집_필요_캠퍼스.csv", demand, asCsvColumns(demandColumns));
     else if (tab === "check") downloadCsv("점검.csv", issues, asCsvColumns(issueColumns));
     else if (tab === "campus") downloadCsv("멘토명단_전체.csv", toRosterRows(mentors), rosterColumns);
@@ -485,9 +493,14 @@ export function AdminDashboard({
             (따로 한 줄을 차지하면 노트북 화면에서 표가 열 줄 남짓밖에 안 보였다).
           */}
           <dl className="flex flex-1 flex-wrap items-end gap-x-5 gap-y-1">
-            <Stat label="멘티" value={`${mentees.length}명`} />
-            <Stat label="멘토" value={`${mentors.length}명`} />
-            <Stat label="매칭 성사" value={`${mentees.length - unmatched.length}명`} />
+            <Stat label="전체 등록" value={`${mentees.length + mentors.length}명`} />
+            <Stat label="고3" value={`${mentees.length}명`} />
+            <Stat label="멘티 신청" value={`${appliedMentees}명`} />
+            <Stat label="대학생" value={`${mentors.length}명`} />
+            <Stat label="멘토 신청" value={`${appliedMentors}명`} />
+            <Stat label="멘토 인증" value={`${verifiedMentors}명`} />
+            {/* 미매칭은 멘티 신청자 중에서만 센다. 등록만 한 고3을 성사로 세면 안 된다. */}
+            <Stat label="매칭 성사" value={`${appliedMentees - unmatched.length}명`} />
             <Stat label="미매칭" value={`${unmatched.length}명`} emphasis={unmatched.length > 0} />
             <Stat label="추천 조합" value={`${matchRows.length}건`} />
             <Stat label="멘토 인증 대기" value={`${pendingMentors}명`} emphasis={pendingMentors > 0} />
@@ -590,13 +603,7 @@ export function AdminDashboard({
       )}
 
       {tab === "mentee" && (
-        <DataTable
-          rows={mentees}
-          columns={[...menteeColumns, ...deleteColumn<Mentee>("MENTEE")]}
-          initialSort={NEWEST_FIRST}
-          rowKey={(r) => r.id}
-          searchable={(r) => `${r.participationCode} ${r.name} ${r.targetCampus.join(" ")} ${r.targetMajors.join(" ")} ${r.desiredAreas.join(" ")}`}
-        />
+        <MenteeRoster mentees={mentees} columns={[...menteeColumns, ...deleteColumn<Mentee>("MENTEE")]} />
       )}
 
       {tab === "mentor" && (

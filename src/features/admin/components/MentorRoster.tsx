@@ -9,10 +9,22 @@ import { NEWEST_FIRST } from "../lib/time";
 import { rosterColumns, toRosterRows } from "./MentorVerification";
 import type { AdminMentor } from "./AdminDashboard";
 
-type Scope = "verified" | "all";
+/**
+ * applied = 멘토 신청(인증 여부 무관), verified = 그중 인증된 선배,
+ * unapplied = 행사만 등록한 일반 대학생, all = 전체.
+ */
+type Scope = "applied" | "verified" | "unapplied" | "all";
+
+function inScopeOf(m: AdminMentor, scope: Scope): boolean {
+  if (scope === "all") return true;
+  if (scope === "unapplied") return !m.mentoringApplied;
+  if (scope === "applied") return m.mentoringApplied === true;
+  return m.mentoringApplied === true && verificationStatus(m) === "verified";
+}
 
 /**
- * "멘토 인증" 탭 — 인증을 받아 후배에게 소개되는 선배 명단.
+ * "대학생 명단" 탭 — 멘토 신청 / 멘토 인증 / 일반 / 전체 대학생을 나눠 본다.
+ * 기본은 인증을 받아 후배에게 소개되는 선배 명단이다.
  *
  * 인증 처리는 "멘토 신청자" 탭에서 한다. 여기는 처리가 끝난 명단을 보고 캠퍼스별로
  * 내려받는 곳이다(캠퍼스 리더에게 최종 명단을 돌려주거나, 캠퍼스별로 연락할 때).
@@ -30,7 +42,7 @@ export function MentorRoster({
   const [campus, setCampus] = useState("");
 
   const inScope = useMemo(
-    () => mentors.filter((m) => scope === "all" || (m.mentoringApplied && verificationStatus(m) === "verified")),
+    () => mentors.filter((m) => inScopeOf(m, scope)),
     [mentors, scope],
   );
   const campuses = useMemo(() => {
@@ -39,7 +51,7 @@ export function MentorRoster({
     return [...count.entries()].sort(([a], [b]) => a.localeCompare(b, "ko"));
   }, [inScope]);
   const rows = campus ? inScope.filter((m) => m.currentCampus === campus) : inScope;
-  const verifiedCount = mentors.filter((m) => m.mentoringApplied && verificationStatus(m) === "verified").length;
+  const countOf = (s: Scope) => mentors.filter((m) => inScopeOf(m, s)).length;
 
   return (
     <>
@@ -47,7 +59,9 @@ export function MentorRoster({
         <div className="flex overflow-hidden rounded-lg border border-gray-200">
           {(
             [
-              ["verified", `인증된 선배 ${verifiedCount}`],
+              ["applied", `멘토 신청 ${countOf("applied")}`],
+              ["verified", `멘토 인증 ${countOf("verified")}`],
+              ["unapplied", `일반 ${countOf("unapplied")}`],
               ["all", `전체 대학생 ${mentors.length}`],
             ] as const
           ).map(([key, label]) => (
@@ -84,7 +98,7 @@ export function MentorRoster({
           type="button"
           onClick={() =>
             downloadCsv(
-              `${scope === "verified" ? "인증멘토" : "대학생"}_${campus || "전체"}.csv`,
+              `${{ applied: "멘토신청", verified: "인증멘토", unapplied: "일반대학생", all: "대학생" }[scope]}_${campus || "전체"}.csv`,
               toRosterRows(rows),
               rosterColumns,
             )
@@ -94,9 +108,14 @@ export function MentorRoster({
           {campus || "전체"} 명단 CSV
         </button>
         <p className="text-[12px] text-gray-400">
-          {scope === "verified"
-            ? "인증을 받아 후배에게 소개되는 선배예요. 인증 처리는 \"멘토 신청자\" 탭에서 해요."
-            : "등록만 한 대학생, 확인 대기·미인증 선배까지 모두 보여요. CSV 에는 캠퍼스를 고른 대학생만 담겨요."}
+          {
+            {
+              applied: "멘토를 신청한 대학생 전원이에요(확인 대기·인증·미인증). 인증 처리는 \"멘토 신청자\" 탭에서 해요.",
+              verified: "인증을 받아 후배에게 소개되는 선배예요. 인증 처리는 \"멘토 신청자\" 탭에서 해요.",
+              unapplied: "행사만 등록하고 멘토는 신청하지 않은 대학생이에요. 후배 추천에는 나오지 않아요.",
+              all: "등록만 한 대학생, 확인 대기·미인증 선배까지 모두 보여요. CSV 에는 캠퍼스를 고른 대학생만 담겨요.",
+            }[scope]
+          }
         </p>
       </div>
       <DataTable
@@ -106,7 +125,14 @@ export function MentorRoster({
         searchable={(r) =>
           `${r.participationCode} ${r.name} ${r.currentCampus} ${r.currentMajors.join(" ")} ${r.mentoringArea.join(" ")}`
         }
-        emptyMessage={scope === "verified" ? "아직 인증된 선배가 없습니다." : "등록한 대학생이 없습니다."}
+        emptyMessage={
+          {
+            applied: "아직 멘토 신청자가 없습니다.",
+            verified: "아직 인증된 선배가 없습니다.",
+            unapplied: "멘토를 신청하지 않은 대학생이 없습니다.",
+            all: "등록한 대학생이 없습니다.",
+          }[scope]
+        }
         initialSort={NEWEST_FIRST}
       />
     </>
