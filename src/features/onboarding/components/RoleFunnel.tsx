@@ -9,7 +9,7 @@ import { OnboardingFunnel, type StepRegistry } from "./OnboardingFunnel";
 import { ArrivalStep } from "./steps/ArrivalStep";
 import { AreaStep } from "./steps/AreaStep";
 import { BasicStep } from "./steps/BasicStep";
-import { CampusStep } from "./steps/CampusStep";
+import { CampusStep, RegisterCampusStep } from "./steps/CampusStep";
 import { CapacityStep } from "./steps/CapacityStep";
 import { ConsentStep } from "./steps/ConsentStep";
 import { ExtraStep } from "./steps/ExtraStep";
@@ -36,6 +36,7 @@ const REGISTRY: StepRegistry = {
   consent: ConsentStep,
   basic: BasicStep,
   role: RoleStep,
+  registerCampus: RegisterCampusStep,
   extra: ExtraStep,
 
   // ── 2단계: 멘토링 신청 (여기서부터 역할별로 갈라진다) ──
@@ -82,6 +83,8 @@ export function RoleFunnel({ role, phase }: RoleFunnelProps) {
   const initialDraft: OnboardingDraft = isMentoring
     ? (loadDraft()?.draft ?? EMPTY_DRAFT)
     : EMPTY_DRAFT;
+
+  const campusKnownAtStart = isMentoring && !!initialDraft.currentCampus && !!initialDraft.admissionYear;
 
   // 1단계는 모두 같은 순서를 밟는다. 역할은 그 안의 한 스텝으로 받는다.
   const source = isMentoring ? MENTORING_STEPS_BY_ROLE[role ?? "MENTEE"] : REGISTER_STEPS;
@@ -154,8 +157,14 @@ export function RoleFunnel({ role, phase }: RoleFunnelProps) {
         steps={activeSteps}
         registry={REGISTRY}
         initialDraft={initialDraft}
-        // 대학생은 등록 마지막 화면(추천인·출신 고교)에 답할 칸이 없다. 고3·대학생 선택에서 끝낸다.
-        skip={(step, draft) => step === "extra" && draft.role === "MENTOR"}
+        // 대학생은 추천인·출신 고교 대신 학교·학번을 답하고 거기서 등록이 끝난다.
+        // 멘토 신청에서는 등록 때 학교·학번을 이미 고른 사람의 학교 화면을 건너뛴다.
+        // 처음 초안으로 정한다. 지금 초안으로 보면 학교를 고르는 순간 이 화면이 목록에서 빠진다.
+        skip={(step, draft) =>
+          (step === "extra" && draft.role === "MENTOR") ||
+          (step === "registerCampus" && draft.role !== "MENTOR") ||
+          (step === "currentCampus" && campusKnownAtStart)
+        }
         onComplete={handleComplete}
       />
 

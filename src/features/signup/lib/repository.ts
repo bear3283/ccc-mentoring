@@ -41,6 +41,12 @@ interface UserRow {
   mentoring_applied: boolean;
   /** 도착 시간 컬럼을 추가하기 전의 DB에는 없다. */
   event_arrival?: string | null;
+  /**
+   * 대학생이 등록(1단계)에서 고른 캠퍼스·학번. 멘토를 신청하지 않은 대학생도 있어
+   * mentor_profiles 가 아니라 여기 둔다. 이 컬럼을 추가하기 전에 등록한 사람은 비어 있다.
+   */
+  current_campus?: string | null;
+  admission_year?: number | null;
   created_at?: string;
 }
 
@@ -51,7 +57,7 @@ interface UserRow {
  * 필요한 사람의 사진만 fetchMentorPhotos 로 따로 읽는다.
  */
 const USER_COLUMNS =
-  "id, role, participation_code, name, gender, contact, persona_type, mbti, high_school, referrer, church, is_new_friend, mentoring_applied, event_arrival, created_at";
+  "id, role, participation_code, name, gender, contact, persona_type, mbti, high_school, referrer, church, is_new_friend, mentoring_applied, event_arrival, current_campus, admission_year, created_at";
 
 const PAGE_SIZE = 1000;
 
@@ -143,8 +149,9 @@ function toMentor(user: UserRow, profile: MentorRow | null): Mentor {
     createdAt: user.created_at,
     referrer: user.referrer ?? undefined,
     photoUrl: user.photo_url ?? undefined,
-    currentCampus: profile?.current_campus as Campus,
-    admissionYear: profile?.admission_year ?? 0,
+    // 멘토를 신청했으면 프로필 값, 등록만 했으면 등록 때 고른 값을 쓴다.
+    currentCampus: (profile?.current_campus ?? user.current_campus ?? undefined) as Campus,
+    admissionYear: profile?.admission_year ?? user.admission_year ?? 0,
     mentoringArea: (profile?.mentoring_area ?? []) as MentoringArea[],
     personaType: user.persona_type ?? undefined,
     mbti: (user.mbti ?? undefined) as MbtiType | undefined,
@@ -294,6 +301,10 @@ export async function saveSignup(
       referrer: draft.referrer ?? null,
       // 사진은 2단계에서 받고 거기서 검사한다. 화면을 거치지 않은 요청이 보내도 저장하지 않는다.
       photo_url: null,
+      // 대학생은 등록 때 캠퍼스·학번을 고른다. 고3은 받지 않는다.
+      ...(role === "MENTOR"
+        ? { current_campus: draft.currentCampus ?? null, admission_year: draft.admissionYear ?? null }
+        : {}),
       consented_at: draft.consentedAt,
       consent_version: draft.consentVersion,
     })
@@ -408,6 +419,10 @@ export async function applyMentoring(
       photo_url: draft.photoUrl ?? null,
       // 채플이 지난 뒤에는 묻지 않는다. 다시 신청하며 비워 낸 경우도 그대로 비운다.
       event_arrival: draft.eventArrival ?? null,
+      // 멘토 신청에서 학교를 바꿨으면 등록 정보도 같이 맞춘다.
+      ...(role === "MENTOR"
+        ? { current_campus: draft.currentCampus, admission_year: draft.admissionYear }
+        : {}),
     })
     .eq("id", user.id);
 

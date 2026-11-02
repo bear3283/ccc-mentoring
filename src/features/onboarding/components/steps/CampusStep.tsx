@@ -20,7 +20,18 @@ import type { StepProps } from "../../model/types";
 /** 멘티는 3지망까지 고른다. 매칭 가중치가 가장 큰 항목이다. */
 const MAX_CHOICES = 3;
 
-export function CampusStep({ role, draft, onNext, onChange }: StepProps) {
+/** 대학생 행사 등록(1단계)에서 쓰는 학교·학번 화면. 이 화면에서 등록이 끝난다. */
+export function RegisterCampusStep(props: StepProps) {
+  return <CampusStep {...props} registering />;
+}
+
+export function CampusStep({
+  role,
+  draft,
+  onNext,
+  onChange,
+  registering = false,
+}: StepProps & { registering?: boolean }) {
   const isMentee = role === "MENTEE";
 
   // 학번은 멘토에게만 묻는다. 고3은 아직 학번이 없다.
@@ -98,7 +109,9 @@ export function CampusStep({ role, draft, onNext, onChange }: StepProps) {
       ? "학교를 골라주세요"
       : !admissionYear
         ? "학번을 골라주세요"
-        : "다음";
+        : registering
+          ? "등록 완료하기"
+          : "다음";
 
   return (
     <StepLayout
@@ -107,7 +120,9 @@ export function CampusStep({ role, draft, onNext, onChange }: StepProps) {
       hint={
         isMentee
           ? "누른 순서가 곧 지망 순위예요. 3개까지 고를 수 있어요."
-          : "이 학교를 지망하는 후배와 이어드려요."
+          : registering
+            ? "어느 캠퍼스 몇 학번인지 알려주세요. 멘토를 신청하면 이 학교를 지망하는 후배와 이어드려요."
+            : "이 학교를 지망하는 후배와 이어드려요."
       }
       ctaLabel={ctaLabel}
       // 멘티는 최소 1지망만 있어도 넘어갈 수 있게 한다. 3개를 강제하면 이탈이 는다.

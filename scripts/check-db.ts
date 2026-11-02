@@ -83,6 +83,11 @@ const ARRIVAL_SQL = readFileSync(
   "utf8",
 ).trim();
 
+const REGISTER_CAMPUS_SQL = readFileSync(
+  new URL("../supabase/migrations/2026-11-02-register-campus.sql", import.meta.url),
+  "utf8",
+);
+
 const MENTORING_OPTIONAL_SQL = readFileSync(
   new URL("../supabase/migrations/2026-10-26-mentoring-optional-fields.sql", import.meta.url),
   "utf8",
@@ -364,6 +369,16 @@ const requirements: Requirement[] = [
       return !second.ok;
     },
     sql: CONTACT_UNIQUE_SQL,
+  },
+  {
+    name: "대학생 등록 캠퍼스 컬럼 (users.current_campus)",
+    column: { table: "users", column: "current_campus" },
+    sql: REGISTER_CAMPUS_SQL,
+  },
+  {
+    name: "대학생 등록 학번 컬럼 (users.admission_year)",
+    column: { table: "users", column: "admission_year" },
+    sql: REGISTER_CAMPUS_SQL,
   },
   {
     name: "채플 당일 도착 시간 컬럼 (users.event_arrival)",

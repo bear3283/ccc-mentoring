@@ -65,6 +65,9 @@ function mentor(n: number, over: Record<string, unknown> = {}) {
     name: `검증멘토${n}`,
     gender: "FEMALE",
     contact: `${TEST_PREFIX}${String(1000 + n).slice(-4)}`,
+    // 대학생은 등록 때 학교·학번을 고른다.
+    currentCampus: "연세대",
+    admissionYear: 2023,
     ...over,
   };
 }
@@ -194,6 +197,11 @@ async function main() {
   check("멘토 등록", m1.status === 200 && typeof m1.json.participationCode === "string",
     String(m1.json.participationCode ?? m1.json.error));
   const m1Code = m1.json.participationCode as string | undefined;
+  const noCampus = await post("/api/signup", {
+    role: "MENTOR",
+    draft: mentor(9, { currentCampus: undefined, admissionYear: undefined }),
+  });
+  check("학교·학번 없는 대학생 등록 거부", noCampus.status === 400, `HTTP ${noCampus.status}`);
   const menteeRes = await post("/api/signup", { role: "MENTEE", draft: mentee() });
   const menteeCode = menteeRes.json.participationCode as string | undefined;
   check("멘티 등록", menteeRes.status === 200 && !!menteeCode, String(menteeCode ?? menteeRes.json.error));

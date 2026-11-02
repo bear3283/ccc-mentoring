@@ -556,6 +556,9 @@ export function AdminDashboard({
               )}
             >
               {t.label}
+              {/* 명단 탭은 등록한 전체 인원을 붙인다. 안에서 신청·일반·전체로 다시 나뉜다. */}
+              {t.key === "mentee" && <span className="ml-1.5 tabular-nums">{mentees.length}</span>}
+              {t.key === "mentor" && <span className="ml-1.5 tabular-nums">{mentors.length}</span>}
               {t.key === "notice" && pendingNotices > 0 && (
                 <span className="ml-1.5 tabular-nums">{pendingNotices}</span>
               )}

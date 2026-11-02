@@ -26,7 +26,12 @@ import type { EventArrival } from "@/shared/constants/venue";
  */
 
 /** 1단계 — 고3채플 등록. 역할과 무관하게 모두 같은 순서다. */
-export const REGISTER_STEPS = ["consent", "basic", "role", "extra"] as const;
+/**
+ * 1단계 — 행사 등록. "registerCampus"는 대학생만 거친다(학교·학번).
+ * 멘토를 신청하지 않는 대학생도 어느 캠퍼스 몇 학번인지는 운영자가 알아야 한다.
+ * "extra"는 고3만 거친다.
+ */
+export const REGISTER_STEPS = ["consent", "basic", "role", "registerCampus", "extra"] as const;
 
 /**
  * 2단계 — 멘토링 신청. 선택이다.

@@ -1,5 +1,6 @@
 import { CONSENT_VERSION } from "@/shared/constants/privacy";
-import { GENDERS, MENTOR_CAPACITY_OPTIONS } from "@/shared/constants/domain";
+import { ADMISSION_YEARS, GENDERS, MENTOR_CAPACITY_OPTIONS } from "@/shared/constants/domain";
+import { isCampus } from "@/shared/constants/campus";
 import { MBTI_TYPES } from "@/shared/constants/mbti";
 import { PERSONA_TYPES } from "@/shared/constants/persona";
 import { isEventArrival } from "@/shared/constants/venue";
@@ -46,10 +47,17 @@ export function validateRegistration(
     return "동의 문구가 변경되었어요. 화면을 새로고침한 뒤 다시 시도해주세요.";
   }
 
-  // 캠퍼스는 여기서 보지 않는다. 채플에 오는 데 필요한 정보가 아니라
-  // 매칭에 쓰는 정보라 2단계로 옮겼다.
   if (draft.role && draft.role !== role) {
     return "잘못된 요청이에요.";
+  }
+
+  // 대학생은 멘토 신청과 별개로 어느 캠퍼스·몇 학번인지 등록 때 받는다.
+  // 고3의 지망 캠퍼스는 매칭에만 쓰여 2단계에서 받는다.
+  if (role === "MENTOR") {
+    if (!draft.currentCampus || !isCampus(draft.currentCampus)) return "학교를 골라주세요.";
+    if (!draft.admissionYear || !(ADMISSION_YEARS as readonly number[]).includes(draft.admissionYear)) {
+      return "학번을 골라주세요.";
+    }
   }
 
   return null;
