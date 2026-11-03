@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { cn } from "@/shared/lib/cn";
+import { PHONE_QUERY, useMediaQuery } from "@/shared/hooks/useMediaQuery";
 
 export interface TableColumn<T> {
   key: string;
@@ -42,6 +43,7 @@ export function DataTable<T>({
 }: DataTableProps<T>) {
   const [sort, setSort] = useState<SortState>(initialSort);
   const [query, setQuery] = useState("");
+  const phone = useMediaQuery(PHONE_QUERY);
 
   const visibleRows = useMemo(() => {
     let result = rows;
@@ -87,14 +89,48 @@ export function DataTable<T>({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="참여코드, 이름, 캠퍼스로 검색"
-            className="h-9 w-72 rounded-lg border border-gray-200 px-3 text-[13px] outline-none focus:border-brand"
+            className="h-9 min-w-0 flex-1 rounded-lg border border-gray-200 px-3 text-[13px] outline-none focus:border-brand md:w-72 md:flex-none"
           />
-          <span className="text-[13px] text-gray-500 tabular-nums">
+          <span className="shrink-0 text-[13px] text-gray-500 tabular-nums">
             {visibleRows.length.toLocaleString()}행
             {query && ` / 전체 ${rows.length.toLocaleString()}행`}
           </span>
         </div>
       )}
+
+      {phone ? (
+        <CardList rows={visibleRows} columns={columns} rowKey={rowKey} emptyMessage={emptyMessage} />
+      ) : (
+        <TableView
+          rows={visibleRows}
+          columns={columns}
+          rowKey={rowKey}
+          emptyMessage={emptyMessage}
+          sort={sort}
+          onSort={toggleSort}
+        />
+      )}
+    </div>
+  );
+}
+
+function TableView<T>({
+  rows: visibleRows,
+  columns,
+  rowKey,
+  emptyMessage,
+  sort,
+  onSort: toggleSort,
+}: {
+  rows: T[];
+  columns: TableColumn<T>[];
+  rowKey: (row: T) => string;
+  emptyMessage: string;
+  sort: SortState;
+  onSort: (key: string) => void;
+}) {
+  return (
+    <>
 
       {/* 표 전체가 가로로도 스크롤되어야 좁은 화면에서 열이 뭉개지지 않는다. */}
       <div className="min-h-0 flex-1 overflow-auto rounded-lg border border-gray-200">
@@ -167,6 +203,98 @@ export function DataTable<T>({
           </tbody>
         </table>
       </div>
-    </div>
+    </>
+  );
+}
+
+/** 카드를 펼치기 전에 보일 항목 수. 나머지는 "자세히"를 눌러야 보인다. */
+const CARD_PREVIEW = 6;
+
+/** 이름이 들어 있는 열. 카드 제목이 된다. */
+const TITLE_KEYS = ["name", "menteeName"];
+
+/**
+ * 휴대폰에서 보는 명단.
+ *
+ * 표는 열이 열 개가 넘어 휴대폰에서는 옆으로 한참 밀어야 하고, 삭제·인증 버튼이
+ * 맨 오른쪽 끝에 있어 누르기 어렵다. 한 사람을 카드 하나로 세우고,
+ * 머리글이 빈 열(삭제·인증 같은 버튼)은 카드 아래쪽에 모아 바로 누르게 한다.
+ * 열 구성은 표와 같아서 탭마다 따로 만들지 않는다.
+ */
+function CardList<T>({
+  rows,
+  columns,
+  rowKey,
+  emptyMessage,
+}: {
+  rows: T[];
+  columns: TableColumn<T>[];
+  rowKey: (row: T) => string;
+  emptyMessage: string;
+}) {
+  const title = columns.find((c) => TITLE_KEYS.includes(c.key));
+  const actions = columns.filter((c) => c.header === "");
+  const fields = columns.filter((c) => c !== title && c.header !== "");
+
+  if (rows.length === 0) {
+    return <p className="rounded-lg border border-gray-200 px-3 py-10 text-center text-[13px] text-gray-400">{emptyMessage}</p>;
+  }
+
+  return (
+    <ul className="flex flex-col gap-2 pb-24">
+      {rows.map((row) => (
+        <Card key={rowKey(row)} row={row} title={title} fields={fields} actions={actions} />
+      ))}
+    </ul>
+  );
+}
+
+function Card<T>({
+  row,
+  title,
+  fields,
+  actions,
+}: {
+  row: T;
+  title?: TableColumn<T>;
+  fields: TableColumn<T>[];
+  actions: TableColumn<T>[];
+}) {
+  const [open, setOpen] = useState(false);
+  const shown = open ? fields : fields.slice(0, CARD_PREVIEW);
+  const cell = (col: TableColumn<T>) => (col.render ? col.render(row) : col.value(row));
+
+  return (
+    <li className="rounded-xl border border-gray-200 bg-white px-4 py-3">
+      {title && <p className="mb-2 text-[16px] font-bold text-gray-900">{cell(title)}</p>}
+      <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-[13px]">
+        {shown.map((col) => (
+          <div key={col.key} className="contents">
+            <dt className="whitespace-nowrap text-gray-400">{col.header}</dt>
+            <dd className="min-w-0 break-words text-gray-800">{cell(col)}</dd>
+          </div>
+        ))}
+      </dl>
+      {(fields.length > CARD_PREVIEW || actions.length > 0) && (
+        <div className="mt-3 flex items-center gap-2">
+          {fields.length > CARD_PREVIEW && (
+            <button
+              type="button"
+              onClick={() => setOpen((v) => !v)}
+              className="h-9 text-[13px] font-semibold text-gray-500"
+            >
+              {open ? "접기" : `자세히 (${fields.length - CARD_PREVIEW})`}
+            </button>
+          )}
+          {actions.length > 0 && (
+            <div className="ml-auto flex items-center gap-3">
+              {actions.map((col) => (
+                <span key={col.key}>{cell(col)}</span>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </li>
   );
 }

@@ -335,6 +335,7 @@ export function AdminDashboard({
     (m) => m.mentoringApplied && verificationStatus(m) === "verified",
   ).length;
   const [tab, setTab] = useState<Tab>("matching");
+  const [allStats, setAllStats] = useState(false);
 
   /**
    * 지우려고 고른 사람. 브라우저 확인 창 대신 표 위의 막대로 한 번 더 묻는다.
@@ -393,7 +394,7 @@ export function AdminDashboard({
                   setDeleteMessage(undefined);
                   setPendingDelete({ id: r.id, name: r.name, code: r.participationCode, role });
                 }}
-                className="text-[12px] font-semibold text-red-500 underline"
+                className="text-[12px] font-semibold text-red-500 underline max-md:h-9 max-md:px-2 max-md:text-[13px]"
               >
                 삭제
               </button>
@@ -478,12 +479,16 @@ export function AdminDashboard({
 
   return (
     // 운영자 화면은 모바일 셸(430px)에 가두지 않는다. 열이 많아 넓을수록 유리하다.
-    <div className="flex h-dvh flex-col bg-white px-6 py-5">
+    //
+    // 넓은 화면: 한 화면 높이에 고정하고 표 안에서만 스크롤한다(헤더가 늘 보인다).
+    // 휴대폰: 고정하면 수치·탭·필터만으로 화면이 차서 명단이 한 줄도 안 보였다.
+    // 페이지 전체가 스크롤되게 두고, 명단은 카드로 그린다(DataTable).
+    <div className="flex min-h-dvh flex-col bg-white px-4 py-4 md:h-dvh md:px-6 md:py-5">
       <header className="shrink-0">
-        <div className="flex flex-wrap items-end gap-x-8 gap-y-3 border-b border-gray-100 pb-3">
-          <div className="shrink-0">
+        <div className="flex flex-wrap items-end gap-x-8 gap-y-3 border-b border-gray-100 pb-3 max-md:items-center max-md:gap-x-3">
+          <div className="shrink-0 max-md:basis-full">
             <p className="text-[13px] font-medium text-brand">{readOnly ? "보기 전용" : "운영자"}</p>
-            <h1 className="mt-0.5 text-[22px] font-bold tracking-[-0.02em] text-gray-900">
+            <h1 className="mt-0.5 text-[22px] font-bold tracking-[-0.02em] text-gray-900 max-md:text-[18px]">
               신청 현황 및 매칭 결과
             </h1>
           </div>
@@ -491,21 +496,37 @@ export function AdminDashboard({
           {/*
             운영 판단에 필요한 수치. 제목과 같은 줄에 둬서 표가 세로로 더 많이 보이게 한다
             (따로 한 줄을 차지하면 노트북 화면에서 표가 열 줄 남짓밖에 안 보였다).
+            휴대폰에서는 11개를 다 보이면 화면을 덮는다. 자주 보는 4개만 두고 나머지는 "통계 전체"로 펼친다.
           */}
-          <dl className="flex flex-1 flex-wrap items-end gap-x-5 gap-y-1">
-            <Stat label="전체 등록" value={`${mentees.length + mentors.length}명`} />
-            <Stat label="고3" value={`${mentees.length}명`} />
-            <Stat label="멘티 신청" value={`${appliedMentees}명`} />
-            <Stat label="대학생" value={`${mentors.length}명`} />
-            <Stat label="멘토 신청" value={`${appliedMentors}명`} />
-            <Stat label="멘토 인증" value={`${verifiedMentors}명`} />
-            {/* 미매칭은 멘티 신청자 중에서만 센다. 등록만 한 고3을 성사로 세면 안 된다. */}
-            <Stat label="매칭 성사" value={`${appliedMentees - unmatched.length}명`} />
-            <Stat label="미매칭" value={`${unmatched.length}명`} emphasis={unmatched.length > 0} />
-            <Stat label="추천 조합" value={`${matchRows.length}건`} />
-            <Stat label="멘토 인증 대기" value={`${pendingMentors}명`} emphasis={pendingMentors > 0} />
-            <Stat label="선배 알림 대기" value={`${pendingNotices}명`} emphasis={pendingNotices > 0} />
-          </dl>
+          <div className="flex flex-1 max-md:order-last max-md:basis-full max-md:flex-col max-md:gap-2">
+            <dl
+              className={cn(
+                "flex flex-1 flex-wrap items-end gap-x-5 gap-y-1",
+                "max-md:grid max-md:grid-cols-4 max-md:gap-x-2 max-md:gap-y-2",
+                !allStats && "max-md:[&>.secondary]:hidden",
+              )}
+            >
+              <Stat label="전체 등록" value={`${mentees.length + mentors.length}명`} primary />
+              <Stat label="고3" value={`${mentees.length}명`} />
+              <Stat label="멘티 신청" value={`${appliedMentees}명`} primary />
+              <Stat label="대학생" value={`${mentors.length}명`} />
+              <Stat label="멘토 신청" value={`${appliedMentors}명`} primary />
+              <Stat label="멘토 인증" value={`${verifiedMentors}명`} />
+              {/* 미매칭은 멘티 신청자 중에서만 센다. 등록만 한 고3을 성사로 세면 안 된다. */}
+              <Stat label="매칭 성사" value={`${appliedMentees - unmatched.length}명`} />
+              <Stat label="미매칭" value={`${unmatched.length}명`} emphasis={unmatched.length > 0} />
+              <Stat label="추천 조합" value={`${matchRows.length}건`} />
+              <Stat label="멘토 인증 대기" value={`${pendingMentors}명`} emphasis={pendingMentors > 0} primary />
+              <Stat label="선배 알림 대기" value={`${pendingNotices}명`} emphasis={pendingNotices > 0} />
+            </dl>
+            <button
+              type="button"
+              onClick={() => setAllStats((v) => !v)}
+              className="self-start text-[12px] font-semibold text-gray-500 underline md:hidden"
+            >
+              {allStats ? "통계 접기" : "통계 전체 보기"}
+            </button>
+          </div>
 
           <div className="flex shrink-0 items-center gap-2">
             {!readOnly && (
@@ -544,14 +565,15 @@ export function AdminDashboard({
         )}
 
 
-        <div className="flex flex-wrap gap-1 py-2.5">
+        {/* 휴대폰에서는 탭도 한 줄로 두고 옆으로 민다. */}
+        <div className="flex flex-wrap gap-1 py-2.5 max-md:-mx-4 max-md:flex-nowrap max-md:overflow-x-auto max-md:px-4">
           {TABS.map((t) => (
             <button
               key={t.key}
               type="button"
               onClick={() => setTab(t.key)}
               className={cn(
-                "h-8 rounded-lg px-3 text-[13px] font-semibold transition-colors",
+                "h-8 shrink-0 rounded-lg px-3 text-[13px] font-semibold whitespace-nowrap transition-colors max-md:h-9",
                 tab === t.key ? "bg-brand text-white" : "bg-gray-100 text-gray-600",
               )}
             >
@@ -574,7 +596,9 @@ export function AdminDashboard({
       </header>
 
       {(tab === "mentee" || tab === "mentor") && (pendingDelete || deleteMessage) && (
-        <div className="mb-3 flex max-w-[760px] shrink-0 flex-wrap items-center gap-2 rounded-lg bg-red-500/10 px-4 py-2.5 text-[13px] text-red-700">
+        // 휴대폰에서는 명단 중간의 카드에서 삭제를 누르므로, 위쪽에 두면 묻는 막대가 안 보인다.
+        // 화면 아래에 띄운다.
+        <div className="mb-3 flex max-w-[760px] shrink-0 flex-wrap items-center gap-2 rounded-lg bg-red-500/10 px-4 py-2.5 text-[13px] text-red-700 max-md:fixed max-md:inset-x-3 max-md:bottom-3 max-md:z-30 max-md:mb-0 max-md:bg-red-50 max-md:shadow-lg max-md:ring-1 max-md:ring-red-200">
           {pendingDelete ? (
             <>
               <span className="font-semibold">
@@ -600,7 +624,16 @@ export function AdminDashboard({
               </button>
             </>
           ) : (
-            <span>{deleteMessage}</span>
+            <>
+              <span>{deleteMessage}</span>
+              <button
+                type="button"
+                onClick={() => setDeleteMessage(undefined)}
+                className="ml-auto h-7 px-2 text-gray-600"
+              >
+                닫기
+              </button>
+            </>
           )}
         </div>
       )}
@@ -682,13 +715,16 @@ function Stat({
   label,
   value,
   emphasis,
+  primary,
 }: {
   label: string;
   value: string;
   emphasis?: boolean;
+  /** 휴대폰에서도 늘 보이는 수치. 나머지는 "통계 전체 보기"를 눌러야 보인다. */
+  primary?: boolean;
 }) {
   return (
-    <div>
+    <div className={cn("shrink-0 whitespace-nowrap", !primary && "secondary")}>
       <dt className="text-[11px] leading-tight text-gray-400">{label}</dt>
       <dd
         className={cn(

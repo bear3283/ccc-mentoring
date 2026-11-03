@@ -334,7 +334,8 @@ function ActionButton({
       onClick={onClick}
       disabled={disabled}
       className={cn(
-        "h-7 rounded-md px-2.5 text-[12px] font-bold disabled:opacity-40",
+        // 휴대폰에서는 손가락으로 누르므로 더 크게.
+        "h-7 rounded-md px-2.5 text-[12px] font-bold disabled:opacity-40 max-md:h-9 max-md:px-4 max-md:text-[13px]",
         tone === "primary" && "bg-brand text-white active:bg-brand-dark",
         tone === "danger" && "border border-red-300 text-red-600 active:bg-red-50",
         tone === "plain" && "text-gray-500 underline",
