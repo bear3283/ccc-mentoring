@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from "react";
 import { CodeBadge } from "@/components/ui/CodeBadge";
 import { Name } from "@/components/ui/Name";
 import { SaveCodeImageButton } from "@/features/onboarding/components/SaveCodeImageButton";
+import { SeniorPreview } from "@/features/onboarding/components/SeniorPreview";
 import { loadDraft, type StoredDraft } from "@/features/onboarding/lib/draftStore";
 import { EVENT_DATE_LABEL, isAfterEvent } from "@/shared/constants/venue";
 import { ENTER_SPRING } from "@/shared/lib/anime";
@@ -145,6 +146,13 @@ export default function OnboardingCompletePage() {
               </li>
             ))}
           </ul>
+
+          {/* 받을 것을 숫자로 보여준다. "멘토링"이라는 말보다 신청할 이유가 된다. */}
+          {isMentee && (
+            <div className="mt-5">
+              <SeniorPreview gender={stored.draft.gender} tone="onBrand" />
+            </div>
+          )}
 
           <Link
             href={mentoringPath}
