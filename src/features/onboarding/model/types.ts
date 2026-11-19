@@ -97,11 +97,14 @@ export interface OnboardingDraft {
   /** 이 서비스를 소개해 준 사람 */
   referrer?: string;
   /**
-   * 출석하는 교회와 새친구 여부. 2026-10-26부터 묻지 않는다.
+   * 출석하는 교회. 2026-10-26부터 묻지 않는다.
    * 그 전에 등록한 사람의 값을 운영자 표에 보여주려고 타입만 남긴다.
    */
   church?: string;
+  /** 다니는 교회가 없는 고3(새친구). 2026-11-19부터 다시 묻는다(선택). */
   isNewFriend?: boolean;
+  /** 새친구 여부(민감정보) 처리에 따로 동의했는지. 없으면 서버가 새친구 표시를 저장하지 않는다. */
+  newFriendConsent?: boolean;
   /** 2단계까지 마쳤는지. 등록만 한 사람과 구분한다. */
   mentoringApplied?: boolean;
   /** 프로필 사진 (data URL) */

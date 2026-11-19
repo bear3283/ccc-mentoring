@@ -51,6 +51,11 @@ export function validateRegistration(
     return "잘못된 요청이에요.";
   }
 
+  // 새친구 여부는 민감정보라 따로 동의해야 저장할 수 있다.
+  if (role === "MENTEE" && draft.isNewFriend === true && draft.newFriendConsent !== true) {
+    return "새친구 정보 처리에 동의해주세요. 동의하지 않으려면 새친구 체크를 풀어주세요.";
+  }
+
   // 대학생은 멘토 신청과 별개로 어느 캠퍼스·몇 학번인지 등록 때 받는다.
   // 고3의 지망 캠퍼스는 매칭에만 쓰여 2단계에서 받는다.
   if (role === "MENTOR") {
