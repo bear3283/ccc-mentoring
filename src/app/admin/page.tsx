@@ -43,6 +43,7 @@ export default async function AdminPage() {
 
   const matchRows: MatchRow[] = matchings.map((m) => ({
     id: `${m.menteeCode}-${m.mentorCode}`,
+    matchingId: m.matchingId,
     rank: m.rank,
     menteeCode: m.menteeCode,
     menteeName: m.menteeName,

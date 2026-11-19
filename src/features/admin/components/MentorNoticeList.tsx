@@ -4,7 +4,7 @@ import { useState } from "react";
 import type { MentorNoticeRow } from "@/features/signup/lib/repository";
 import { EVENT_ARRIVAL_LABEL } from "@/shared/constants/venue";
 import { cn } from "@/shared/lib/cn";
-import { mentorNoticeText, smsHref } from "../lib/mentorNotice";
+import { menteeNoticeText, mentorNoticeText, smsHref } from "../lib/mentorNotice";
 
 const VIA_LABEL: Record<NonNullable<MentorNoticeRow["notifiedVia"]>, string> = {
   ADMIN_SMS: "운영자 문자",
@@ -23,10 +23,13 @@ const VIA_LABEL: Record<NonNullable<MentorNoticeRow["notifiedVia"]>, string> = {
 export function MentorNoticeList({
   initial,
   readOnly,
+  footer,
 }: {
   initial: MentorNoticeRow[];
   /** 보기 전용은 누가 알림을 기다리는지만 본다. 보내기·기록은 운영자 몫이다. */
   readOnly: boolean;
+  /** 같은 스크롤 안 맨 아래에 붙일 목록(멘토링 신청 안내). */
+  footer?: React.ReactNode;
 }) {
   const [rows, setRows] = useState(initial);
   const [busy, setBusy] = useState<string>();
@@ -34,6 +37,36 @@ export function MentorNoticeList({
 
   const pending = rows.filter((r) => !r.notifiedAt);
   const done = rows.filter((r) => r.notifiedAt);
+  // 운영자가 이어 준 연결은 후배도 모른다. 후배가 직접 고른 연결은 후배가 이미 번호를 봤다.
+  const menteePending = rows.filter((r) => r.adminAssigned && !r.menteeNotifiedAt);
+  const menteeDone = rows.filter((r) => r.adminAssigned && r.menteeNotifiedAt);
+
+  const markMentee = async (row: MentorNoticeRow, undo: boolean) => {
+    if (busy) return;
+    setBusy(`mentee-${row.matchingId}`);
+    setError(undefined);
+    try {
+      const res = await fetch("/api/admin/mentee-notice", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ matchingId: row.matchingId, undo }),
+      });
+      const body = (await res.json()) as { notifiedAt?: string | null; error?: string };
+      if (!res.ok) {
+        setError(body.error ?? "기록하지 못했어요.");
+        return;
+      }
+      setRows((prev) =>
+        prev.map((r) =>
+          r.matchingId === row.matchingId ? { ...r, menteeNotifiedAt: body.notifiedAt ?? undefined } : r,
+        ),
+      );
+    } catch {
+      setError("연결에 실패했어요.");
+    } finally {
+      setBusy(undefined);
+    }
+  };
 
   const mark = async (row: MentorNoticeRow, undo: boolean) => {
     if (busy) return;
@@ -90,8 +123,81 @@ export function MentorNoticeList({
         </p>
       )}
 
+      {/* 운영자가 이어 준 연결이 있을 때만 보인다. 후배가 직접 고른 연결에는 필요 없다. */}
+      {(menteePending.length > 0 || menteeDone.length > 0) && (
+        <>
+          <h2 className="mb-2 text-[14px] font-bold text-gray-900">
+            후배에게 보낼 차례 <span className="tabular-nums text-brand">{menteePending.length}</span>
+            <span className="ml-2 text-[12px] font-medium text-gray-400">운영자가 이어 준 연결</span>
+          </h2>
+          {menteePending.length === 0 ? (
+            <p className="mb-6 max-w-[640px] rounded-lg bg-gray-50 px-4 py-4 text-center text-[13px] text-gray-500">
+              모든 후배에게 알렸어요.
+            </p>
+          ) : (
+            <ul className="mb-6 flex max-w-[640px] flex-col gap-2">
+              {menteePending.map((row) => (
+                <li key={row.matchingId} className="rounded-xl border border-gray-200 bg-white p-4">
+                  <p className="text-[16px] font-bold text-gray-900">
+                    {row.menteeName} 후배
+                    <span className="ml-2 font-mono text-[13px] font-medium text-gray-500">{row.menteeCode}</span>
+                  </p>
+                  <p className="mt-0.5 font-mono text-[14px] text-gray-700 select-all">{row.menteeContact}</p>
+                  <p className="mt-1 text-[13px] text-gray-500">
+                    연결된 선배 <b className="text-gray-700">{row.mentorName}</b>
+                    {row.mentorCampus && ` · ${row.mentorCampus}`}
+                  </p>
+                  {!readOnly && (
+                    <div className="mt-3 flex gap-2">
+                      <a
+                        href={smsHref(row.menteeContact, menteeNoticeText(row))}
+                        className="flex h-11 flex-1 items-center justify-center rounded-lg bg-brand text-[14px] font-bold text-white active:bg-brand-dark"
+                      >
+                        문자 열기
+                      </a>
+                      <button
+                        type="button"
+                        onClick={() => void markMentee(row, false)}
+                        disabled={busy === `mentee-${row.matchingId}`}
+                        className="h-11 flex-1 rounded-lg border border-gray-200 text-[14px] font-bold text-gray-700 active:bg-gray-100 disabled:text-gray-300"
+                      >
+                        {busy === `mentee-${row.matchingId}` ? "기록 중…" : "보냄"}
+                      </button>
+                    </div>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+          {menteeDone.length > 0 && (
+            <ul className="mb-8 flex max-w-[640px] flex-col gap-2">
+              {menteeDone.map((row) => (
+                <li key={row.matchingId} className="flex items-center gap-3 rounded-xl bg-gray-50 px-4 py-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[14px] font-bold text-gray-900">
+                      {row.menteeName} 후배 ← {row.mentorName} 선배
+                    </p>
+                    <p className="mt-1 text-[12px] text-gray-500">후배 알림 {formatTime(row.menteeNotifiedAt!)}</p>
+                  </div>
+                  {!readOnly && (
+                    <button
+                      type="button"
+                      onClick={() => void markMentee(row, true)}
+                      disabled={busy === `mentee-${row.matchingId}`}
+                      className="shrink-0 text-[12px] font-semibold text-gray-500 underline disabled:text-gray-300"
+                    >
+                      되돌리기
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
+      )}
+
       <h2 className="mb-2 text-[14px] font-bold text-gray-900">
-        보낼 차례 <span className="tabular-nums text-brand">{pending.length}</span>
+        선배에게 보낼 차례 <span className="tabular-nums text-brand">{pending.length}</span>
       </h2>
       {pending.length === 0 ? (
         <p className="mb-6 max-w-[640px] rounded-lg bg-gray-50 px-4 py-6 text-center text-[13px] text-gray-500">
@@ -153,6 +259,7 @@ export function MentorNoticeList({
           </li>
         ))}
       </ul>
+      {footer}
     </div>
   );
 }

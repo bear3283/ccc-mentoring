@@ -64,6 +64,9 @@ export async function POST(request: Request) {
       {
         error: "아직 멘토링을 신청하지 않으셨어요.",
         needsMentoring: true,
+        // 코드를 가진 본인이다. 다른 기기에서 링크로 들어와도 등록을 다시 하지 않고
+        // 바로 멘토링 신청으로 이어 가려면 이름·성별이 필요하다(신청은 성별을 다시 묻지 않는다).
+        applicant: { name: mentee.name, gender: mentee.gender },
       },
       { status: 409 },
     );

@@ -47,6 +47,8 @@ interface UserRow {
    */
   current_campus?: string | null;
   admission_year?: number | null;
+  /** 등록만 한 고3에게 멘토링 신청 안내 문자를 보낸 시각. */
+  mentoring_invited_at?: string | null;
   created_at?: string;
 }
 
@@ -57,7 +59,7 @@ interface UserRow {
  * 필요한 사람의 사진만 fetchMentorPhotos 로 따로 읽는다.
  */
 const USER_COLUMNS =
-  "id, role, participation_code, name, gender, contact, persona_type, mbti, high_school, referrer, church, is_new_friend, mentoring_applied, event_arrival, current_campus, admission_year, created_at";
+  "id, role, participation_code, name, gender, contact, persona_type, mbti, high_school, referrer, church, is_new_friend, mentoring_applied, event_arrival, current_campus, admission_year, mentoring_invited_at, created_at";
 
 const PAGE_SIZE = 1000;
 
@@ -123,6 +125,7 @@ function toMentee(user: UserRow, profile: MenteeRow | null): Mentee {
     mentoringApplied: user.mentoring_applied ?? false,
     eventArrival: asEventArrival(user.event_arrival),
     createdAt: user.created_at,
+    mentoringInvitedAt: user.mentoring_invited_at ?? undefined,
     referrer: user.referrer ?? undefined,
     photoUrl: user.photo_url ?? undefined,
     targetCampus: (profile?.target_campus ?? []) as Campus[],
@@ -292,7 +295,8 @@ export async function saveSignup(
       contact: draft.contact,
       // 출석 교회는 묻지 않는다(민감정보). 화면을 거치지 않은 요청이 보내도 저장하지 않는다.
       church: null,
-      is_new_friend: false,
+      // 새친구는 고3만, 민감정보 동의를 따로 받은 경우에만 저장한다(validateRegistration 이 먼저 막는다).
+      is_new_friend: role === "MENTEE" && draft.isNewFriend === true && draft.newFriendConsent === true,
       // 멘토링을 신청하지 않은 등록자는 아래 값들이 비어 있다.
       mentoring_applied: draft.mentoringApplied ?? false,
       persona_type: draft.personaType ?? null,
@@ -908,6 +912,8 @@ export async function listMentees(): Promise<Mentee[]> {
 
 /** 운영자 표에 쓰는 매칭 결과 한 행. */
 export interface MatchingRow {
+  /** matchings.id. 운영자가 이 추천으로 직접 연결할 때 쓴다. */
+  matchingId: string;
   menteeCode: string;
   menteeName: string;
   menteeCampus: string;
@@ -936,7 +942,7 @@ export async function listMatchings(): Promise<MatchingRow[]> {
     supabase
       .from("matchings")
       .select(
-        `score, rank, status, breakdown,
+        `id, score, rank, status, breakdown,
          mentee:mentee_id (participation_code, name, mentee_profiles(target_campus, target_majors)),
          mentor:mentor_id (participation_code, name, contact, mentor_profiles(current_campus, current_majors))`,
       )
@@ -947,6 +953,7 @@ export async function listMatchings(): Promise<MatchingRow[]> {
 
   return (rows ?? []).map((raw) => {
     const row = raw as {
+      id: string;
       score: number;
       rank: number;
       status: string;
@@ -983,6 +990,7 @@ export async function listMatchings(): Promise<MatchingRow[]> {
         : undefined;
 
     return {
+      matchingId: row.id,
       menteeCode: row.mentee.participation_code,
       menteeName: row.mentee.name,
       menteeCampus: row.mentee.mentee_profiles?.target_campus?.[0] ?? "-",
@@ -1115,7 +1123,7 @@ export interface UnmatchedReason {
   /** 지망 캠퍼스에 있는, 아직 자리가 남은 멘토 수 */
   mentorsInCampus: number;
   /** 왜 매칭이 안 됐는지 */
-  reason: "캠퍼스에 멘토 없음" | "대체 후보만 추천" | "결과 미확인";
+  reason: "선배 고르기 전" | "캠퍼스에 멘토 없음" | "대체 후보만 추천" | "결과 미확인";
 }
 
 /**
@@ -1124,8 +1132,8 @@ export interface UnmatchedReason {
  * 운영자가 "어느 캠퍼스 멘토를 더 모집해야 하는지" 판단하려면
  * 인원수만으로는 부족하고 원인이 필요하다.
  *
- * 대체 후보(같은 학과·지역 선배)만 추천받은 멘티도 여기 남긴다. 후보가
- * 있긴 하지만 지망 캠퍼스 선배를 모집하면 그쪽으로 옮겨 갈 사람들이다.
+ * 멘토링을 신청했지만 아직 선배와 이어지지 않은(REQUESTED/CONFIRMED 가 없는) 멘티 모두다.
+ * 추천은 받았지만 고르지 않은 사람은 "선배 고르기 전"으로 구분한다.
  */
 export async function listUnmatched(): Promise<UnmatchedReason[]> {
   const supabase = getSupabase();
@@ -1159,10 +1167,9 @@ export async function listUnmatched(): Promise<UnmatchedReason[]> {
     .filter((mentee) => mentee.mentoringApplied && !state.settledMentees.has(mentee.id))
     .flatMap((mentee): UnmatchedReason[] => {
       const suggested = suggestedCampuses.get(mentee.id) ?? [];
-      // 지망 캠퍼스 선배를 추천받았으면 매칭된 것으로 본다. 고르는 일만 남았다.
-      if (suggested.some((campus) => (mentee.targetCampus as string[]).includes(campus))) {
-        return [];
-      }
+      // 추천만 받고 선배를 고르지 않은 사람도 미매칭이다. 실제로 이어진 사람만 매칭으로 센다
+      // (2026-11-19, 운영진 요청). "직접 연결" 탭에서 운영자가 이어 줄 수 있다.
+      const suggestedInTarget = suggested.some((campus) => (mentee.targetCampus as string[]).includes(campus));
 
       // 성별이 다른 선배는 이 후배와 이어질 수 없어 세지 않는다.
       const inCampus = available.filter(
@@ -1174,8 +1181,9 @@ export async function listUnmatched(): Promise<UnmatchedReason[]> {
           name: mentee.name,
           targetCampus: mentee.targetCampus,
           mentorsInCampus: inCampus.length,
-          reason:
-            inCampus.length > 0
+          reason: suggestedInTarget
+            ? "선배 고르기 전"
+            : inCampus.length > 0
               ? "결과 미확인"
               : suggested.length > 0
                 ? "대체 후보만 추천"
@@ -1259,6 +1267,17 @@ export interface MentorNoticeRow {
   /** 아직 알리지 않았으면 undefined */
   notifiedAt?: string;
   notifiedVia?: MentorNoticeVia;
+  /** 후배에게 보내는 문자에 넣는다. 선배 캠퍼스를 모르면 비어 있다. */
+  mentorCampus?: string;
+  menteeCode: string;
+  menteeContact: string;
+  /**
+   * 운영자가 이어 준 연결인지. 후배가 직접 고른 연결은 후배가 이미 선배 번호를 봐서
+   * 후배 알림이 필요 없다. 운영자가 이은 연결만 후배에게도 문자로 알린다.
+   */
+  adminAssigned: boolean;
+  /** 후배에게 알린 시각. 아직이면 undefined */
+  menteeNotifiedAt?: string;
 }
 
 /**
@@ -1276,8 +1295,9 @@ export async function listMentorNotices(): Promise<MentorNoticeRow[]> {
       .from("matchings")
       .select(
         `id, created_at, mentor_notified_at, mentor_notified_via,
-         mentee:mentee_id (name, event_arrival),
-         mentor:mentor_id (participation_code, name, contact)`,
+         admin_assigned_at, mentee_notified_at,
+         mentee:mentee_id (participation_code, name, contact, event_arrival),
+         mentor:mentor_id (participation_code, name, contact, mentor_profiles(current_campus))`,
       )
       .in("status", ["REQUESTED", "CONFIRMED"])
       .order("created_at", { ascending: true })
@@ -1290,8 +1310,15 @@ export async function listMentorNotices(): Promise<MentorNoticeRow[]> {
       id: string;
       mentor_notified_at: string | null;
       mentor_notified_via: MentorNoticeVia | null;
-      mentee: { name: string; event_arrival: string | null } | null;
-      mentor: { participation_code: string; name: string; contact: string } | null;
+      admin_assigned_at: string | null;
+      mentee_notified_at: string | null;
+      mentee: { participation_code: string; name: string; contact: string; event_arrival: string | null } | null;
+      mentor: {
+        participation_code: string;
+        name: string;
+        contact: string;
+        mentor_profiles: { current_campus: string | null } | null;
+      } | null;
     };
     // 사람이 지워졌으면 알릴 대상도 없다.
     if (!row.mentee || !row.mentor) return [];
@@ -1305,6 +1332,11 @@ export async function listMentorNotices(): Promise<MentorNoticeRow[]> {
         mentorContact: row.mentor.contact,
         notifiedAt: row.mentor_notified_at ?? undefined,
         notifiedVia: row.mentor_notified_via ?? undefined,
+        mentorCampus: row.mentor.mentor_profiles?.current_campus ?? undefined,
+        menteeCode: row.mentee.participation_code,
+        menteeContact: row.mentee.contact,
+        adminAssigned: !!row.admin_assigned_at,
+        menteeNotifiedAt: row.mentee_notified_at ?? undefined,
       },
     ];
   });
@@ -1349,4 +1381,137 @@ export async function setMentorNotified(
     .eq("id", matchingId)
     .maybeSingle();
   return { ok: true, notifiedAt: (data?.mentor_notified_at as string | null) ?? undefined };
+}
+
+/**
+ * 후배에게 알렸다고 기록한다(또는 기록을 지운다). 운영자가 이어 준 연결에만 쓴다.
+ * 선배 알림과 같이, 이미 기록된 건은 덮어쓰지 않는다.
+ */
+export async function setMenteeNotified(
+  matchingId: string,
+  undo: boolean,
+): Promise<{ ok: boolean; notifiedAt?: string }> {
+  const supabase = getSupabase();
+  if (!supabase) return { ok: false };
+
+  const query = undo
+    ? supabase
+        .from("matchings")
+        .update({ mentee_notified_at: null, mentee_notified_via: null })
+        .eq("id", matchingId)
+    : supabase
+        .from("matchings")
+        .update({ mentee_notified_at: new Date().toISOString(), mentee_notified_via: "ADMIN_SMS" })
+        .eq("id", matchingId)
+        .is("mentee_notified_at", null);
+
+  const { error } = await query;
+  if (error) {
+    logDbError("후배 알림 기록", error);
+    return { ok: false };
+  }
+
+  const { data } = await supabase
+    .from("matchings")
+    .select("mentee_notified_at")
+    .eq("id", matchingId)
+    .maybeSingle();
+  return { ok: true, notifiedAt: (data?.mentee_notified_at as string | null) ?? undefined };
+}
+
+/**
+ * 운영자가 저장된 추천 하나로 후배와 선배를 직접 잇는다.
+ *
+ * 채플이 지나도록 선배를 고르지 않은 후배를 운영자가 대신 이어 준다.
+ * 후배가 직접 고른 것과 같은 상태(REQUESTED)가 되어, 선배 정원·"선배 알림"·
+ * 후배 결과 화면이 모두 그대로 동작한다. 후배가 직접 고를 때와 같은 조건을 다시 본다.
+ * 마지막 방어선은 같다 — DB 트리거(정원)와 부분 유니크 인덱스(멘티 1명).
+ */
+export async function assignMatch(matchingId: string): Promise<{ ok: boolean; error?: string }> {
+  const supabase = getSupabase();
+  if (!supabase) return { ok: false, error: "서버가 연결되지 않았어요." };
+
+  const { data: matching } = await supabase
+    .from("matchings")
+    .select(
+      `id, status, mentee_id,
+       mentee:mentee_id (gender),
+       mentor:mentor_id (gender, mentoring_applied, mentor_profiles(verified_at))`,
+    )
+    .eq("id", matchingId)
+    .maybeSingle();
+
+  if (!matching) return { ok: false, error: "추천을 찾지 못했어요. 새로고침해 주세요." };
+  const row = matching as unknown as {
+    id: string;
+    status: string;
+    mentee_id: string;
+    mentee: { gender: string | null } | null;
+    mentor: {
+      gender: string | null;
+      mentoring_applied: boolean;
+      mentor_profiles: { verified_at: string | null } | null;
+    } | null;
+  };
+  if (row.status !== "SUGGESTED") return { ok: false, error: "이미 연결된 추천이에요. 새로고침해 주세요." };
+  if (!row.mentee || !row.mentor) return { ok: false, error: "지워진 사람이 있어요. 새로고침해 주세요." };
+  if (!row.mentee.gender || row.mentee.gender !== row.mentor.gender) {
+    return { ok: false, error: "성별이 다른 선배와는 연결할 수 없어요." };
+  }
+  if (!row.mentor.mentoring_applied || !row.mentor.mentor_profiles?.verified_at) {
+    return { ok: false, error: "아직 인증되지 않은 선배예요. 먼저 인증해 주세요." };
+  }
+
+  const { data: other } = await supabase
+    .from("matchings")
+    .select("id")
+    .eq("mentee_id", row.mentee_id)
+    .in("status", ["REQUESTED", "CONFIRMED"])
+    .maybeSingle();
+  if (other) return { ok: false, error: "이 후배는 이미 다른 선배와 연결됐어요. 새로고침해 주세요." };
+
+  const { data: updated, error } = await supabase
+    .from("matchings")
+    .update({ status: "REQUESTED", admin_assigned_at: new Date().toISOString() })
+    .eq("id", row.id)
+    .eq("status", "SUGGESTED")
+    .select("id");
+  if (error) {
+    logDbError("운영자 연결", error, { id: matchingId });
+    return { ok: false, error: "이 선배의 자리가 다 찼어요. 다른 선배를 골라 주세요." };
+  }
+  // 그 사이 후배가 직접 골랐거나 추천이 다시 계산되면 바뀐 행이 없다.
+  if (!updated?.length) return { ok: false, error: "추천이 바뀌었어요. 새로고침해 주세요." };
+  return { ok: true };
+}
+
+/**
+ * 등록만 한 고3에게 멘토링 신청 안내를 보냈다고 기록한다(또는 기록을 지운다).
+ * 이미 기록된 건은 덮어쓰지 않는다. 고3이 아니거나 이미 신청한 사람은 바뀌지 않는다.
+ */
+export async function setMentoringInvited(
+  userId: string,
+  undo: boolean,
+): Promise<{ ok: boolean; invitedAt?: string }> {
+  const supabase = getSupabase();
+  if (!supabase) return { ok: false };
+
+  const base = supabase.from("users");
+  const query = undo
+    ? base.update({ mentoring_invited_at: null }).eq("id", userId).eq("role", "MENTEE")
+    : base
+        .update({ mentoring_invited_at: new Date().toISOString() })
+        .eq("id", userId)
+        .eq("role", "MENTEE")
+        .eq("mentoring_applied", false)
+        .is("mentoring_invited_at", null);
+
+  const { error } = await query;
+  if (error) {
+    logDbError("멘토링 신청 안내 기록", error);
+    return { ok: false };
+  }
+
+  const { data } = await supabase.from("users").select("mentoring_invited_at").eq("id", userId).maybeSingle();
+  return { ok: true, invitedAt: (data?.mentoring_invited_at as string | null) ?? undefined };
 }

@@ -8,6 +8,7 @@ import { CodeBadge } from "@/components/ui/CodeBadge";
 import { Name } from "@/components/ui/Name";
 import { MentorCard } from "@/features/matching/components/MentorCard";
 import type { MatchDiagnosis, PublicMatchResult } from "@/features/matching/model/types";
+import { SeniorPreview } from "@/features/onboarding/components/SeniorPreview";
 import { loadDraft, saveDraft } from "@/features/onboarding/lib/draftStore";
 import { EMPTY_DRAFT, type OnboardingDraft } from "@/features/onboarding/model/types";
 import {
@@ -39,7 +40,14 @@ type State =
       settledMentorId?: string;
     }
   /** 참여코드를 모르는 상태. 코드를 넣는 칸을 보여준다. */
-  | { kind: "enterCode"; message?: string; needsMentoring?: boolean };
+  | {
+      kind: "enterCode";
+      message?: string;
+      needsMentoring?: boolean;
+      canApplyDirectly?: boolean;
+      /** 멘토링을 신청하지 않은 본인의 성별. 같은 성별 선배 수를 보여줄 때 쓴다. */
+      applicantGender?: OnboardingDraft["gender"];
+    };
 
 export default function MatchingResultPage() {
   const router = useRouter();
@@ -66,14 +74,28 @@ export default function MatchingResultPage() {
         diagnosis?: MatchDiagnosis;
         settledMentorId?: string;
         needsMentoring?: boolean;
+        /** 멘토링을 신청하지 않은 본인의 이름·성별(needsMentoring 일 때만) */
+        applicant?: { name: string; gender?: OnboardingDraft["gender"] };
         error?: string;
       };
+
+      if (body.needsMentoring && body.applicant?.gender) {
+        // 등록만 한 고3이 안내 문자의 링크로 들어온 경우. 이 브라우저에 등록 정보를 남겨 두면
+        // 멘토링 신청 화면이 이어서 쓴다 — 등록 네 화면을 다시 거치지 않는다.
+        saveDraft(
+          "MENTEE",
+          { ...EMPTY_DRAFT, name: body.applicant.name, gender: body.applicant.gender },
+          code,
+        );
+      }
 
       if (!res.ok || !body.mentee || !body.results) {
         setState({
           kind: "enterCode",
           message: body.error ?? "결과를 불러오지 못했어요.",
           needsMentoring: body.needsMentoring,
+          canApplyDirectly: body.needsMentoring && !!body.applicant?.gender,
+          applicantGender: body.needsMentoring ? body.applicant?.gender : undefined,
         });
         return;
       }
@@ -187,6 +209,8 @@ export default function MatchingResultPage() {
       <CodeEntry
         message={state.message}
         needsMentoring={state.needsMentoring}
+        canApplyDirectly={state.canApplyDirectly}
+        applicantGender={state.applicantGender}
         onSubmit={(code) => {
           // 새로고침해도 같은 결과가 나오게 주소에도 남긴다.
           window.history.replaceState(null, "", `#${code}`);
@@ -432,10 +456,15 @@ function EmptyResult({
 function CodeEntry({
   message,
   needsMentoring,
+  canApplyDirectly,
+  applicantGender,
   onSubmit,
 }: {
   message?: string;
   needsMentoring?: boolean;
+  /** 이 브라우저에 등록 정보를 남겨 둬서 멘토링 신청으로 바로 갈 수 있다. */
+  canApplyDirectly?: boolean;
+  applicantGender?: OnboardingDraft["gender"];
   onSubmit: (code: string) => void;
 }) {
   const [code, setCode] = useState("");
@@ -487,10 +516,19 @@ function CodeEntry({
         </button>
       </form>
 
-      {/* 등록만 하고 멘토링을 신청하지 않은 고3. 같은 이름·번호로 다시 등록하면 기존 코드로 이어진다. */}
+      {/*
+        등록만 하고 멘토링을 신청하지 않은 고3. 성별을 아는 사람은 바로 멘토링 신청으로 보낸다.
+        성별을 받기 전에 등록한 사람은 같은 이름·번호로 다시 등록하면 성별을 고르고 기존 코드로 이어진다.
+      */}
+      {/* 안내 문자로 들어온 고3이 신청할 이유를 숫자로 본다. */}
+      {needsMentoring && applicantGender && (
+        <div className="mt-6">
+          <SeniorPreview gender={applicantGender} tone="plain" />
+        </div>
+      )}
       {needsMentoring && (
         <Link
-          href="/onboarding/register"
+          href={canApplyDirectly ? "/onboarding/mentoring/mentee" : "/onboarding/register"}
           className="mt-3 flex h-[52px] w-full items-center justify-center rounded-2xl bg-brand-soft text-[16px] font-bold text-brand"
         >
           멘토링 신청하러 가기

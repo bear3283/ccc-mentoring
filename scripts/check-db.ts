@@ -88,6 +88,11 @@ const REGISTER_CAMPUS_SQL = readFileSync(
   "utf8",
 );
 
+const ADMIN_ASSIGN_SQL = readFileSync(
+  new URL("../supabase/migrations/2026-11-16-admin-assign.sql", import.meta.url),
+  "utf8",
+);
+
 const MENTORING_OPTIONAL_SQL = readFileSync(
   new URL("../supabase/migrations/2026-10-26-mentoring-optional-fields.sql", import.meta.url),
   "utf8",
@@ -379,6 +384,16 @@ const requirements: Requirement[] = [
     name: "대학생 등록 학번 컬럼 (users.admission_year)",
     column: { table: "users", column: "admission_year" },
     sql: REGISTER_CAMPUS_SQL,
+  },
+  {
+    name: "운영자 연결·후배 알림 컬럼 (matchings.admin_assigned_at, mentee_notified_at, mentee_notified_via)",
+    column: { table: "matchings", column: "admin_assigned_at,mentee_notified_at,mentee_notified_via" },
+    sql: ADMIN_ASSIGN_SQL,
+  },
+  {
+    name: "멘토링 신청 안내 기록 컬럼 (users.mentoring_invited_at)",
+    column: { table: "users", column: "mentoring_invited_at" },
+    sql: ADMIN_ASSIGN_SQL,
   },
   {
     name: "채플 당일 도착 시간 컬럼 (users.event_arrival)",

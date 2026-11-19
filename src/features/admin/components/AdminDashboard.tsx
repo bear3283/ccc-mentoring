@@ -13,6 +13,8 @@ import { MentorRoster } from "./MentorRoster";
 import { MentorVerification, rosterColumns, toRosterRows } from "./MentorVerification";
 import { verificationStatus } from "@/features/matching/lib/mentorStatus";
 import { MentorNoticeList } from "./MentorNoticeList";
+import { AssignList } from "./AssignList";
+import { InviteList } from "./InviteList";
 import { findIssues, type IssueRow } from "../lib/issues";
 import { admissionYearLabel, GENDER_LABEL } from "@/shared/constants/domain";
 import { EVENT_ARRIVAL_LABEL } from "@/shared/constants/venue";
@@ -20,11 +22,13 @@ import { WEIGHTS } from "@/features/matching/lib/score";
 import { PERSONAS } from "@/shared/constants/persona";
 import { cn } from "@/shared/lib/cn";
 
-type Tab = "mentee" | "mentor" | "campus" | "matching" | "unmatched" | "notice" | "check";
+type Tab = "mentee" | "mentor" | "campus" | "matching" | "assign" | "unmatched" | "notice" | "check";
 
 /** 매칭 표의 한 행. 멘티 1명 x 추천 멘토 1명. */
 export interface MatchRow {
   id: string;
+  /** matchings.id. "직접 연결"에서 이 추천으로 잇는다. */
+  matchingId: string;
   rank: number;
   menteeCode: string;
   menteeName: string;
@@ -60,6 +64,8 @@ const menteeColumns: TableColumn<Mentee>[] = [
   // 운영자가 가장 자주 찾는 값이라 이름 바로 뒤에 둔다.
   { key: "contact", header: "연락처", value: (r) => r.contact, width: "130px" },
   { key: "gender", header: "성별", value: (r) => genderLabel(r.gender), align: "center", width: "60px" },
+  // 새친구는 눈에 띄어야 한다. 채플 당일 따로 맞이해야 하는 분들이다.
+  { key: "newFriend", header: "새친구", value: (r) => (r.isNewFriend ? "🌱 새친구" : "-"), align: "center", width: "90px" },
   { key: "campus1", header: "1지망", value: (r) => r.targetCampus[0] ?? "-" },
   { key: "campus2", header: "2지망", value: (r) => r.targetCampus[1] ?? "-" },
   { key: "campus3", header: "3지망", value: (r) => r.targetCampus[2] ?? "-" },
@@ -194,7 +200,7 @@ const matchColumns: TableColumn<MatchRow>[] = [
   {
     key: "status",
     header: "상태",
-    value: (r) => (r.status === "REQUESTED" ? "요청함" : "추천됨"),
+    value: (r) => (r.status === "CONFIRMED" ? "확정" : "연결됨"),
     align: "center",
     width: "80px",
     // 멘티가 실제로 연락을 요청한 건이 운영자가 챙겨야 할 대상이다.
@@ -202,12 +208,10 @@ const matchColumns: TableColumn<MatchRow>[] = [
       <span
         className={cn(
           "rounded px-1.5 py-0.5 text-[12px] font-semibold",
-          r.status === "REQUESTED"
-            ? "bg-brand-soft text-brand"
-            : "bg-gray-100 text-gray-500",
+          r.status === "CONFIRMED" ? "bg-green-500/15 text-green-500" : "bg-brand-soft text-brand",
         )}
       >
-        {r.status === "REQUESTED" ? "요청함" : "추천됨"}
+        {r.status === "CONFIRMED" ? "확정" : "연결됨"}
       </span>
     ),
   },
@@ -229,8 +233,10 @@ const TABS: { key: Tab; label: string }[] = [
   { key: "campus", label: "멘토 신청자" },
   { key: "mentor", label: "대학생 명단" },
   { key: "matching", label: "매칭 결과" },
+  // 선배를 고르지 않은 후배를 운영자가 잇는다. 이은 뒤 "연결 알림"에서 두 사람에게 알린다.
+  { key: "assign", label: "직접 연결" },
   { key: "unmatched", label: "미매칭" },
-  { key: "notice", label: "선배 알림" },
+  { key: "notice", label: "연결 알림" },
   { key: "check", label: "점검" },
 ];
 
@@ -321,7 +327,17 @@ export function AdminDashboard({
   notices,
 }: AdminDashboardProps) {
   // 탭 머리의 숫자만 쓴다. 목록 안에서 "보냄"을 눌러도 새로고침 전까지는 그대로다.
-  const pendingNotices = notices.filter((n) => !n.notifiedAt).length;
+  // 선배 알림 + 운영자가 이어 준 연결의 후배 알림.
+  const pendingNotices =
+    notices.filter((n) => !n.notifiedAt).length +
+    notices.filter((n) => n.adminAssigned && !n.menteeNotifiedAt).length;
+  // 멘티를 신청했지만 선배를 고르지 않은(이어지지 않은) 후배. "직접 연결" 탭 숫자.
+  // 실제로 이어진 매칭만. 추천(SUGGESTED)은 후배가 아직 고르지 않은 후보라 "매칭 결과"에 넣지 않는다.
+  const settledRows = matchRows.filter((r) => r.status === "REQUESTED" || r.status === "CONFIRMED");
+  const settledCodes = new Set(settledRows.map((r) => r.menteeCode));
+  const waitingMentees = mentees.filter(
+    (m) => m.mentoringApplied && !settledCodes.has(m.participationCode),
+  ).length;
   const issues = findIssues(mentees, mentors);
   // 캠퍼스 인증을 기다리는 선배. 인증 전에는 후배에게 보이지 않아 운영자가 먼저 챙겨야 한다.
   // 미인증으로 둔 선배는 이미 결정한 사람이라 대기에서 뺀다.
@@ -474,7 +490,7 @@ export function AdminDashboard({
     else if (tab === "unmatched") downloadCsv("멘토_모집_필요_캠퍼스.csv", demand, asCsvColumns(demandColumns));
     else if (tab === "check") downloadCsv("점검.csv", issues, asCsvColumns(issueColumns));
     else if (tab === "campus") downloadCsv("멘토명단_전체.csv", toRosterRows(mentors), rosterColumns);
-    else downloadCsv("매칭_결과.csv", matchRows, asCsvColumns(matchColumns));
+    else downloadCsv("매칭_결과.csv", settledRows, asCsvColumns(matchColumns));
   };
 
   return (
@@ -517,7 +533,7 @@ export function AdminDashboard({
               <Stat label="미매칭" value={`${unmatched.length}명`} emphasis={unmatched.length > 0} />
               <Stat label="추천 조합" value={`${matchRows.length}건`} />
               <Stat label="멘토 인증 대기" value={`${pendingMentors}명`} emphasis={pendingMentors > 0} primary />
-              <Stat label="선배 알림 대기" value={`${pendingNotices}명`} emphasis={pendingNotices > 0} />
+              <Stat label="알림 대기" value={`${pendingNotices}명`} emphasis={pendingNotices > 0} />
             </dl>
             <button
               type="button"
@@ -581,6 +597,9 @@ export function AdminDashboard({
               {/* 명단 탭은 등록한 전체 인원을 붙인다. 안에서 신청·일반·전체로 다시 나뉜다. */}
               {t.key === "mentee" && <span className="ml-1.5 tabular-nums">{mentees.length}</span>}
               {t.key === "mentor" && <span className="ml-1.5 tabular-nums">{mentors.length}</span>}
+              {t.key === "assign" && waitingMentees > 0 && (
+                <span className="ml-1.5 tabular-nums">{waitingMentees}</span>
+              )}
               {t.key === "notice" && pendingNotices > 0 && (
                 <span className="ml-1.5 tabular-nums">{pendingNotices}</span>
               )}
@@ -679,7 +698,15 @@ export function AdminDashboard({
         </>
       )}
 
-      {tab === "notice" && <MentorNoticeList initial={notices} readOnly={readOnly} />}
+      {tab === "notice" && (
+        <MentorNoticeList
+          initial={notices}
+          readOnly={readOnly}
+          footer={<InviteList mentees={mentees} readOnly={readOnly} />}
+        />
+      )}
+
+      {tab === "assign" && <AssignList mentees={mentees} matchRows={matchRows} readOnly={readOnly} />}
 
       {tab === "campus" && <MentorVerification mentors={mentors} readOnly={readOnly} />}
 
@@ -701,10 +728,11 @@ export function AdminDashboard({
 
       {tab === "matching" && (
         <DataTable
-          rows={matchRows}
+          rows={settledRows}
           columns={matchColumns}
           rowKey={(r) => r.id}
           searchable={(r) => `${r.menteeCode} ${r.menteeName} ${r.mentorName} ${r.mentorCampus} ${r.menteeArea}`}
+          emptyMessage="아직 선배와 이어진 후배가 없습니다."
         />
       )}
     </div>

@@ -57,6 +57,41 @@ export function mentorNoticeText({ menteeName, mentorName, mentorCode }: MentorN
  * `?&body=` 는 iOS(`&body=`)와 안드로이드(`?body=`)가 모두 읽는 모양이다.
  * 앱의 다른 문자 버튼과 같은 방식이다.
  */
+export interface MenteeNoticeInput {
+  menteeName: string;
+  mentorName: string;
+  mentorCampus?: string;
+  /** 후배 본인의 참여코드. 결과 화면에서 선배 번호를 여는 열쇠다. */
+  menteeCode: string;
+}
+
+/**
+ * 운영자가 이어 준 후배에게 보내는 문자. 선배 번호는 넣지 않는다(선배 문자와 같은 이유).
+ * 링크를 열면 결과 화면에 연결된 선배가 나오고, 누르면 번호와 [문자 보내기]가 나온다.
+ * 코드는 #뒤에 둔다 — 서버 접속 기록에 남지 않는다.
+ */
+export function menteeNoticeText({ menteeName, mentorName, mentorCampus, menteeCode }: MenteeNoticeInput): string {
+  return [
+    `[고3채플] ${menteeName}님, ${mentorName} 선배${mentorCampus ? `(${mentorCampus})` : ""}와 연결됐어요!`,
+    `아래 링크에서 선배 연락처를 확인하고, 문자로 먼저 인사해 보세요.`,
+    `${APP_ORIGIN}/matching/result#${menteeCode}`,
+    `(참여코드 ${menteeCode})`,
+  ].join("\n");
+}
+
+/**
+ * 등록만 하고 멘토링을 신청하지 않은 고3에게 보내는 신청 안내.
+ * 링크를 열면 이 브라우저에 등록 정보가 채워지고 [멘토링 신청하러 가기]로 바로 이어진다.
+ */
+export function mentoringInviteText({ menteeName, menteeCode }: { menteeName: string; menteeCode: string }): string {
+  return [
+    `[고3채플] ${menteeName}님, 채플에 와 주셔서 고마워요!`,
+    `가고 싶은 학교의 CCC 선배와 1:1로 이어 드려요. 아래 링크에서 몇 가지만 고르면 신청돼요.`,
+    `${APP_ORIGIN}/matching/result#${menteeCode}`,
+    `(참여코드 ${menteeCode})`,
+  ].join("\n");
+}
+
 export function smsHref(contact: string, body: string): string {
   return `sms:${contact.replace(/-/g, "")}?&body=${encodeURIComponent(body)}`;
 }

@@ -42,6 +42,8 @@ export interface Mentee {
   /** 아이스브레이킹으로 받은 값. 매칭 점수에는 쓰지 않는다. */
   mbti?: MbtiType;
   targetMajors: Major[];
+  /** 등록만 한 고3에게 멘토링 신청 안내 문자를 보낸 시각(운영자 화면). */
+  mentoringInvitedAt?: string;
 }
 
 /** DB의 Users + Mentor_Profiles를 조인한 형태 */
