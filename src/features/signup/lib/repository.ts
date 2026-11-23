@@ -727,6 +727,17 @@ export interface LookupResult {
   code: string;
   name: string;
   role: UserRole;
+  /** 2단계(멘토링 신청)까지 마쳤는지. 안 했으면 조회 화면에서 신청으로 이어 준다. */
+  mentoringApplied: boolean;
+  /**
+   * 멘토링 신청 화면이 이어 쓸 등록 정보. 신청하지 않은 사람에게만 채운다.
+   * 신청 화면은 성별을 다시 묻지 않고, 등록 때 고른 학교·학번이 있으면 학교 화면을 건너뛴다.
+   */
+  resume?: {
+    gender: Gender;
+    currentCampus?: Campus;
+    admissionYear?: number;
+  };
 }
 
 /**
@@ -747,12 +758,19 @@ export async function findCodeByNameAndContact(
     const hit = all.find(
       (p) => p.name === name.trim() && digits(p.contact) === digits(contact),
     );
-    return hit ? { code: hit.participationCode, name: hit.name, role: hit.role } : null;
+    return hit
+      ? {
+          code: hit.participationCode,
+          name: hit.name,
+          role: hit.role,
+          mentoringApplied: hit.mentoringApplied ?? false,
+        }
+      : null;
   }
 
   const { data, error } = await supabase
     .from("users")
-    .select("participation_code, name, role")
+    .select("participation_code, name, role, mentoring_applied, gender, current_campus, admission_year")
     .eq("name", name.trim())
     .eq("contact", contact)
     .maybeSingle();
@@ -760,10 +778,19 @@ export async function findCodeByNameAndContact(
   // 못 찾은 것(정상)과 조회가 실패한 것은 다르다.
   if (error) logDbError("이름·연락처로 코드 조회", error);
   if (error || !data) return null;
+  const mentoringApplied = !!data.mentoring_applied;
   return {
     code: data.participation_code as string,
     name: data.name as string,
     role: data.role as UserRole,
+    mentoringApplied,
+    resume: mentoringApplied
+      ? undefined
+      : {
+          gender: data.gender as Gender,
+          currentCampus: (data.current_campus as Campus | null) ?? undefined,
+          admissionYear: (data.admission_year as number | null) ?? undefined,
+        },
   };
 }
 

@@ -215,6 +215,20 @@ async function main() {
     `HTTP ${beforeApply.status}`,
   );
 
+  // 등록만 한 대학생이 코드 조회로 돌아오면 멘토 신청으로 이어 줄 정보를 받는다.
+  const unappliedLookup = await post("/api/lookup", { name: "검증멘토1", contact: `${TEST_PREFIX}1001` });
+  const resume = unappliedLookup.json.resume as
+    | { gender?: string; currentCampus?: string; admissionYear?: number }
+    | undefined;
+  check(
+    "등록만 한 대학생 조회 → 미신청 + 이어쓰기 정보",
+    unappliedLookup.json.mentoringApplied === false &&
+      resume?.gender === "FEMALE" &&
+      resume?.currentCampus === "연세대" &&
+      resume?.admissionYear === 2023,
+    JSON.stringify(unappliedLookup.json.resume ?? unappliedLookup.json),
+  );
+
   // 정원을 2명으로 받아, 두 번째 후배까지 연결되고 세 번째에서 막히는지 아래에서 본다.
   const mentorApply = await post("/api/mentoring", {
     role: "MENTOR",
@@ -624,6 +638,11 @@ async function main() {
   check("이름+번호 일치 시 조회", found.json.found === true && found.json.participationCode === menteeCode);
   const wrong = await post("/api/lookup", { name: "검증멘티", contact: "010-0000-0000" });
   check("번호 불일치 시 비공개", wrong.json.found === false);
+  const appliedLookup = await post("/api/lookup", { name: "검증멘토1", contact: `${TEST_PREFIX}1001` });
+  check(
+    "멘토 신청을 마친 대학생 조회 → 신청됨, 이어쓰기 정보 없음",
+    appliedLookup.json.mentoringApplied === true && appliedLookup.json.resume === undefined,
+  );
 
   console.log("\n[7] 운영자 화면 접근 제어");
   const noAuth = await fetch(`${BASE}/admin`, { redirect: "manual" });

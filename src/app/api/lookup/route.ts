@@ -56,5 +56,8 @@ export async function POST(request: Request) {
     participationCode: found.code,
     name: found.name,
     role: found.role,
+    mentoringApplied: found.mentoringApplied,
+    // 이름·번호를 둘 다 맞힌 본인에게만 간다. 멘토링 신청 화면이 등록을 다시 묻지 않고 이어 쓴다.
+    resume: found.resume,
   });
 }
