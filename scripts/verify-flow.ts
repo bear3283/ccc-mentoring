@@ -736,6 +736,39 @@ async function main() {
     console.log("  - 보기 전용 점검 건너뜀 (VIEWER_PASSWORD 없음)");
   }
 
+  // 출석 전용 비밀번호도 선택이다. 출석 화면만 열리고 나머지는 막혀야 한다.
+  const checkinPassword = process.env.CHECKIN_PASSWORD ?? loadEnv().CHECKIN_PASSWORD;
+  if (checkinPassword) {
+    const ciLogin = await post("/api/admin/login", { password: checkinPassword });
+    const ciCookie = ciLogin.res.headers.get("set-cookie")?.split(";")[0] ?? "";
+    check("출석 전용 로그인", ciLogin.status === 200 && ciLogin.json.role === "checkin");
+    const ciPage = await fetch(`${BASE}/admin/checkin`, { headers: { Cookie: ciCookie }, redirect: "manual" });
+    const ciHtml = await ciPage.text();
+    check(
+      "출석 전용: 출석 화면 열림 · 로그아웃 있음 · 운영자 화면 링크 없음",
+      ciPage.status === 200 && ciHtml.includes("출석 담당") && ciHtml.includes("로그아웃") && !ciHtml.includes("운영자 화면"),
+      `HTTP ${ciPage.status}`,
+    );
+    const ciSearch = await fetch(`${BASE}/api/admin/checkin?q=${menteeCode}`, { headers: { Cookie: ciCookie } });
+    check("출석 전용: 참가자 찾기 가능", ciSearch.status === 200, `HTTP ${ciSearch.status}`);
+    const ciAdmin = await fetch(`${BASE}/admin`, { headers: { Cookie: ciCookie }, redirect: "manual" });
+    check(
+      "출석 전용: 명단 화면은 출석 화면으로 돌려보냄",
+      (ciAdmin.status === 307 || ciAdmin.status === 302) &&
+        (ciAdmin.headers.get("location") ?? "").endsWith("/admin/checkin"),
+      `HTTP ${ciAdmin.status} → ${ciAdmin.headers.get("location")}`,
+    );
+    const ciWrite = await post("/api/admin/match-all", {}, ciCookie);
+    const ciDelete = await post("/api/admin/delete-user", { userId: "00000000-0000-0000-0000-000000000000" }, ciCookie);
+    check(
+      "출석 전용: 다른 운영자 API 거부",
+      ciWrite.status === 403 && ciDelete.status === 403,
+      `match-all ${ciWrite.status}, delete-user ${ciDelete.status}`,
+    );
+  } else {
+    console.log("  - 출석 전용 점검 건너뜀 (CHECKIN_PASSWORD 없음)");
+  }
+
   console.log("\n[8] 운영자 명단 삭제");
   // 지운 사람은 이름·연락처 조회에서도 사라져야 한다. 프로필·매칭은 DB 가 함께 지운다.
   const victimCode = newFriend.json.participationCode as string | undefined;

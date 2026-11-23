@@ -1,5 +1,10 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { ADMIN_COOKIE, verifySessionValue } from "@/shared/lib/security/adminSession";
+import {
+  ADMIN_COOKIE,
+  CHECKIN_API,
+  CHECKIN_PAGE,
+  verifySessionValue,
+} from "@/shared/lib/security/adminSession";
 
 /**
  * 운영자 화면과 운영자 API를 잠근다.
@@ -30,6 +35,15 @@ export async function middleware(request: NextRequest) {
 
   const role = await verifySessionValue(request.cookies.get(ADMIN_COOKIE)?.value, secret);
   if (!role) return respondLocked(request, "unauthorized");
+
+  // 출석 봉사자는 출석 체크 화면과 그 API만 쓴다. 명단 화면으로 가려 하면 출석 화면으로 돌려보낸다.
+  if (role === "checkin") {
+    if (pathname === CHECKIN_PAGE || pathname === CHECKIN_API) return NextResponse.next();
+    if (pathname.startsWith("/api/")) {
+      return NextResponse.json({ error: "출석 체크 전용 계정이에요." }, { status: 403 });
+    }
+    return NextResponse.redirect(new URL(CHECKIN_PAGE, request.url));
+  }
 
   // 보기 전용은 화면만 본다. 운영자 API는 모두 무언가를 바꾸므로 여기서 막는다.
   // 화면에서 버튼을 숨기는 것만으로는 직접 보낸 요청을 막지 못한다.

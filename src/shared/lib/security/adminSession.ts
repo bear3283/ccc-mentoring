@@ -16,14 +16,24 @@ export const ADMIN_COOKIE = "ccc_admin";
 /**
  * 운영자(admin)는 모든 것을, 보기 전용(viewer)은 화면만 본다.
  * 보기 전용은 신청 현황을 함께 확인할 사람에게 주는 비밀번호(VIEWER_PASSWORD)로 들어온다.
+ * 출석(checkin)은 채플 당일 입구 봉사자에게 주는 비밀번호(CHECKIN_PASSWORD)로 들어오고,
+ * 출석 체크 화면만 쓴다. 명단 전체와 연락처는 보지 못한다.
  */
-export type AdminRole = "admin" | "viewer";
+export type AdminRole = "admin" | "viewer" | "checkin";
 
 /**
  * 보기 전용 세션은 만료 시각 앞에 이 표식을 붙여 함께 서명한다.
  * 운영자 쿠키 모양은 전과 같아서, 이미 로그인한 운영자는 다시 들어오지 않아도 된다.
  */
 const VIEWER_PREFIX = "viewer:";
+const CHECKIN_PREFIX = "checkin:";
+
+/** 역할 → 서명 안에 넣는 표식. 운영자는 표식이 없다(예전 쿠키와 같은 모양). */
+const ROLE_PREFIX: Record<AdminRole, string> = { admin: "", viewer: VIEWER_PREFIX, checkin: CHECKIN_PREFIX };
+
+/** 출석 역할이 쓸 수 있는 곳. 이 밖은 미들웨어가 막는다. */
+export const CHECKIN_PAGE = "/admin/checkin";
+export const CHECKIN_API = "/api/admin/checkin";
 
 /** 세션 유효 기간. 현장에서 하루 종일 쓰는 화면이라 12시간으로 잡는다. */
 const SESSION_MS = 12 * 60 * 60 * 1000;
@@ -61,7 +71,7 @@ export async function createSessionValue(
   secret: string,
   role: AdminRole = "admin",
 ): Promise<string> {
-  const payload = `${role === "viewer" ? VIEWER_PREFIX : ""}${Date.now() + SESSION_MS}`;
+  const payload = `${ROLE_PREFIX[role]}${Date.now() + SESSION_MS}`;
   return `${payload}.${await sign(payload, secret)}`;
 }
 
@@ -81,9 +91,13 @@ export async function verifySessionValue(
   const expected = await sign(payload, secret);
   if (!safeEqual(signature, expected)) return null;
 
-  // 표식도 서명 안에 있으므로 보기 전용 쿠키를 운영자 쿠키로 바꿔 쓸 수 없다.
-  const role: AdminRole = payload.startsWith(VIEWER_PREFIX) ? "viewer" : "admin";
-  const expiry = Number(payload.slice(role === "viewer" ? VIEWER_PREFIX.length : 0));
+  // 표식도 서명 안에 있으므로 보기 전용·출석 쿠키를 운영자 쿠키로 바꿔 쓸 수 없다.
+  const role: AdminRole = payload.startsWith(VIEWER_PREFIX)
+    ? "viewer"
+    : payload.startsWith(CHECKIN_PREFIX)
+      ? "checkin"
+      : "admin";
+  const expiry = Number(payload.slice(ROLE_PREFIX[role].length));
   return Number.isFinite(expiry) && Date.now() < expiry ? role : null;
 }
 

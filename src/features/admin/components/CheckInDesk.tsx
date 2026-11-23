@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Toast } from "@/components/ui/Toast";
 import type { CheckInPerson } from "@/features/signup/lib/repository";
@@ -12,6 +13,8 @@ type Counts = Record<"MENTEE" | "MENTOR", { total: number; attended: number }>;
 interface CheckInDeskProps {
   /** 보기 전용 계정. 서버가 출석 기록을 막으므로 화면에서도 버튼을 감춘다. */
   readOnly: boolean;
+  /** 출석 전용 비밀번호로 들어온 봉사자. 운영자 화면으로 가는 길 대신 로그아웃을 둔다. */
+  checkInOnly: boolean;
   /** 조회에 실패하면 null. 숫자 없이도 체크는 할 수 있다. */
   initialCounts: Counts | null;
 }
@@ -29,7 +32,25 @@ function timeLabel(iso: string): string {
  * 줄이 서 있는 자리에서 쓰므로 한 사람을 처리하는 동작을 줄인다:
  * 코드나 이름을 치면 바로 찾고, 출석을 누르면 칸을 비워 다음 사람을 받는다.
  */
-export function CheckInDesk({ readOnly, initialCounts }: CheckInDeskProps) {
+export function CheckInDesk({ readOnly, checkInOnly, initialCounts }: CheckInDeskProps) {
+  const router = useRouter();
+  const [loggingOut, setLoggingOut] = useState(false);
+
+  /** 함께 쓰는 입구 노트북에서 봉사자가 바뀔 때 쓴다. 쿠키는 httpOnly 라 서버가 지운다. */
+  const handleLogout = async () => {
+    if (loggingOut) return;
+    setLoggingOut(true);
+    try {
+      const res = await fetch("/api/admin/login", { method: "DELETE" });
+      if (!res.ok) throw new Error(String(res.status));
+      router.replace("/admin/login?next=/admin/checkin");
+      router.refresh();
+    } catch {
+      setError("로그아웃하지 못했어요. 다시 눌러주세요.");
+      setLoggingOut(false);
+    }
+  };
+
   const [query, setQuery] = useState("");
   const [people, setPeople] = useState<CheckInPerson[]>([]);
   const [truncated, setTruncated] = useState(false);
@@ -155,12 +176,25 @@ export function CheckInDesk({ readOnly, initialCounts }: CheckInDeskProps) {
       <header className="sticky top-0 z-10 bg-white pt-5 pb-3 lg:static lg:pt-8 lg:pb-5">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-[13px] font-medium text-brand">{readOnly ? "보기 전용" : "운영자"}</p>
+            <p className="text-[13px] font-medium text-brand">
+              {readOnly ? "보기 전용" : checkInOnly ? "출석 담당" : "운영자"}
+            </p>
             <h1 className="mt-0.5 text-[22px] font-bold tracking-[-0.02em] text-gray-900">출석 체크</h1>
           </div>
-          <Link href="/admin" className="text-[13px] font-semibold text-gray-500 underline">
-            운영자 화면
-          </Link>
+          {checkInOnly ? (
+            <button
+              type="button"
+              onClick={() => void handleLogout()}
+              disabled={loggingOut}
+              className="text-[13px] font-semibold text-gray-500 underline disabled:text-gray-300"
+            >
+              {loggingOut ? "나가는 중…" : "로그아웃"}
+            </button>
+          ) : (
+            <Link href="/admin" className="text-[13px] font-semibold text-gray-500 underline">
+              운영자 화면
+            </Link>
+          )}
         </div>
 
         {counts && (

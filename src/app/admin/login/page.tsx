@@ -2,7 +2,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
-import { safeAdminPath } from "@/shared/lib/security/adminSession";
+import { CHECKIN_PAGE, safeAdminPath } from "@/shared/lib/security/adminSession";
 
 function LoginForm() {
   const router = useRouter();
@@ -12,6 +12,8 @@ function LoginForm() {
   const [busy, setBusy] = useState(false);
 
   const notConfigured = params.get("reason") === "not-configured";
+  // 출석 링크로 들어온 봉사자에게는 출석 체크 화면이라고 알려준다.
+  const forCheckIn = params.get("next") === CHECKIN_PAGE;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,7 +30,9 @@ function LoginForm() {
 
       if (res.ok) {
         // replace 로 보내야 뒤로가기로 로그인 화면에 다시 걸리지 않는다.
-        router.replace(safeAdminPath(params.get("next")));
+        // 출석 전용 비밀번호로 들어왔으면 갈 곳은 출석 화면뿐이다.
+        const { role } = (await res.json()) as { role?: string };
+        router.replace(role === "checkin" ? CHECKIN_PAGE : safeAdminPath(params.get("next")));
         router.refresh();
         return;
       }
@@ -45,12 +49,14 @@ function LoginForm() {
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-[400px] flex-col justify-center bg-white px-6">
       <header className="pb-6">
-        <p className="text-[14px] font-medium text-brand">운영자 전용</p>
+        <p className="text-[14px] font-medium text-brand">{forCheckIn ? "채플 출석 체크" : "운영자 전용"}</p>
         <h1 className="mt-1.5 text-[24px] leading-[1.35] font-bold tracking-[-0.02em] text-gray-900">
           비밀번호를 입력해주세요
         </h1>
         <p className="mt-2 text-[14px] leading-relaxed text-gray-500">
-          신청자 개인정보가 있는 화면이에요.
+          {forCheckIn
+            ? "안내받은 출석 체크 비밀번호를 넣어주세요."
+            : "신청자 개인정보가 있는 화면이에요."}
         </p>
       </header>
 
