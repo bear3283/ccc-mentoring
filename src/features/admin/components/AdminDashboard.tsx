@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { DataTable, type TableColumn } from "./DataTable";
@@ -81,7 +82,8 @@ const menteeColumns: TableColumn<Mentee>[] = [
     value: (r) => (r.mentoringApplied ? "신청" : "등록만"),
     align: "center",
     width: "80px",
-  },
+  },  // 채플 당일 입구에서 찍는다(/admin/checkin). 언제 왔는지까지 남긴다.
+  { key: "attended", header: "출석", value: (r) => attendedLabel(r.attendedAt), align: "center", width: "80px" },
 ];
 
 /**
@@ -95,6 +97,11 @@ function personaName(type: Mentee["personaType"] | undefined): string {
 /** 성별을 받기 전에 등록한 사람은 비어 있다. 그런 사람은 매칭 후보가 되지 않는다. */
 function genderLabel(gender: Mentee["gender"]): string {
   return gender ? GENDER_LABEL[gender] : "-";
+}
+
+/** 출석한 시각(시:분). 아직 안 왔으면 "-". */
+function attendedLabel(iso: string | undefined): string {
+  return iso ? new Date(iso).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", hour12: false }) : "-";
 }
 
 /** 채플이 지난 뒤 신청했거나 이전 신청자라 비어 있을 수 있다. */
@@ -159,7 +166,8 @@ const mentorColumns: TableColumn<AdminMentor>[] = [
     value: (r) => (r.mentoringApplied ? "신청" : "등록만"),
     align: "center",
     width: "80px",
-  },
+  },  // 채플 당일 입구에서 찍는다(/admin/checkin). 언제 왔는지까지 남긴다.
+  { key: "attended", header: "출석", value: (r) => attendedLabel(r.attendedAt), align: "center", width: "80px" },
 ];
 
 const matchColumns: TableColumn<MatchRow>[] = [
@@ -350,6 +358,8 @@ export function AdminDashboard({
   const verifiedMentors = mentors.filter(
     (m) => m.mentoringApplied && verificationStatus(m) === "verified",
   ).length;
+  const attended =
+    mentees.filter((m) => m.attendedAt).length + mentors.filter((m) => m.attendedAt).length;
   const [tab, setTab] = useState<Tab>("matching");
   const [allStats, setAllStats] = useState(false);
 
@@ -534,6 +544,7 @@ export function AdminDashboard({
               <Stat label="추천 조합" value={`${matchRows.length}건`} />
               <Stat label="멘토 인증 대기" value={`${pendingMentors}명`} emphasis={pendingMentors > 0} primary />
               <Stat label="알림 대기" value={`${pendingNotices}명`} emphasis={pendingNotices > 0} />
+              <Stat label="출석" value={`${attended}명`} />
             </dl>
             <button
               type="button"
@@ -545,6 +556,13 @@ export function AdminDashboard({
           </div>
 
           <div className="flex shrink-0 items-center gap-2">
+            {/* 채플 당일 입구에서 휴대폰으로 연다. */}
+            <Link
+              href="/admin/checkin"
+              className="flex h-9 items-center rounded-lg border border-gray-200 px-4 text-[13px] font-bold text-gray-700 active:bg-gray-100"
+            >
+              출석 체크
+            </Link>
             {!readOnly && (
               <button
                 type="button"

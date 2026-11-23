@@ -49,6 +49,8 @@ interface UserRow {
   admission_year?: number | null;
   /** 등록만 한 고3에게 멘토링 신청 안내 문자를 보낸 시각. */
   mentoring_invited_at?: string | null;
+  /** 채플 당일 출석 시각. 출석 컬럼을 추가하기 전의 DB에는 없다. */
+  attended_at?: string | null;
   created_at?: string;
 }
 
@@ -59,7 +61,7 @@ interface UserRow {
  * 필요한 사람의 사진만 fetchMentorPhotos 로 따로 읽는다.
  */
 const USER_COLUMNS =
-  "id, role, participation_code, name, gender, contact, persona_type, mbti, high_school, referrer, church, is_new_friend, mentoring_applied, event_arrival, current_campus, admission_year, mentoring_invited_at, created_at";
+  "id, role, participation_code, name, gender, contact, persona_type, mbti, high_school, referrer, church, is_new_friend, mentoring_applied, event_arrival, current_campus, admission_year, mentoring_invited_at, attended_at, created_at";
 
 const PAGE_SIZE = 1000;
 
@@ -126,6 +128,7 @@ function toMentee(user: UserRow, profile: MenteeRow | null): Mentee {
     eventArrival: asEventArrival(user.event_arrival),
     createdAt: user.created_at,
     mentoringInvitedAt: user.mentoring_invited_at ?? undefined,
+    attendedAt: user.attended_at ?? undefined,
     referrer: user.referrer ?? undefined,
     photoUrl: user.photo_url ?? undefined,
     targetCampus: (profile?.target_campus ?? []) as Campus[],
@@ -152,6 +155,7 @@ function toMentor(user: UserRow, profile: MentorRow | null): Mentor {
     createdAt: user.created_at,
     referrer: user.referrer ?? undefined,
     photoUrl: user.photo_url ?? undefined,
+    attendedAt: user.attended_at ?? undefined,
     // 멘토를 신청했으면 프로필 값, 등록만 했으면 등록 때 고른 값을 쓴다.
     currentCampus: (profile?.current_campus ?? user.current_campus ?? undefined) as Campus,
     admissionYear: profile?.admission_year ?? user.admission_year ?? 0,
@@ -1541,4 +1545,156 @@ export async function setMentoringInvited(
 
   const { data } = await supabase.from("users").select("mentoring_invited_at").eq("id", userId).maybeSingle();
   return { ok: true, invitedAt: (data?.mentoring_invited_at as string | null) ?? undefined };
+}
+
+/** 입구 출석 체크 화면에 보여줄 한 사람. 누구인지 확인하는 데 필요한 것만 담는다. */
+export interface CheckInPerson {
+  id: string;
+  code: string;
+  name: string;
+  role: UserRole;
+  gender?: Gender;
+  /** 동명이인을 가를 때 묻는 연락처 끝 4자리. 전체 번호는 보여주지 않는다. */
+  contactTail: string;
+  /** 대학생: 학교 · 학번 / 고3: 출신 고교. 비어 있을 수 있다. */
+  school?: string;
+  admissionYear?: number;
+  isNewFriend: boolean;
+  mentoringApplied: boolean;
+  attendedAt?: string;
+}
+
+const CHECK_IN_COLUMNS =
+  "id, participation_code, name, role, gender, contact, high_school, current_campus, admission_year, is_new_friend, mentoring_applied, attended_at";
+
+/** 이름 검색은 이 수까지만 돌려준다. 그 이상이면 더 길게 치도록 안내한다. */
+const CHECK_IN_LIMIT = 20;
+
+function toCheckInPerson(row: Record<string, unknown>): CheckInPerson {
+  const role = row.role as UserRole;
+  return {
+    id: row.id as string,
+    code: row.participation_code as string,
+    name: row.name as string,
+    role,
+    gender: (row.gender as Gender | null) ?? undefined,
+    contactTail: String(row.contact ?? "").replace(/\D/g, "").slice(-4),
+    school:
+      ((role === "MENTOR" ? row.current_campus : row.high_school) as string | null) ?? undefined,
+    admissionYear: (row.admission_year as number | null) ?? undefined,
+    isNewFriend: !!row.is_new_friend,
+    mentoringApplied: !!row.mentoring_applied,
+    attendedAt: (row.attended_at as string | null) ?? undefined,
+  };
+}
+
+/**
+ * 입구에서 참가자를 찾는다. 참여코드와 정확히 맞는 사람이 있으면 그 한 명,
+ * 없으면 이름 일부로 찾는다. 조회가 실패하면 null.
+ *
+ * 코드를 먼저 보는 이유: "강예찬"처럼 이름 두세 글자가 코드 6자와 겹칠 일은 없지만,
+ * 코드를 대는 사람에게 동명이인 목록을 보여줄 이유도 없다.
+ */
+export async function searchForCheckIn(
+  query: string,
+): Promise<{ people: CheckInPerson[]; truncated: boolean } | null> {
+  const supabase = getSupabase();
+  if (!supabase) return null;
+
+  const code = query.replace(/[^0-9A-Za-z]/g, "").toUpperCase();
+  if (code.length === 6) {
+    const { data, error } = await supabase
+      .from("users")
+      .select(CHECK_IN_COLUMNS)
+      .eq("participation_code", code)
+      .maybeSingle();
+    if (error) {
+      logDbError("출석 체크 - 코드 조회", error);
+      return null;
+    }
+    if (data) return { people: [toCheckInPerson(data)], truncated: false };
+  }
+
+  // ilike 의 와일드카드(% _)와 이스케이프(\)를 글자 그대로 찾게 한다.
+  const name = query.trim().replace(/[\\%_]/g, (c) => `\\${c}`);
+  if (name.length < 1) return { people: [], truncated: false };
+
+  const { data, error } = await supabase
+    .from("users")
+    .select(CHECK_IN_COLUMNS)
+    .ilike("name", `%${name}%`)
+    .order("name", { ascending: true })
+    .order("id", { ascending: true })
+    .limit(CHECK_IN_LIMIT + 1);
+  if (error) {
+    logDbError("출석 체크 - 이름 조회", error);
+    return null;
+  }
+  const rows = (data ?? []) as Record<string, unknown>[];
+  return {
+    people: rows.slice(0, CHECK_IN_LIMIT).map(toCheckInPerson),
+    truncated: rows.length > CHECK_IN_LIMIT,
+  };
+}
+
+/**
+ * 출석을 찍거나(undo=false) 지운다(undo=true, 잘못 누른 경우).
+ * 이미 찍힌 사람을 다시 찍어도 처음 시각을 지킨다 — 두 운영자가 동시에 눌러도 같다.
+ */
+export async function setAttended(
+  userId: string,
+  undo: boolean,
+): Promise<{ ok: boolean; found: boolean; attendedAt?: string }> {
+  const supabase = getSupabase();
+  if (!supabase) return { ok: false, found: false };
+
+  const base = supabase.from("users");
+  const { error } = undo
+    ? await base.update({ attended_at: null }).eq("id", userId)
+    : await base.update({ attended_at: new Date().toISOString() }).eq("id", userId).is("attended_at", null);
+  if (error) {
+    logDbError("출석 기록", error);
+    return { ok: false, found: false };
+  }
+
+  const { data, error: readError } = await supabase
+    .from("users")
+    .select("attended_at")
+    .eq("id", userId)
+    .maybeSingle();
+  if (readError) {
+    logDbError("출석 기록 확인", readError);
+    return { ok: false, found: false };
+  }
+  if (!data) return { ok: true, found: false };
+  return { ok: true, found: true, attendedAt: (data.attended_at as string | null) ?? undefined };
+}
+
+/** 역할별 등록 인원과 출석 인원. 출석 체크 화면 머리에 쓴다. 조회가 실패하면 null. */
+export async function countAttendance(): Promise<Record<"MENTEE" | "MENTOR", { total: number; attended: number }> | null> {
+  const supabase = getSupabase();
+  if (!supabase) return null;
+
+  const count = async (role: "MENTEE" | "MENTOR", attendedOnly: boolean) => {
+    let q = supabase.from("users").select("id", { count: "exact", head: true }).eq("role", role);
+    if (attendedOnly) q = q.not("attended_at", "is", null);
+    const { count: n, error } = await q;
+    if (error) {
+      logDbError("출석 인원 집계", error);
+      return null;
+    }
+    return n ?? 0;
+  };
+
+  const [menteeTotal, menteeAttended, mentorTotal, mentorAttended] = await Promise.all([
+    count("MENTEE", false),
+    count("MENTEE", true),
+    count("MENTOR", false),
+    count("MENTOR", true),
+  ]);
+  if ([menteeTotal, menteeAttended, mentorTotal, mentorAttended].some((n) => n === null)) return null;
+  return {
+    MENTEE: { total: menteeTotal!, attended: menteeAttended! },
+    MENTOR: { total: mentorTotal!, attended: mentorAttended! },
+  };
 }

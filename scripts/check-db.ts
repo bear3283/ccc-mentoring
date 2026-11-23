@@ -93,6 +93,11 @@ const ADMIN_ASSIGN_SQL = readFileSync(
   "utf8",
 );
 
+const ATTENDANCE_SQL = readFileSync(
+  new URL("../supabase/migrations/2026-11-23-attendance.sql", import.meta.url),
+  "utf8",
+);
+
 const MENTORING_OPTIONAL_SQL = readFileSync(
   new URL("../supabase/migrations/2026-10-26-mentoring-optional-fields.sql", import.meta.url),
   "utf8",
@@ -394,6 +399,11 @@ const requirements: Requirement[] = [
     name: "멘토링 신청 안내 기록 컬럼 (users.mentoring_invited_at)",
     column: { table: "users", column: "mentoring_invited_at" },
     sql: ADMIN_ASSIGN_SQL,
+  },
+  {
+    name: "채플 당일 출석 컬럼 (users.attended_at)",
+    column: { table: "users", column: "attended_at" },
+    sql: ATTENDANCE_SQL,
   },
   {
     name: "채플 당일 도착 시간 컬럼 (users.event_arrival)",

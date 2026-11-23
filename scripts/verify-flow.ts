@@ -633,6 +633,54 @@ async function main() {
     check("잘못된 매칭 id 거부", bad.status === 400, `HTTP ${bad.status}`);
   }
 
+  console.log("\n[5-3] 출석 체크 (운영자)");
+  // 참가자가 스스로 찍을 길은 없어야 한다. 코드만 알면 현장에 없어도 출석이 된다.
+  const anonCheckIn = await fetch(`${BASE}/api/admin/checkin?q=${menteeCode}`);
+  check("로그인 없이 출석 조회 거부", anonCheckIn.status === 401, `HTTP ${anonCheckIn.status}`);
+  if (!cookie) {
+    check("운영자 로그인 후 출석 체크", false, "로그인 실패");
+  } else {
+    const getCheckIn = async (q: string) => {
+      const res = await fetch(`${BASE}/api/admin/checkin?q=${encodeURIComponent(q)}`, {
+        headers: { Cookie: cookie },
+      });
+      return (await res.json()) as { people?: { id: string; code: string; role: string; attendedAt?: string }[] };
+    };
+    const byCode = await getCheckIn(String(menteeCode).toLowerCase());
+    check(
+      "참여코드로 찾기 (소문자도) → 한 명, 고3",
+      byCode.people?.length === 1 && byCode.people[0].code === menteeCode && byCode.people[0].role === "MENTEE",
+      JSON.stringify(byCode.people?.map((p) => p.code)),
+    );
+    const byName = await getCheckIn("검증멘토");
+    check(
+      "이름 일부로 찾기 → 대학생 구분",
+      !!byName.people?.length && byName.people.every((p) => p.role === "MENTOR"),
+      `${byName.people?.length ?? 0}명`,
+    );
+    const wildcard = await getCheckIn("%");
+    check("와일드카드는 글자로 취급", (wildcard.people?.length ?? 0) === 0, `${wildcard.people?.length}명`);
+
+    const target = byCode.people?.[0];
+    if (target) {
+      const first = await post("/api/admin/checkin", { userId: target.id }, cookie);
+      const second = await post("/api/admin/checkin", { userId: target.id }, cookie);
+      check(
+        "출석 · 두 번 눌러도 처음 시각 유지",
+        first.status === 200 && !!first.json.attendedAt && second.json.attendedAt === first.json.attendedAt,
+        String(first.json.attendedAt ?? first.json.error),
+      );
+      const after = await getCheckIn(target.code);
+      check("찾으면 출석 시각이 보임", after.people?.[0]?.attendedAt === first.json.attendedAt);
+      const undo = await post("/api/admin/checkin", { userId: target.id, undo: true }, cookie);
+      check("출석 취소", undo.status === 200 && undo.json.attendedAt === null);
+    }
+    const bad = await post("/api/admin/checkin", { userId: "not-a-uuid" }, cookie);
+    check("잘못된 id 거부", bad.status === 400, `HTTP ${bad.status}`);
+    const ghost = await post("/api/admin/checkin", { userId: "00000000-0000-0000-0000-000000000000" }, cookie);
+    check("없는 사람 거부", ghost.status === 404, `HTTP ${ghost.status}`);
+  }
+
   console.log("\n[6] 참여코드 조회");
   const found = await post("/api/lookup", { name: "검증멘티", contact: `${TEST_PREFIX}0001` });
   check("이름+번호 일치 시 조회", found.json.found === true && found.json.participationCode === menteeCode);

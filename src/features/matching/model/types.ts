@@ -44,6 +44,8 @@ export interface Mentee {
   targetMajors: Major[];
   /** 등록만 한 고3에게 멘토링 신청 안내 문자를 보낸 시각(운영자 화면). */
   mentoringInvitedAt?: string;
+  /** 채플 당일 입구에서 출석을 찍은 시각. 비어 있으면 아직 안 왔다. */
+  attendedAt?: string;
 }
 
 /** DB의 Users + Mentor_Profiles를 조인한 형태 */
@@ -67,6 +69,8 @@ export interface Mentor {
   /** 등록한 시각(ISO). 운영자 표에서 시간순으로 볼 때 쓴다. */
   createdAt?: string;
   photoUrl?: string;
+  /** Mentee.attendedAt 과 같다. */
+  attendedAt?: string;
   currentCampus: Campus;
   /** 입학 연도. 화면에는 뒤 두 자리를 따 '24학번'으로 보여준다. */
   admissionYear: number;
