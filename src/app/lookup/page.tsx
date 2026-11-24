@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { CodeBadge } from "@/components/ui/CodeBadge";
 import { Name } from "@/components/ui/Name";
 import { SaveCodeImageButton } from "@/features/onboarding/components/SaveCodeImageButton";
 import { saveDraft } from "@/features/onboarding/lib/draftStore";
+import { MENTORING_PATH, safeMentoringNext } from "@/features/onboarding/lib/mentoringPath";
 import { EMPTY_DRAFT, type OnboardingDraft } from "@/features/onboarding/model/types";
 
 /** 멘토링 신청 화면이 이어 쓸 등록 정보. 신청하지 않은 사람에게만 온다. */
@@ -39,6 +40,32 @@ export default function LookupPage() {
   const [phone, setPhone] = useState("");
   const [result, setResult] = useState<Result>({ kind: "idle" });
 
+  /**
+   * 멘토링 신청 화면이 등록 정보가 없어 보낸 경우 ?next=신청화면 이 붙어 온다.
+   * 찾으면 그 화면으로 바로 돌려보낸다. reason=expired 는 답하는 도중 정보가 사라진 경우.
+   * 주소 값은 브라우저에서만 읽는다(이 화면은 정적으로 미리 그려진다).
+   */
+  const [next, setNext] = useState<string | null>(null);
+  const [expired, setExpired] = useState(false);
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    setNext(safeMentoringNext(params.get("next")));
+    setExpired(params.get("reason") === "expired");
+  }, []);
+
+  /**
+   * 등록만 하고 멘토링은 신청하지 않은 사람. 등록 정보를 이 탭에 남겨 두면 신청 화면이
+   * 그 위에 이어 쓴다 — 이름·성별·학교·학번을 다시 묻지 않는다.
+   */
+  const startMentoring = (entry: RosterEntry) => {
+    saveDraft(
+      entry.role,
+      { ...EMPTY_DRAFT, ...entry.resume, role: entry.role, name: entry.name },
+      entry.code,
+    );
+    router.push(MENTORING_PATH[entry.role]);
+  };
+
   const canSubmit = name.trim().length >= 2 && phone.replace(/\D/g, "").length >= 10;
 
   const [busy, setBusy] = useState(false);
@@ -63,16 +90,20 @@ export default function LookupPage() {
       };
 
       if (res.ok && body.found && body.participationCode && body.role) {
-        setResult({
-          kind: "found",
-          entry: {
-            code: body.participationCode,
-            name: body.name ?? name,
-            role: body.role,
-            mentoringApplied: body.mentoringApplied ?? true,
-            resume: body.resume,
-          },
-        });
+        const entry: RosterEntry = {
+          code: body.participationCode,
+          name: body.name ?? name,
+          role: body.role,
+          mentoringApplied: body.mentoringApplied ?? true,
+          resume: body.resume,
+        };
+        // 신청 화면에서 넘어온 사람이 아직 신청 전이면 묻지 않고 그 화면으로 돌려보낸다.
+        // 이미 신청했거나 다른 역할의 화면에서 왔으면 아래 결과 화면에서 맞는 길을 고르게 한다.
+        if (next && !entry.mentoringApplied && MENTORING_PATH[entry.role] === next) {
+          startMentoring(entry);
+          return;
+        }
+        setResult({ kind: "found", entry });
       } else {
         setResult({ kind: "notFound" });
       }
@@ -93,6 +124,18 @@ export default function LookupPage() {
         <p className="mt-2 text-[14px] leading-relaxed text-gray-500">
           신청할 때 적은 이름과 연락처로 찾아드려요.
         </p>
+        {next && result.kind !== "found" && (
+          <div className="mt-4 rounded-2xl bg-brand-soft px-4 py-3">
+            <p className="text-[14px] font-bold text-gray-900">
+              {expired ? "등록 정보를 다시 확인할게요" : "멘토링 신청 전에 등록 정보를 확인할게요"}
+            </p>
+            <p className="mt-1 text-[13px] leading-relaxed text-gray-600">
+              {expired
+                ? "확인이 끝나면 신청 화면으로 돌아가요. 번거롭지만 답을 한 번 더 골라주세요."
+                : "채플 등록할 때 적은 이름과 연락처를 넣으면 신청 화면으로 바로 이어져요."}
+            </p>
+          </div>
+        )}
       </header>
 
       {result.kind === "found" ? (
@@ -114,33 +157,29 @@ export default function LookupPage() {
             역할마다 다음에 할 일이 다르므로 그 길을 바로 열어 준다.
             선배에게는 알림이 가지 않아, 직접 확인하러 오는 통로가 특히 필요하다.
           */}
-          {result.entry.role === "MENTOR" && !result.entry.mentoringApplied ? (
+          {!result.entry.mentoringApplied ? (
             /*
-             * 등록만 하고 멘토 신청은 하지 않은 대학생. 등록 완료 화면을 놓쳤거나 탭을 닫으면
-             * 신청 화면으로 돌아갈 길이 없었다. 등록 정보를 이 탭에 남겨 두면 신청 화면이
-             * 그 위에 이어 쓴다 — 이름·성별·학교·학번을 다시 묻지 않는다.
+             * 등록만 하고 멘토링은 신청하지 않은 사람. 등록 완료 화면을 놓쳤거나 탭을 닫으면
+             * 신청 화면으로 돌아갈 길이 없었다. 예전에는 대학생에게만 이 길이 있어서,
+             * 고3은 신청하지 않았어도 "매칭 결과 보기"만 보였다.
              */
             <>
               <div className="mt-4 rounded-2xl bg-brand-soft px-4 py-3">
-                <p className="text-[15px] font-bold text-gray-900">아직 멘토 신청 전이에요</p>
+                <p className="text-[15px] font-bold text-gray-900">
+                  {result.entry.role === "MENTOR" ? "아직 멘토 신청 전이에요" : "아직 멘토링 신청 전이에요"}
+                </p>
                 <p className="mt-1 text-[13px] leading-relaxed text-gray-600">
-                  고3·예비 27학번 후배 한 명을 품어 주세요. 몇 가지만 답하면 바로 신청돼요.
+                  {result.entry.role === "MENTOR"
+                    ? "고3·예비 27학번 후배 한 명을 품어 주세요. 몇 가지만 답하면 바로 신청돼요."
+                    : "먼저 대학에 간 선배와 이어드릴게요. 몇 가지만 답하면 바로 신청돼요."}
                 </p>
               </div>
               <button
                 type="button"
-                onClick={() => {
-                  const { entry } = result;
-                  saveDraft(
-                    "MENTOR",
-                    { ...EMPTY_DRAFT, ...entry.resume, role: "MENTOR", name: entry.name },
-                    entry.code,
-                  );
-                  router.push("/onboarding/mentoring/mentor");
-                }}
+                onClick={() => startMentoring(result.entry)}
                 className="mt-3 flex h-[54px] w-full items-center justify-center gap-1.5 rounded-2xl bg-brand text-[17px] font-bold text-white active:bg-brand-dark"
               >
-                멘토로 신청하기
+                {result.entry.role === "MENTOR" ? "멘토로 신청하기" : "멘토링 신청하기"}
                 <span className="text-[18px]" aria-hidden>
                   →
                 </span>

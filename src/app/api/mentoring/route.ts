@@ -55,10 +55,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "잘못된 요청이에요." }, { status: 400 });
   }
 
+  // 참여코드가 없거나 맞지 않으면 401 과 NOT_REGISTERED 를 돌려준다. 입력값 오류(400)와 구분해야
+  // 신청 화면이 오류만 띄우지 않고 조회 화면으로 보내 등록 정보를 다시 찾게 할 수 있다.
   if (!isValidParticipationCode(code)) {
     return NextResponse.json(
-      { error: "등록 정보를 찾지 못했어요. 처음부터 다시 시도해주세요." },
-      { status: 400 },
+      { error: "등록 정보를 찾지 못했어요. 참여코드를 다시 찾아주세요.", reason: "NOT_REGISTERED" },
+      { status: 401 },
     );
   }
 
@@ -69,6 +71,9 @@ export async function POST(request: Request) {
 
   const result = await applyMentoring(role, code, draft);
   if (!result.ok) {
+    if (result.reason === "NOT_REGISTERED") {
+      return NextResponse.json({ error: result.error, reason: result.reason }, { status: 401 });
+    }
     return NextResponse.json({ error: result.error }, { status: 400 });
   }
 

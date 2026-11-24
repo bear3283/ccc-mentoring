@@ -1,10 +1,11 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { Role } from "@/shared/constants/role";
 import { isAfterEvent } from "@/shared/constants/venue";
-import { loadDraft, saveDraft } from "../lib/draftStore";
+import { clearDraft, loadDraft, saveDraft, type StoredDraft } from "../lib/draftStore";
+import { lookupUrlFor, MENTORING_PATH } from "../lib/mentoringPath";
 import { OnboardingFunnel, type StepRegistry } from "./OnboardingFunnel";
 import { ArrivalStep } from "./steps/ArrivalStep";
 import { AreaStep } from "./steps/AreaStep";
@@ -75,13 +76,40 @@ export function RoleFunnel({ role, phase }: RoleFunnelProps) {
   const [error, setError] = useState<string>();
 
   const isMentoring = phase === "mentoring";
+  const mentoringRole: RoleOnly = role ?? "MENTEE";
+
+  /**
+   * 2단계는 등록한 사람만 할 수 있다. 등록 정보(참여코드)는 이 탭의 sessionStorage 에만 있어서
+   * QR·카톡 링크로 새 탭에서 열면 비어 있다. 확인 없이 질문을 다 받으면 마지막 제출에서야
+   * "등록 정보를 찾지 못했어요"로 막히므로, 들어오자마자 확인해서 없으면 조회 화면으로 보낸다.
+   * 조회가 끝나면 이 화면으로 돌아온다(next).
+   *
+   * undefined = 아직 확인 전. sessionStorage 는 브라우저에서만 읽을 수 있어 첫 렌더 뒤에 확인한다.
+   */
+  const [stored, setStored] = useState<StoredDraft | null>();
+
+  useEffect(() => {
+    if (!isMentoring) return;
+    const found = loadDraft();
+    if (!found) {
+      router.replace(lookupUrlFor(MENTORING_PATH[mentoringRole]));
+      return;
+    }
+    // 고3으로 등록한 사람이 멘토 신청 QR을 찍은 경우처럼 역할이 다르면, 맞는 신청 화면으로 보낸다.
+    // 그대로 두면 서버가 "등록하신 역할과 달라요"로 마지막에 막는다.
+    if (found.role !== mentoringRole) {
+      router.replace(MENTORING_PATH[found.role]);
+      return;
+    }
+    setStored(found);
+  }, [isMentoring, mentoringRole, router]);
 
   /**
    * 2단계는 1단계에서 저장한 내용 위에 이어 쓴다.
    * 처음부터 다시 묻지 않으려면 브라우저에 남긴 초안을 먼저 읽어야 한다.
    */
   const initialDraft: OnboardingDraft = isMentoring
-    ? (loadDraft()?.draft ?? EMPTY_DRAFT)
+    ? (stored?.draft ?? EMPTY_DRAFT)
     : EMPTY_DRAFT;
 
   const campusKnownAtStart = isMentoring && !!initialDraft.currentCampus && !!initialDraft.admissionYear;
@@ -133,7 +161,16 @@ export function RoleFunnel({ role, phase }: RoleFunnelProps) {
         participationCode?: string;
         alreadyRegistered?: boolean;
         error?: string;
+        reason?: string;
       };
+
+      // 답하는 도중 등록 정보가 사라졌거나 서버에 없는 코드였다. 오류만 띄우면 할 수 있는 게 없으니
+      // 조회 화면으로 보내 다시 찾고 이 화면으로 돌아오게 한다.
+      if (isMentoring && res.status === 401 && body.reason === "NOT_REGISTERED") {
+        clearDraft();
+        router.replace(lookupUrlFor(MENTORING_PATH[mentoringRole], "expired"));
+        return;
+      }
 
       if (!res.ok || !body.participationCode) {
         setError(body.error ?? "저장하지 못했어요. 잠시 후 다시 시도해주세요.");
@@ -149,6 +186,9 @@ export function RoleFunnel({ role, phase }: RoleFunnelProps) {
       setSubmitting(false);
     }
   };
+
+  // 등록 확인이 끝나기 전에는 질문을 보여주지 않는다. 확인이 안 되면 곧바로 조회 화면으로 넘어간다.
+  if (isMentoring && !stored) return null;
 
   return (
     <>

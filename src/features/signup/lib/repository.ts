@@ -216,6 +216,11 @@ export interface SaveResult {
    * 실수로 두 번 제출한 사람에게 오류를 보여주는 대신 코드를 다시 알려준다.
    */
   existingCode?: string;
+  /**
+   * 화면이 다음 행동을 고를 수 있게 하는 실패 구분.
+   * NOT_REGISTERED 면 신청 화면이 조회 화면으로 보내 등록 정보를 다시 찾게 한다.
+   */
+  reason?: "NOT_REGISTERED";
 }
 
 /**
@@ -408,7 +413,7 @@ export async function applyMentoring(
     .eq("participation_code", participationCode)
     .maybeSingle();
 
-  if (!user) return { ok: false, error: "등록 내역을 찾지 못했어요." };
+  if (!user) return { ok: false, error: "등록 내역을 찾지 못했어요.", reason: "NOT_REGISTERED" };
 
   // 멘티로 등록해 놓고 멘토 신청서를 밀어 넣는 것을 막는다.
   if (user.role !== role) {
