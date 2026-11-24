@@ -26,17 +26,28 @@ export function ProgressBar({ value, steps }: ProgressBarProps) {
   const fillRef = useRef<HTMLDivElement>(null);
   const clamped = Math.min(Math.max(value, 0), 1);
 
+  // 점은 10개까지만 찍는다. 많아지면 뭉개진다.
+  const showDots = !!steps && steps > 1 && steps <= 10;
+
+  // 지금 몇 번째 점인지(1부터). value 는 (현재 스텝+1)/전체 라서 그대로 점 번호가 된다.
+  const current = steps ? Math.round(clamped * steps) : 0;
+
+  /*
+   * 획이 칠해지는 길이.
+   * 점은 양 끝을 포함해 고르게 놓이므로 n번째 점은 (n-1)/(전체-1) 자리에 있다.
+   * value 를 그대로 쓰면 1/8 단계에서 획이 첫 점을 지나 둘째 점 쪽으로 반쯤 나가 있어,
+   * "지금 어디인지"가 점과 획에서 서로 다르게 읽혔다. 점이 있을 때는 지금 점에서 멈춘다.
+   */
+  const fill = showDots ? Math.max(current - 1, 0) / (steps! - 1) : clamped;
+
   useEffect(() => {
     if (!fillRef.current) return;
     animate(fillRef.current, {
-      width: `${clamped * 100}%`,
+      width: `${fill * 100}%`,
       duration: DURATION.step,
       ease: REVEAL_EASE,
     });
-  }, [clamped]);
-
-  // 지금 몇 번째 점인지. value 는 (현재 스텝+1)/전체 라서 그대로 점 번호가 된다.
-  const current = steps ? Math.round(clamped * steps) : 0;
+  }, [fill]);
 
   return (
     <div
@@ -44,36 +55,38 @@ export function ProgressBar({ value, steps }: ProgressBarProps) {
       aria-valuemin={0}
       aria-valuemax={100}
       aria-valuenow={Math.round(clamped * 100)}
-      className="relative h-2.5 w-full"
+      className="relative h-3 w-full"
     >
-      {/* 캔버스와 획 */}
-      <div className="absolute top-1/2 h-1 w-full -translate-y-1/2 rounded-full bg-gray-200" />
-      <div
-        ref={fillRef}
-        className="absolute top-1/2 h-1 -translate-y-1/2 rounded-full bg-gradient-to-r from-paint-peach to-brand"
-        style={{ width: `${clamped * 100}%` }}
-      />
+      {/*
+        캔버스·획·점을 같은 폭 안에 둔다. 점 반지름(6px)만큼 안쪽으로 들여서
+        첫 점과 끝 점의 가운데가 획의 시작·끝과 정확히 겹치게 한다.
+      */}
+      <div className="absolute inset-y-0 right-1.5 left-1.5">
+        <div className="absolute top-1/2 h-1 w-full -translate-y-1/2 rounded-full bg-gray-200" />
+        <div
+          ref={fillRef}
+          className="absolute top-1/2 h-1 -translate-y-1/2 rounded-full bg-gradient-to-r from-paint-peach to-brand"
+          style={{ width: `${fill * 100}%` }}
+        />
 
-      {/* 점. 스텝이 많아지면 점이 뭉개지므로 10개까지만 찍는다. */}
-      {steps && steps <= 10 && (
-        <div className="absolute inset-0 flex items-center justify-between">
-          {Array.from({ length: steps }, (_, i) => {
+        {showDots &&
+          Array.from({ length: steps! }, (_, i) => {
             const passed = i + 1 < current;
             const here = i + 1 === current;
             return (
               <span
                 key={i}
+                style={{ left: `${(i / (steps! - 1)) * 100}%` }}
                 className={cn(
-                  "size-2.5 rounded-full border-2 transition-colors duration-200",
-                  here && "border-brand bg-white",
-                  passed && "border-brand bg-brand",
-                  !here && !passed && "border-gray-200 bg-gray-200",
+                  "absolute top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full transition-all duration-200",
+                  here && "size-3 border-[3px] border-brand bg-white",
+                  passed && "size-2 bg-brand",
+                  !here && !passed && "size-2 bg-gray-200",
                 )}
               />
             );
           })}
-        </div>
-      )}
+      </div>
     </div>
   );
 }
