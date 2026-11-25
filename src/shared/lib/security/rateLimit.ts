@@ -64,6 +64,22 @@ export function rateLimit(
 }
 
 /**
+ * 횟수를 늘리지 않고 이미 한도를 넘었는지만 본다.
+ *
+ * 로그인처럼 "실패만 세야" 하는 곳에서 쓴다. 먼저 이것으로 막혔는지 보고,
+ * 실패했을 때만 rateLimit 으로 한 번 센다. 성공까지 세면 행사장 Wi-Fi(밖에서 보면 IP 하나)에서
+ * 봉사자 여럿이 차례로 로그인하는 것만으로 모두 막힌다.
+ */
+export function peekRateLimit(key: string, limit: number): RateLimitResult {
+  const now = Date.now();
+  const bucket = buckets.get(key);
+  if (!bucket || bucket.resetAt <= now || bucket.count < limit) {
+    return { allowed: true, remaining: bucket && bucket.resetAt > now ? limit - bucket.count : limit, retryAfterSeconds: 0 };
+  }
+  return { allowed: false, remaining: 0, retryAfterSeconds: Math.ceil((bucket.resetAt - now) / 1000) };
+}
+
+/**
  * 요청자를 구분할 값.
  * 프록시 뒤에 있으면 X-Forwarded-For의 첫 주소가 실제 클라이언트다.
  */

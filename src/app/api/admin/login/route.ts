@@ -6,14 +6,26 @@ import {
   passwordMatches,
   SESSION_MAX_AGE_SECONDS,
 } from "@/shared/lib/security/adminSession";
-import { clientKey, rateLimit, tooManyRequestsMessage } from "@/shared/lib/security/rateLimit";
+import {
+  clientKey,
+  peekRateLimit,
+  rateLimit,
+  tooManyRequestsMessage,
+} from "@/shared/lib/security/rateLimit";
 
-/** 비밀번호 무차별 대입을 막는다. 사람이 오타를 내는 횟수보다는 넉넉하게. */
-const MAX_ATTEMPTS = 10;
+/**
+ * 비밀번호 무차별 대입을 막는다. **틀린 시도만** 센다.
+ *
+ * 예전에는 성공한 로그인도 세어(10회/10분), 행사장 Wi-Fi 처럼 IP 하나를 나눠 쓰는 곳에서
+ * 봉사자·운영자 열 명이 차례로 들어오면 11번째부터 모두 막혔다. 같은 공간의 여러 사람이
+ * 오타를 내는 것까지 받도록 넉넉히 두되, 비밀번호를 훑기에는 턱없이 모자란 수준으로 둔다.
+ */
+const MAX_FAILURES = 30;
 const WINDOW_MS = 10 * 60 * 1000;
 
 export async function POST(request: Request) {
-  const limit = rateLimit(clientKey(request, "admin-login"), MAX_ATTEMPTS, WINDOW_MS);
+  const key = clientKey(request, "admin-login-failure");
+  const limit = peekRateLimit(key, MAX_FAILURES);
   if (!limit.allowed) {
     return NextResponse.json(
       { error: tooManyRequestsMessage(limit.retryAfterSeconds) },
@@ -52,6 +64,7 @@ export async function POST(request: Request) {
         : null;
 
   if (!role) {
+    rateLimit(key, MAX_FAILURES, WINDOW_MS);
     // 남은 시도 횟수를 알려주면 공격자에게도 정보가 되므로 알려주지 않는다.
     return NextResponse.json({ error: "비밀번호가 맞지 않아요." }, { status: 401 });
   }

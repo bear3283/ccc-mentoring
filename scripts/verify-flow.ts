@@ -709,6 +709,15 @@ async function main() {
   const wrongPw = await post("/api/admin/login", { password: "wrong-password" });
   check("틀린 비밀번호 거부", wrongPw.status === 401);
 
+  // 행사장 Wi-Fi 에서는 여러 사람이 IP 하나로 로그인한다. 성공한 로그인은 횟수 제한에 세지 않아야 한다.
+  const adminPassword = loadEnv().ADMIN_PASSWORD;
+  let okLogins = 0;
+  for (let i = 0; i < 12; i++) {
+    const r = await post("/api/admin/login", { password: adminPassword });
+    if (r.status === 200) okLogins++;
+  }
+  check("같은 IP 에서 로그인 12번 연속 성공 (성공은 횟수 제한에 안 셈)", okLogins === 12, `${okLogins}/12`);
+
   // 보기 전용 비밀번호는 선택이라, 설정한 곳에서만 확인한다.
   const viewerPassword = process.env.VIEWER_PASSWORD ?? loadEnv().VIEWER_PASSWORD;
   if (viewerPassword) {
