@@ -112,6 +112,8 @@ MANUAL = {
     "경기대": ["경기대학교|본교", "경기대학교|제2캠퍼스"],
     "명지대": ["명지대학교|본교", "명지대학교|제2캠퍼스"],
     "안양대": ["안양대학교|본교", "안양대학교|제2캠퍼스"],
+    # 학점은행제 교육기관이라 대학알리미에 공시되지 않는다. 빈 목록이면 앱이 일반 학과 목록을 보여 준다.
+    "백석예술대": [],
 }
 
 
@@ -293,6 +295,9 @@ def main() -> None:
     # 먼저 본 값으로 덮어쓰면 처리 순서에 따라 결과가 달라지므로 표를 모아 둔다.
     votes: dict[str, Counter] = defaultdict(Counter)
     for campus, keys in mapping.items():
+        # 공시 대상이 아닌 학교(MANUAL 에 빈 목록). 생성 파일에 넣지 않으면 앱이 일반 학과 목록을 쓴다.
+        if not keys:
+            continue
         merged: dict[str, str] = {}
         for k in keys:
             merged.update(by_school.get(k, {}))
