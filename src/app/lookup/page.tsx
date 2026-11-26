@@ -5,8 +5,9 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { CodeBadge } from "@/components/ui/CodeBadge";
 import { Name } from "@/components/ui/Name";
-import { SaveCodeImageButton } from "@/features/onboarding/components/SaveCodeImageButton";
+import { SeniorPreview } from "@/features/onboarding/components/SeniorPreview";
 import { saveDraft } from "@/features/onboarding/lib/draftStore";
+import { mentoringInvite } from "@/features/onboarding/lib/mentoringInvite";
 import { MENTORING_PATH, safeMentoringNext } from "@/features/onboarding/lib/mentoringPath";
 import { EMPTY_DRAFT, type OnboardingDraft } from "@/features/onboarding/model/types";
 
@@ -147,11 +148,6 @@ export default function LookupPage() {
             {ROLE_LABEL[result.entry.role]}으로 등록하셨어요
           </p>
 
-          <div className="mt-5">
-            <CodeBadge code={result.entry.code} />
-            <SaveCodeImageButton code={result.entry.code} name={result.entry.name} className="mt-2" />
-          </div>
-
           {/*
             코드만 돌려주고 끝내면 "그래서 뭘 하지?"가 남는다.
             역할마다 다음에 할 일이 다르므로 그 길을 바로 열어 준다.
@@ -159,32 +155,11 @@ export default function LookupPage() {
           */}
           {!result.entry.mentoringApplied ? (
             /*
-             * 등록만 하고 멘토링은 신청하지 않은 사람. 등록 완료 화면을 놓쳤거나 탭을 닫으면
-             * 신청 화면으로 돌아갈 길이 없었다. 예전에는 대학생에게만 이 길이 있어서,
-             * 고3은 신청하지 않았어도 "매칭 결과 보기"만 보였다.
+             * 등록만 하고 멘토링은 신청하지 않은 사람. 이 사람이 이 화면에서 정할 것은
+             * "선배를 만날지"다. 등록 완료 화면과 같은 권유 카드를 주인공으로 두고,
+             * 코드는 참고 크기로 아래에 둔다.
              */
-            <>
-              <div className="mt-4 rounded-2xl bg-brand-soft px-4 py-3">
-                <p className="text-[15px] font-bold text-gray-900">
-                  {result.entry.role === "MENTOR" ? "아직 멘토 신청 전이에요" : "아직 멘토링 신청 전이에요"}
-                </p>
-                <p className="mt-1 text-[13px] leading-relaxed text-gray-600">
-                  {result.entry.role === "MENTOR"
-                    ? "고3·예비 27학번 후배 한 명을 품어 주세요. 몇 가지만 답하면 바로 신청돼요."
-                    : "먼저 대학에 간 선배와 이어드릴게요. 몇 가지만 답하면 바로 신청돼요."}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => startMentoring(result.entry)}
-                className="mt-3 flex h-[54px] w-full items-center justify-center gap-1.5 rounded-2xl bg-brand text-[17px] font-bold text-white active:bg-brand-dark"
-              >
-                {result.entry.role === "MENTOR" ? "멘토로 신청하기" : "멘토링 신청하기"}
-                <span className="text-[18px]" aria-hidden>
-                  →
-                </span>
-              </button>
-            </>
+            <MentoringInviteCard entry={result.entry} onStart={() => startMentoring(result.entry)} />
           ) : result.entry.role === "MENTOR" ? (
             // 코드를 #뒤에 실어 보내 다음 화면에서 다시 넣지 않게 한다. #뒤는 서버 기록에 남지 않는다.
             <Link
@@ -208,6 +183,11 @@ export default function LookupPage() {
             </Link>
           )}
 
+          {/* 코드는 나중에 다시 꺼내 보는 값이라 참고 크기로 둔다. */}
+          <div className="mt-6">
+            <CodeBadge code={result.entry.code} size="compact" />
+          </div>
+
           <button
             type="button"
             onClick={() => {
@@ -215,7 +195,7 @@ export default function LookupPage() {
               setName("");
               setPhone("");
             }}
-            className="mt-2 h-[52px] w-full rounded-2xl bg-gray-100 text-[16px] font-bold text-gray-700"
+            className="mt-3 h-[52px] w-full rounded-2xl bg-gray-100 text-[16px] font-bold text-gray-700"
           >
             다른 사람 조회하기
           </button>
@@ -283,6 +263,51 @@ export default function LookupPage() {
           </p>
         </>
       )}
+    </div>
+  );
+}
+
+/** 멘토링을 아직 신청하지 않은 사람에게 보여 주는 권유 카드. 등록 완료 화면과 같은 모양이다. */
+function MentoringInviteCard({ entry, onStart }: { entry: RosterEntry; onStart: () => void }) {
+  const invite = mentoringInvite(entry.role);
+  const isMentee = entry.role === "MENTEE";
+
+  return (
+    <div className="mt-5 rounded-3xl bg-brand p-6 text-white">
+      <p className="text-[13px] font-semibold text-white/75">
+        {isMentee ? "아직 멘토링 신청 전이에요" : "아직 멘토 신청 전이에요 · 한 영혼 품기 운동"}
+      </p>
+      <h2 className="mt-1.5 text-[22px] leading-[1.35] font-bold tracking-[-0.02em]">
+        {invite.title}
+      </h2>
+      <p className="mt-2.5 text-[14px] leading-relaxed text-white/85">{invite.body}</p>
+
+      <ul className="mt-5 flex flex-col gap-2.5">
+        {invite.points.map((point) => (
+          <li key={point.text} className="flex gap-2.5 text-[14px] leading-relaxed">
+            <span aria-hidden>{point.emoji}</span>
+            <span className="flex-1 text-white/85">{point.text}</span>
+          </li>
+        ))}
+      </ul>
+
+      {isMentee && (
+        <div className="mt-5">
+          <SeniorPreview gender={entry.resume?.gender} tone="onBrand" />
+        </div>
+      )}
+
+      <button
+        type="button"
+        onClick={onStart}
+        className="mt-6 flex h-[56px] w-full items-center justify-center gap-1.5 rounded-2xl bg-white text-[17px] font-bold text-brand active:bg-white/85"
+      >
+        {invite.cta}
+        <span className="text-[18px]" aria-hidden>
+          →
+        </span>
+      </button>
+      <p className="mt-2.5 text-center text-[13px] text-white/70">{invite.footnote}</p>
     </div>
   );
 }
