@@ -48,10 +48,13 @@ export default function LookupPage() {
    */
   const [next, setNext] = useState<string | null>(null);
   const [expired, setExpired] = useState(false);
+  // 첫 화면의 "이미 등록했어요 · 멘토링 신청하기"로 온 사람. 코드가 아니라 신청하러 왔다.
+  const [forMentoring, setForMentoring] = useState(false);
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     setNext(safeMentoringNext(params.get("next")));
     setExpired(params.get("reason") === "expired");
+    setForMentoring(params.get("for") === "mentoring");
   }, []);
 
   /**
@@ -118,12 +121,16 @@ export default function LookupPage() {
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-[430px] flex-col bg-white px-6">
       <header className="pt-14 pb-6">
-        <p className="text-[14px] font-medium text-brand">참여코드 조회</p>
+        <p className="text-[14px] font-medium text-brand">
+          {forMentoring ? "멘토링 신청" : "참여코드 조회"}
+        </p>
         <h1 className="mt-1.5 text-[24px] leading-[1.35] font-bold tracking-[-0.02em] text-gray-900">
-          코드를 잊으셨나요?
+          {forMentoring ? "등록한 정보로 이어서 신청해요" : "코드를 잊으셨나요?"}
         </h1>
         <p className="mt-2 text-[14px] leading-relaxed text-gray-500">
-          신청할 때 적은 이름과 연락처로 찾아드려요.
+          {forMentoring
+            ? "채플 등록할 때 적은 이름과 연락처만 넣으면 돼요. 참여코드는 몰라도 괜찮아요."
+            : "신청할 때 적은 이름과 연락처로 찾아드려요."}
         </p>
         {next && result.kind !== "found" && (
           <div className="mt-4 rounded-2xl bg-brand-soft px-4 py-3">
@@ -256,9 +263,9 @@ export default function LookupPage() {
           </button>
 
           <p className="mt-6 text-center text-[13px] text-gray-400">
-            아직 신청 전이신가요?{" "}
+            {forMentoring ? "아직 채플 등록 전이신가요?" : "아직 신청 전이신가요?"}{" "}
             <Link href="/" className="font-semibold text-brand">
-              신청하기
+              {forMentoring ? "등록하기" : "신청하기"}
             </Link>
           </p>
         </>

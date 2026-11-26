@@ -120,14 +120,15 @@ export default function HomePage() {
         {/*
           이미 등록한 사람이 다시 들어왔을 때의 통로.
           13px 회색 글씨로는 눌러야 하는 것으로 보이지 않아, 버튼 크기로 올린다.
-          코드를 잊고 다시 들어오는 일은 드물지 않다.
+          다시 들어오는 사람 대부분은 코드가 아니라 멘토링 신청을 하러 온다. 조회는 이름·연락처로
+          하므로 코드를 몰라도 되고, 찾으면 조회 화면이 신청 버튼(또는 매칭 결과)을 바로 보여 준다.
         */}
         <Link
-          href="/lookup"
+          href="/lookup?for=mentoring"
           className="flex h-[52px] w-full items-center justify-center gap-1.5 rounded-2xl bg-white/80 text-[15px] font-semibold text-gray-700 active:bg-white"
         >
           이미 등록했어요
-          <span className="font-bold text-brand">참여코드 조회</span>
+          <span className="font-bold text-brand">멘토링 신청하기</span>
         </Link>
         </div>
       </div>
