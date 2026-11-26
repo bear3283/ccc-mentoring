@@ -95,9 +95,10 @@ export interface Mentor {
 
 /**
  * 지망 캠퍼스 밖의 선배를 보여주는 이유.
+ * NEARBY = 지망 캠퍼스 근처(NEARBY_KM 안) 캠퍼스의 선배,
  * MAJOR = 희망 학과를 다니는 선배, REGION = 지망 캠퍼스와 같은 지역의 선배.
  */
-export type FallbackReason = "MAJOR" | "REGION";
+export type FallbackReason = "NEARBY" | "MAJOR" | "REGION";
 
 /** 점수의 근거. UI에서 "왜 이 멘토인지" 보여주고, 가중치 튜닝 시 디버깅에 쓴다. */
 export interface ScoreBreakdown {

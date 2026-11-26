@@ -19,12 +19,14 @@ import { buildHashtags } from "../src/features/matching/lib/hashtags";
 import { MBTI_TYPES } from "../src/shared/constants/mbti";
 import {
   fallbackReason,
+  NEARBY_KM,
+  nearestTargetKm,
   recommendMentors,
   scoreMbti,
   scorePersona,
 } from "../src/features/matching/lib/score";
 import { campusDemand } from "../src/features/admin/lib/campusDemand";
-import { CAMPUSES_BY_REGION, regionOf } from "../src/shared/constants/campus";
+import { CAMPUSES, distanceKm, regionOf, type Campus } from "../src/shared/constants/campus";
 import { PERSONAS } from "../src/shared/constants/persona";
 
 let failures = 0;
@@ -308,24 +310,38 @@ check(
   "대체 후보는 모두 지망 캠퍼스 밖",
   fallbackPairs.every(({ mentee, r }) => !mentee.targetCampus.includes(r.mentor.currentCampus)),
 );
+const isNear = (mentee: (typeof MOCK_MENTEES)[number], campus: string) =>
+  (nearestTargetKm(mentee, { currentCampus: campus as Campus }) ?? Infinity) <= NEARBY_KM;
 check(
-  "MAJOR 후보는 희망 학과를 다니는 선배",
+  "NEARBY 후보는 지망 캠퍼스에서 NEARBY_KM 안",
   fallbackPairs
-    .filter(({ r }) => r.fallback === "MAJOR")
-    .every(({ mentee, r }) => r.mentor.currentMajors.some((m) => mentee.targetMajors.includes(m))),
+    .filter(({ r }) => r.fallback === "NEARBY")
+    .every(({ mentee, r }) => isNear(mentee, r.mentor.currentCampus)),
 );
 check(
-  "REGION 후보는 지망 캠퍼스와 같은 지역이고 학과는 겹치지 않음",
+  "MAJOR 후보는 희망 학과를 다니는 먼 선배",
+  fallbackPairs
+    .filter(({ r }) => r.fallback === "MAJOR")
+    .every(
+      ({ mentee, r }) =>
+        r.mentor.currentMajors.some((m) => mentee.targetMajors.includes(m)) &&
+        !isNear(mentee, r.mentor.currentCampus),
+    ),
+);
+check(
+  "REGION 후보는 같은 지역이지만 멀고 학과는 겹치지 않음",
   fallbackPairs
     .filter(({ r }) => r.fallback === "REGION")
     .every(
       ({ mentee, r }) =>
         mentee.targetCampus.some((c) => regionOf(c) === regionOf(r.mentor.currentCampus)) &&
+        !isNear(mentee, r.mentor.currentCampus) &&
         !r.mentor.currentMajors.some((m) => mentee.targetMajors.includes(m)),
     ),
 );
+const ORDER = { NEARBY: 0, MAJOR: 1, REGION: 2 } as const;
 check(
-  "학과 후보가 지역 후보보다 앞, 같은 이유 안에서는 점수 내림차순",
+  "근처 → 학과 → 지역 순, 같은 이유 안에서는 점수 내림차순",
   MOCK_MENTEES.every((_, i) => {
     if (results[i].length > 0) return true;
     const list = recommended[i];
@@ -333,7 +349,7 @@ check(
       if (k === 0) return true;
       const prev = list[k - 1];
       if (prev.fallback === r.fallback) return prev.score >= r.score;
-      return prev.fallback === "MAJOR" && r.fallback === "REGION";
+      return ORDER[prev.fallback!] < ORDER[r.fallback!];
     });
   }),
 );
@@ -346,31 +362,38 @@ check(
   ),
 );
 
-// 더미 학과는 12개뿐이라 거의 모두 학과 단계에서 걸린다. 지역 단계는 일부러 만든다:
-// 아무도 다니지 않는 학과를 희망하고, 지망 캠퍼스와 같은 지역에만 선배가 있는 멘티.
-const regionMentor = MOCK_MENTORS[0];
-const regionSibling = CAMPUSES_BY_REGION[regionOf(regionMentor.currentCampus)!].find(
-  (c) => !MOCK_MENTORS.some((m) => m.currentCampus === c),
+// 실제로 문제가 된 경우: 선배는 서울 학교에 있고, 후배는 근처 경기 학교를 지망했다.
+// 학과가 겹치지 않아도 근처 서울 캠퍼스 선배가 나와야 한다.
+const seoulMentor = { ...MOCK_MENTORS[0], currentCampus: "건국대" as Campus };
+const nearCase = { ...MOCK_MENTEES[0], targetCampus: ["가천대" as Campus], targetMajors: ["검증용없는학과"] };
+const nearResults = recommendMentors(nearCase, [seoulMentor], 5);
+check(
+  "지망 캠퍼스에 선배가 없으면 근처 캠퍼스 선배를 추천 (가천대 → 건국대)",
+  nearResults.length === 1 && nearResults[0].fallback === "NEARBY",
+  `${distanceKm("가천대", "건국대")?.toFixed(1)}km`,
 );
-if (regionSibling) {
-  const regionCase = {
-    ...MOCK_MENTEES[0],
-    targetCampus: [regionSibling],
-    targetMajors: ["검증용없는학과"],
-  };
-  const regionResults = recommendMentors(regionCase, MOCK_MENTORS, 50);
-  check(
-    "학과가 겹치는 선배가 없으면 같은 지역 선배로 넘어감",
-    regionResults.length > 0 &&
-      regionResults.every(
-        (r) =>
-          r.fallback === "REGION" &&
-          regionOf(r.mentor.currentCampus) === regionOf(regionSibling),
-      ) &&
-      regionResults.some((r) => r.mentor.id === regionMentor.id),
-    `${regionSibling} 지망 → ${regionResults.length}명`,
-  );
-}
+check(
+  "멀리 있는 같은 시·도 학교는 근처로 치지 않음 (경기 평택대 ↔ 경기 대진대)",
+  fallbackReason(
+    { targetCampus: ["평택대" as Campus], targetMajors: [] },
+    { currentCampus: "대진대" as Campus, currentMajors: [] },
+  ) === "REGION",
+  `${distanceKm("평택대", "대진대")?.toFixed(1)}km`,
+);
+check(
+  "같은 이유 안에서 점수가 같으면 더 가까운 선배가 먼저",
+  (() => {
+    const far = { ...seoulMentor, id: "far", currentCampus: "고려대" as Campus };
+    const near = { ...seoulMentor, id: "near", currentCampus: "건국대" as Campus };
+    const list = recommendMentors(nearCase, [far, near], 5);
+    return list.length === 2 && list[0].score === list[1].score ? list[0].mentor.id === "near" : true;
+  })(),
+);
+check(
+  "모든 캠퍼스에 위치가 있음",
+  CAMPUSES.every((c) => distanceKm(c, c) === 0),
+  `${CAMPUSES.filter((c) => distanceKm(c, c) !== 0).join(", ") || CAMPUSES.length + "개"}`,
+);
 check(
   "학과도 지역도 겹치지 않으면 추천하지 않음",
   recommendMentors(
@@ -383,7 +406,8 @@ check(
 const stillEmpty = MOCK_MENTEES.filter((_, i) => recommended[i].length === 0);
 console.log(
   `  대체 후보로 추천받은 멘티: ${noMatch.length - stillEmpty.length}/${noMatch.length}` +
-    ` (학과 ${fallbackPairs.filter(({ r }) => r.fallback === "MAJOR").length}건 · ` +
+    ` (근처 ${fallbackPairs.filter(({ r }) => r.fallback === "NEARBY").length}건 · ` +
+    `학과 ${fallbackPairs.filter(({ r }) => r.fallback === "MAJOR").length}건 · ` +
     `지역 ${fallbackPairs.filter(({ r }) => r.fallback === "REGION").length}건)`,
 );
 if (stillEmpty.length > 0) {

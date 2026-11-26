@@ -226,6 +226,40 @@ def campus_list() -> list[str]:
     return [n for n in names if n not in regions]
 
 
+def map_campuses(school_keys: list[str]) -> dict[str, list[str]]:
+    """campus.ts 의 캠퍼스마다 공시자료의 "학교명|본분교" 키를 고른다. 위치 생성 스크립트도 쓴다."""
+    def normalize(s: str) -> str:
+        return s.replace("대학교", "대").replace("대학", "대").replace(" ", "")
+
+    def short(s: str) -> str:
+        """campus.ts 의 전문대 표기. "한국폴리텍 I 대학 성남캠퍼스" -> "폴리텍 성남"."""
+        m = re.match(r"한국폴리텍 (?:\S+ 대학|특성화대학) (.+)캠퍼스", s)
+        if m:
+            return "폴리텍 " + m.group(1)
+        s = normalize(s)
+        # 서울여자간호대는 "서울여대"와 헷갈려 그대로 둔다.
+        if s.endswith("여자대") and s != "서울여자간호대":
+            return s[: -len("여자대")] + "여대"
+        return s
+
+    campuses = campus_list()
+    mapping: dict[str, list[str]] = {}
+    for campus in campuses:
+        if campus in MANUAL:
+            mapping[campus] = MANUAL[campus]
+            continue
+        hits = [
+            k for k in school_keys
+            if normalize(k.split("|")[0]) == normalize(campus) or short(k.split("|")[0]) == campus
+        ]
+        main_only = [h for h in hits if h.endswith("|본교")]
+        picked = main_only or hits
+        if not picked:
+            raise SystemExit(f"공시자료에서 '{campus}' 를 찾지 못했습니다. MANUAL 에 추가하세요.")
+        mapping[campus] = picked[:1]
+    return mapping
+
+
 def main() -> None:
     path = download()
 
@@ -259,36 +293,7 @@ def main() -> None:
             cell(row, "대계열분류"), cell(row, "중계열분류")
         )
 
-    def normalize(s: str) -> str:
-        return s.replace("대학교", "대").replace("대학", "대").replace(" ", "")
-
-    def short(s: str) -> str:
-        """campus.ts 의 전문대 표기. "한국폴리텍 I 대학 성남캠퍼스" -> "폴리텍 성남"."""
-        m = re.match(r"한국폴리텍 (?:\S+ 대학|특성화대학) (.+)캠퍼스", s)
-        if m:
-            return "폴리텍 " + m.group(1)
-        s = normalize(s)
-        # 서울여자간호대는 "서울여대"와 헷갈려 그대로 둔다.
-        if s.endswith("여자대") and s != "서울여자간호대":
-            return s[: -len("여자대")] + "여대"
-        return s
-
-    school_keys = sorted(by_school)
-    campuses = campus_list()
-    mapping: dict[str, list[str]] = {}
-    for campus in campuses:
-        if campus in MANUAL:
-            mapping[campus] = MANUAL[campus]
-            continue
-        hits = [
-            k for k in school_keys
-            if normalize(k.split("|")[0]) == normalize(campus) or short(k.split("|")[0]) == campus
-        ]
-        main_only = [h for h in hits if h.endswith("|본교")]
-        picked = main_only or hits
-        if not picked:
-            raise SystemExit(f"공시자료에서 '{campus}' 를 찾지 못했습니다. MANUAL 에 추가하세요.")
-        mapping[campus] = picked[:1]
+    mapping = map_campuses(sorted(by_school))
 
     per_campus: dict[str, list[str]] = {}
     # 같은 학과명이 학교마다 다른 계열로 공시되는 경우가 있다(예: 교육 vs 예체능).

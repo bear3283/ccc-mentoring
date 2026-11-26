@@ -8,6 +8,7 @@ import { nameInitials } from "@/shared/lib/nameInitials";
 import type { FallbackReason, PublicMatchResult } from "../model/types";
 
 const FALLBACK_LABEL: Record<FallbackReason, string> = {
+  NEARBY: "가까운 캠퍼스 선배",
   MAJOR: "같은 학과 선배",
   REGION: "같은 지역 선배",
 };

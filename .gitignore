@@ -17,3 +17,4 @@ scripts/.cache-majors.xlsx
 .env*
 !.env.example
 __pycache__/
+scripts/.cache-centroid.tsv

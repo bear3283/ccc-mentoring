@@ -5,6 +5,8 @@
  * domain.ts 에서 그대로 re-export 한다.
  */
 
+import { CAMPUS_LOCATION } from "./campusLocation.generated";
+
 /**
  * 지역 구분.
  *
@@ -113,6 +115,18 @@ export const CAMPUS_ALIASES: Partial<Record<string, readonly string[]>> = {
   금오공대: ["금오공과대"],
   한국외대: ["한국외국어대", "외대"],
 };
+
+/**
+ * 두 캠퍼스 사이의 대략의 거리(km). 시·군·구 중심점 사이의 직선거리라
+ * 같은 구의 두 학교는 0이 된다. "근처인지" 가르는 데만 쓴다.
+ * 위치를 모르는 캠퍼스가 끼면 undefined.
+ */
+export function distanceKm(a: string, b: string): number | undefined {
+  const p = CAMPUS_LOCATION[a];
+  const q = CAMPUS_LOCATION[b];
+  if (!p || !q) return undefined;
+  return Math.hypot(p[0] - q[0], p[1] - q[1]);
+}
 
 /** 검색어가 학교 이름이나 별칭에 들어 있는지. 대소문자와 띄어쓰기는 가리지 않는다. */
 export function campusMatches(campus: string, keyword: string): boolean {

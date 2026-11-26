@@ -54,6 +54,7 @@ export interface MatchRow {
 export type AdminMentor = Mentor & { assigned: number };
 
 const FALLBACK_LABEL: Record<FallbackReason, string> = {
+  NEARBY: "대체·근처",
   MAJOR: "대체·학과",
   REGION: "대체·지역",
 };

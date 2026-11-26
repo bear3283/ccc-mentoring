@@ -139,7 +139,7 @@ export function AssignList({
                             <span className="ml-1.5 text-gray-500">{c.mentorCampus}</span>
                             {c.fallback && (
                               <span className="ml-1.5 rounded bg-gray-200 px-1 text-[11px] text-gray-600">
-                                {c.fallback === "MAJOR" ? "대체·학과" : "대체·지역"}
+                                {c.fallback === "NEARBY" ? "대체·근처" : c.fallback === "MAJOR" ? "대체·학과" : "대체·지역"}
                               </span>
                             )}
                           </span>

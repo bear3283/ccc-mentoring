@@ -268,7 +268,7 @@ export default function MatchingResultPage() {
           <p className="mt-3 text-[14px] leading-relaxed text-gray-500">
             {mentee.targetCampus.join(" · ")}에는 아직 선배가 없어서
             <br />
-            희망 학과를 다니거나 같은 지역에 있는 선배를 모았어요.
+            가까운 캠퍼스나 희망 학과의 선배를 모았어요.
           </p>
         ) : (
           <p className="mt-3 text-[14px] leading-relaxed text-gray-500">

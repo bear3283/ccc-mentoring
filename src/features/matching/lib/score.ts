@@ -1,4 +1,4 @@
-import { regionOf } from "@/shared/constants/campus";
+import { distanceKm, regionOf } from "@/shared/constants/campus";
 import { getPersonaAffinity } from "@/shared/constants/persona";
 import { buildHashtags } from "./hashtags";
 import type { FallbackReason, MatchResult, Mentee, Mentor, ScoreBreakdown } from "../model/types";
@@ -201,17 +201,39 @@ export function matchMentors(mentee: Mentee, mentors: Mentor[], limit = 5): Matc
 }
 
 /**
+ * 이 거리 안의 캠퍼스는 지망 캠퍼스 "근처"로 본다.
+ * 수원·용인·성남·인천·고양에서 서울 캠퍼스까지가 대략 15~40km 다.
+ * 천안(서울에서 75km)처럼 따로 생활권인 곳은 넣지 않는다.
+ */
+export const NEARBY_KM = 40;
+
+/** 선배 캠퍼스에서 가장 가까운 지망 캠퍼스까지의 거리(km). 위치를 모르면 undefined. */
+export function nearestTargetKm(
+  mentee: Pick<Mentee, "targetCampus">,
+  mentor: Pick<Mentor, "currentCampus">,
+): number | undefined {
+  const all = mentee.targetCampus
+    .map((c) => distanceKm(c, mentor.currentCampus))
+    .filter((d): d is number => d !== undefined);
+  return all.length > 0 ? Math.min(...all) : undefined;
+}
+
+/**
  * 지망 캠퍼스 밖의 선배를 왜 보여주는지. 지망 캠퍼스 안의 선배면 undefined.
  *
- * 학과가 지역보다 앞선다. 고3에게 "그 학과 생활이 어떤지"는 학교가 달라도
- * 그대로 통하는 이야기지만, 같은 지역이라는 것은 만나기 쉽다는 것 말고는
- * 전해 줄 것이 적다.
+ * 가까운 캠퍼스가 먼저다. 지망 캠퍼스에 선배가 없는 이유는 대부분 선배들이
+ * 서울 학교에 몰려 있어서이고, 경기·인천 학교를 지망한 후배에게는 근처 서울
+ * 캠퍼스 선배가 실제로 만나기도 쉽고 대학 생활 이야기도 통한다.
+ * 그다음이 학과다. "그 학과 생활"은 학교가 멀어도 그대로 통하는 이야기다.
+ * 같은 시·도라는 것만으로는 만나기 쉽다는 것 말고 전해 줄 것이 적어 마지막에 둔다.
  */
 export function fallbackReason(
   mentee: Pick<Mentee, "targetCampus" | "targetMajors">,
   mentor: Pick<Mentor, "currentCampus" | "currentMajors">,
 ): FallbackReason | undefined {
   if (mentee.targetCampus.includes(mentor.currentCampus)) return undefined;
+  const km = nearestTargetKm(mentee, mentor);
+  if (km !== undefined && km <= NEARBY_KM) return "NEARBY";
   if (mentor.currentMajors.some((m) => mentee.targetMajors.includes(m))) return "MAJOR";
 
   const region = regionOf(mentor.currentCampus);
@@ -220,14 +242,15 @@ export function fallbackReason(
   return undefined;
 }
 
-const FALLBACK_ORDER: Record<FallbackReason, number> = { MAJOR: 0, REGION: 1 };
+const FALLBACK_ORDER: Record<FallbackReason, number> = { NEARBY: 0, MAJOR: 1, REGION: 2 };
 
 /**
  * 지망 캠퍼스에 선배가 한 명도 없을 때 대신 보여줄 선배.
  *
  * 캠퍼스 필터를 몰래 푸는 것이 아니다. 결과 화면은 이들을 "지망 캠퍼스 밖"이라고
  * 밝혀서 보여주고, 고를지는 멘티가 정한다. 캠퍼스 점수가 0이라 적합도가 낮게
- * 나오므로, 같은 이유끼리만 점수로 줄을 세우고 이유는 학과 → 지역 순으로 둔다.
+ * 나오므로, 같은 이유끼리만 점수로 줄을 세우고 이유는 근처 → 학과 → 지역 순으로 둔다.
+ * 근처 선배끼리 점수가 같으면 더 가까운 쪽이 먼저다.
  */
 export function matchFallbackMentors(
   mentee: Mentee,
@@ -243,7 +266,9 @@ export function matchFallbackMentors(
     })
     .sort(
       (a, b) =>
-        FALLBACK_ORDER[a.fallback!] - FALLBACK_ORDER[b.fallback!] || b.score - a.score,
+        FALLBACK_ORDER[a.fallback!] - FALLBACK_ORDER[b.fallback!] ||
+        b.score - a.score ||
+        (nearestTargetKm(mentee, a.mentor) ?? Infinity) - (nearestTargetKm(mentee, b.mentor) ?? Infinity),
     )
     .slice(0, limit);
 }
